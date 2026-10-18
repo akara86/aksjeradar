@@ -225,15 +225,20 @@ def score_table(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         "score_fundamental": w.get("fundamental", 0.25),
         "score_insider": w.get("insider", 0.15),
     }
+    # Manglende delscore teller som nøytral (50): mindre data gir en score nærmere midten,
+    # slik at en aksje med bare teknisk bilde ikke kan toppe listen over aksjer med fullt bilde.
     total = []
     for _, r in df.iterrows():
-        num, den = 0.0, 0.0
+        num, den, present = 0.0, 0.0, 0
         for col, weight in comps.items():
             v = r.get(col)
             if v is not None and not pd.isna(v):
                 num += weight * float(v)
-                den += weight
-        total.append(num / den if den else np.nan)
+                present += 1
+            else:
+                num += weight * 50.0
+            den += weight
+        total.append(num / den if (den and present) else np.nan)
     df["score"] = total
     df = df.sort_values("score", ascending=False).reset_index(drop=True)
     df["rank"] = np.arange(1, len(df) + 1)
@@ -320,10 +325,13 @@ def recommend(r: pd.Series, min_analysts: int) -> tuple[str, list[str], str, str
             level = cap_level
         reasons.append(why)
 
-    # 4. datagrunnlag
-    if coverage == "tynt" and level == 0:
+    # 4. datagrunnlag: bare én delscore gir aldri mer enn Hold, to–tre gir aldri Sterkt kjøp
+    if coverage == "tynt" and level < 2:
+        level = 2
+        reasons.append("tynt datagrunnlag (bare teknisk bilde) – avventer fundamental- og analytikerdata")
+    elif coverage == "delvis" and level == 0:
         level = 1
-        reasons.append("tynt datagrunnlag")
+        reasons.append("delvis datagrunnlag")
 
     # støttende argumenter for kjøpskandidater
     if level <= 1:

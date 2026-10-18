@@ -156,7 +156,8 @@ Alt styres fra `config.yaml`:
 | **Fundamental** | P/E, forventet P/E, EV/EBITDA, PEG, P/B, gjeld/EK, omsetnings- og resultatvekst, marginer, egenkapitalavkastning, FCF-yield – rangert mot de andre aksjene |
 | **Innsider** | Kjøp vs. salg (i kroner) blant innsidere siste 180 dager |
 
-Samlet score = vektet snitt. Mangler en delscore (f.eks. ingen analytikere), fordeles vekten på de andre.
+Samlet score = vektet snitt. Mangler en delscore (f.eks. ingen analytikere), teller den som nøytral 50,
+slik at tynt datagrunnlag trekker mot midten i stedet for å gi toppscore.
 
 **Anbefaling** (Sterkt kjøp / Kjøp / Hold / Avvent / Unngå) regnes ut fra scoren: ≥ 75 Sterkt kjøp, ≥ 65 Kjøp,
 ≥ 50 Hold, ≥ 40 Avvent, ellers Unngå. Kjøp krever at kursen er over SMA200. Death cross eller brudd under

@@ -454,7 +454,7 @@
         <div class="card"><h3>Anbefalingen</h3>
           <p>Hver aksje får en samlet score fra 0 til 100. Den setter utgangspunktet:</p>
           <div class="rules">${VERDICTS.map((v, i) => `<div>${vbadge(v)}<span>${["score 75 eller høyere", "score 65–74", "score 50–64", "score 40–49", "score under 40"][i]}</span></div>`).join("")}</div>
-          <p>Deretter justeres den: <b>Kjøp krever at kursen er over SMA200</b> (bekreftet opptrend), ellers ett hakk ned. Death cross eller brudd under SMA200 gir høyst Avvent. Sterkt overkjøpt RSI (over 78), negative analytikere, kurs over analytikernes kursmål eller flere nedgraderinger gir høyst Hold. Tynt datagrunnlag gir aldri Sterkt kjøp.</p>
+          <p>Deretter justeres den: <b>Kjøp krever at kursen er over SMA200</b> (bekreftet opptrend), ellers ett hakk ned. Death cross eller brudd under SMA200 gir høyst Avvent. Sterkt overkjøpt RSI (over 78), negative analytikere, kurs over analytikernes kursmål eller flere nedgraderinger gir høyst Hold. Datagrunnlaget teller også: bare teknisk bilde gir høyst Hold, og manglende delscorer regnes som nøytrale 50 i den samlede scoren.</p>
           <p><b>Risiko</b> er daglig svingning (ATR i prosent av kursen): lav under 1,5 %, middels til 3 %, høy over. <b>Datagrunnlag</b> sier hvor mange av de fire delscorene som finnes.</p>
         </div>
         <div class="card"><h3>Delscorene</h3>
@@ -464,7 +464,7 @@
             <div><dt>Fundamental · ${Math.round(w.fundamental * 100)} %</dt><dd class="txt">P/E, forventet P/E, EV/EBITDA, PEG, P/B, gjeld, vekst, marginer, egenkapitalavkastning og FCF-yield, rangert mot de andre aksjene.</dd></div>
             <div><dt>Innsider · ${Math.round(w.insider * 100)} %</dt><dd class="txt">Kjøp mot salg (i kroner) blant innsidere siste 180 dager.</dd></div>
           </dl>
-          <p class="muted" style="font-size:13px">Mangler en delscore, fordeles vekten på de andre.</p>
+          <p class="muted" style="font-size:13px">Mangler en delscore (f.eks. ingen analytikere), teller den som nøytral 50 – mindre data gir en score nærmere midten.</p>
         </div>
         <div class="card"><h3>Idékategoriene</h3>
           <ul class="reasons" style="margin:0;padding-left:18px">

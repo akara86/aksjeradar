@@ -109,7 +109,7 @@ def render_markdown(df: pd.DataFrame, ideas: dict, run_date: str, cfg: dict, dem
               "- **Anal.** analytikerkonsensus (1 = sterkt kjøp … 5 = selg), oppside til snittkursmål og opp-/nedgraderinger.",
               "- **Fund.** P/E, EV/EBITDA, PEG, vekst, marginer, egenkapitalavkastning og gjeld – rangert mot de andre aksjene i universet.",
               "- **Innsid.** andel kjøp vs. salg blant innsidere siste 180 dager.",
-              "- Delscore som mangler (f.eks. ingen analytikerdekning) holdes utenfor den samlede scoren.", "",
+              "- Delscore som mangler (f.eks. ingen analytikerdekning) teller som nøytral 50 i den samlede scoren.", "",
               f"_{DISCLAIMER}_"]
     return "\n".join(lines)
 

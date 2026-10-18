@@ -49,7 +49,6 @@ universe:
     - BORR.OL      # Borr Drilling
     - BONHR.OL     # Bonheur
     - BWO.OL       # BW Offshore
-    - CRAYN.OL     # Crayon
     - DNO.OL       # DNO
     - EPR.OL       # Europris
     - GSF.OL       # Grieg Seafood
@@ -65,7 +64,6 @@ universe:
     - OET.OL       # Okeanis Eco Tankers
     - TGS.OL       # TGS
     - PROT.OL      # Protector Forsikring
-    - REC.OL       # REC Silicon
     - SCATC.OL     # Scatec
     - SNI.OL       # Stolt-Nielsen
     - SOFF.OL      # Solstad Offshore
@@ -75,13 +73,11 @@ universe:
     - 2020.OL      # 2020 Bulkers
     - ABG.OL       # ABG Sundal Collier
     - B2I.OL       # B2 Impact
-    - BELCO.OL     # Belships
     - BOUV.OL      # Bouvet
     - CADLR.OL     # Cadeler
     - CLOUD.OL     # Cloudberry Clean Energy
     - DOFG.OL      # DOF Group
     - ELO.OL       # Elopak
-    - FLNG.OL      # Flex LNG
     - HAUTO.OL     # Höegh Autoliners
     - IDEX.OL      # IDEX Biometrics
     - KCC.OL       # Klaveness Combination Carriers
@@ -94,14 +90,8 @@ universe:
     - ODF.OL       # Odfjell SE
     - PEN.OL       # Panoro Energy
     - PHO.OL       # Photocure
-    - RANA.OL      # Rana Gruber
-    - SDRL.OL      # Seadrill
-    - SHLF.OL      # Shelf Drilling
-    - SMCRT.OL     # SmartCraft
     - VEI.OL       # Veidekke
     - VOW.OL       # Vow
-    - XXL.OL       # XXL
-    - AKH.OL       # Aker Horizons
     - HPUR.OL      # Hexagon Purus
   stockholm:
     - VOLV-B.ST    # Volvo
@@ -175,7 +165,6 @@ universe:
     - ISS.CO       # ISS
     - JYSK.CO      # Jyske Bank
     - NKT.CO       # NKT
-    - SYDB.CO      # Sydbank
     - BAVA.CO      # Bavarian Nordic
     - ZEAL.CO      # Zealand Pharma
     - NETC.CO      # Netcompany
@@ -200,8 +189,8 @@ universe:
     - KCR.HE       # Konecranes
     - VALMT.HE     # Valmet
     - HUH1V.HE     # Huhtamäki
-    - CGCBV.HE     # Cargotec
     - QTCOM.HE     # Qt Group
+    - HIAB.HE      # Hiab (tidl. Cargotec)
     - TYRES.HE     # Nokian Tyres
     - KEMIRA.HE    # Kemira
     - REG1V.HE     # Revenio
@@ -225,8 +214,8 @@ universe_extra:
 data:
   history_period: "2y"            # kurshistorikk som hentes (1y, 2y, 5y ...)
   fundamentals_max_age_days: 3    # fundamental-/analytikerdata gjenbrukes så mange dager før de hentes på nytt
-  max_details_per_run: 350        # maks aksjer som får hentet fundamentaldata per kjøring (de eldste først)
-  request_pause: 0.3              # sekunder pause mellom hver aksje (vær snill med Yahoo)
+  max_details_per_run: 450        # maks aksjer som får hentet fundamentaldata per kjøring (de eldste først)
+  request_pause: 0.25             # sekunder pause mellom hver aksje (vær snill med Yahoo)
   db_path: "data/aksjeradar.db"
 
 signals:
