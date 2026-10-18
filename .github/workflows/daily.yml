@@ -1,0 +1,74 @@
+# Kjører analysen automatisk på GitHub sine servere hver ukedag og publiserer mobil-appen
+# (mappen docs/) på GitHub Pages. Ingen egen PC trenger å stå på.
+#
+# Oppsett (gjøres én gang):
+#   1. Repo -> Settings -> Pages -> "Build and deployment" -> Source: "GitHub Actions".
+#   2. (Valgfritt, for Telegram) Repo -> Settings -> Secrets and variables -> Actions ->
+#        New repository secret: TELEGRAM_BOT_TOKEN og TELEGRAM_CHAT_ID
+#   Kjøringen starter av seg selv ved hver opplasting til main, hver ukedag morgen,
+#   og manuelt via fanen "Actions" -> "Aksjeradar daglig" -> "Run workflow".
+#   Adressen til appen står i loggen under jobben "deploy" (https://<brukernavn>.github.io/<repo>/).
+
+name: Aksjeradar daglig
+
+on:
+  schedule:
+    # 06:40 UTC = 08:40 norsk vintertid / 07:40 sommertid – etter USA-stenging, før Oslo åpner.
+    - cron: "40 6 * * 1-5"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: aksjeradar-pages
+  cancel-in-progress: false
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Installer avhengigheter
+        run: pip install -r requirements.txt
+      - name: Gjenbruk database fra forrige kjøring (gir endring i plassering fra dag til dag)
+        uses: actions/cache@v4
+        with:
+          path: data/aksjeradar.db
+          key: aksjeradar-db-${{ github.run_id }}
+          restore-keys: aksjeradar-db-
+      - name: Kjør analyse (og send Telegram hvis satt opp)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python run.py
+      - name: Klargjør GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Pakk mobil-appen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - name: Last opp rapporter
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapporter
+          path: reports/
+
+  deploy:
+    needs: analyse
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publiser mobil-appen
+        id: deployment
+        uses: actions/deploy-pages@v4

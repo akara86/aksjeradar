@@ -1,0 +1,136 @@
+# =====================================================================
+#  Aksjeradar – innstillinger
+#  Endre fritt. Linjer som starter med # er kommentarer.
+# =====================================================================
+
+# Hvilke aksjer som følges. Yahoo-tickere:
+#   Oslo Børs      -> .OL    (EQNR.OL)
+#   Stockholm      -> .ST    (VOLV-B.ST)
+#   København      -> .CO    (NOVO-B.CO)
+#   Helsinki       -> .HE    (NOKIA.HE)
+#   USA            -> ingen suffiks (AAPL). Merk: BRK.B skrives BRK-B.
+universe:
+  oslo:
+    - EQNR.OL      # Equinor
+    - DNB.OL       # DNB
+    - AKRBP.OL     # Aker BP
+    - NHY.OL       # Norsk Hydro
+    - YAR.OL       # Yara
+    - MOWI.OL      # Mowi
+    - SALM.OL      # SalMar
+    - LSG.OL       # Lerøy Seafood
+    - TEL.OL       # Telenor
+    - ORK.OL       # Orkla
+    - KOG.OL       # Kongsberg Gruppen
+    - TOM.OL       # Tomra
+    - STB.OL       # Storebrand
+    - GJF.OL       # Gjensidige
+    - SCHA.OL      # Schibsted A
+    - NOD.OL       # Nordic Semiconductor
+    - AKSO.OL      # Aker Solutions
+    - SUBC.OL      # Subsea 7
+    - VAR.OL       # Vår Energi
+    - FRO.OL       # Frontline
+    - HAFNI.OL     # Hafnia
+    - BWLPG.OL     # BW LPG
+    - MPCC.OL      # MPC Container Ships
+    - AUTO.OL      # AutoStore
+    - KIT.OL       # Kitron
+    - ELK.OL       # Elkem
+    - NEL.OL       # Nel
+    - BAKKA.OL     # Bakkafrost
+    - SBO.OL       # Selvaag Bolig
+    - ENTRA.OL     # Entra
+  norden:
+    - VOLV-B.ST    # Volvo
+    - ERIC-B.ST    # Ericsson
+    - ATCO-A.ST    # Atlas Copco
+    - INVE-B.ST    # Investor
+    - SEB-A.ST     # SEB
+    - SAND.ST      # Sandvik
+    - ASSA-B.ST    # Assa Abloy
+    - EVO.ST       # Evolution
+    - NOVO-B.CO    # Novo Nordisk
+    - MAERSK-B.CO  # Maersk
+    - DSV.CO       # DSV
+    - ORSTED.CO    # Ørsted
+    - VWS.CO       # Vestas
+    - NOKIA.HE     # Nokia
+    - NESTE.HE     # Neste
+    - KNEBV.HE     # Kone
+    - SAMPO.HE     # Sampo
+  usa:
+    - AAPL
+    - MSFT
+    - NVDA
+    - AMZN
+    - GOOGL
+    - META
+    - TSLA
+    - BRK-B
+    - JPM
+    - V
+    - UNH
+    - XOM
+    - LLY
+    - AVGO
+    - COST
+    - HD
+    - PG
+    - JNJ
+    - ABBV
+    - MRK
+    - CRM
+    - AMD
+    - NFLX
+    - ORCL
+    - ADBE
+    - PEP
+    - KO
+    - CVX
+    - WMT
+    - BAC
+    - DIS
+    - CSCO
+    - QCOM
+    - TXN
+    - AMAT
+    - MU
+    - PLTR
+    - UBER
+    - SHOP
+    - ASML
+
+data:
+  history_period: "2y"            # kurshistorikk som hentes (1y, 2y, 5y ...)
+  fundamentals_max_age_days: 2    # fundamental-/analytikerdata gjenbrukes så mange dager før de hentes på nytt
+  db_path: "data/aksjeradar.db"
+
+signals:
+  rsi_period: 14
+  sma_fast: 50
+  sma_slow: 200
+  volume_spike_mult: 2.0          # volum >= 2x 20-dagers snitt = "volumhopp"
+  breakout_lookback: 60           # utbrudd = kurs over høyeste de siste 60 dagene
+
+scoring:
+  weights:                        # summen trenger ikke bli 1 – de normaliseres
+    technical: 0.35
+    analyst: 0.25
+    fundamental: 0.25
+    insider: 0.15
+  min_analysts: 3                 # færre analytikere enn dette -> ingen analytikerscore
+
+report:
+  top_n: 10                       # antall i "topp"-listen
+  per_category: 5                 # antall ideer per kategori
+  screener_rows: 40               # rader i screener-tabellen i rapporten
+  output_dir: "reports"
+
+notify:
+  telegram: true                  # krever TELEGRAM_BOT_TOKEN og TELEGRAM_CHAT_ID i .env
+  email: false                    # krever SMTP_* og EMAIL_TO i .env
+
+export:
+  json_path: "docs/data.json"     # datafilen mobil-appen (docs/index.html) leser
+  history_days: 130               # antall kursdager i grafen i appen
