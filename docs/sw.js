@@ -1,7 +1,7 @@
 /* Service worker: gjør appen rask å starte og brukbar uten nett (siste data vises).
    - app-filene: hentes fra hurtigbuffer, oppdateres i bakgrunnen
    - data.json:  hentes fra nett først, faller tilbake til siste lagrede versjon */
-const CACHE = "aksjeradar-v4";
+const CACHE = "aksjeradar-v5";
 const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
@@ -19,7 +19,7 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
 
-  if (url.pathname.endsWith("/data.json") || url.pathname.includes("/stocks/")) {
+  if (url.pathname.endsWith("/data.json") || url.pathname.endsWith("/autotrader.json") || url.pathname.includes("/stocks/")) {
     const key = url.origin + url.pathname;
     e.respondWith(
       fetch(e.request).then(res => {

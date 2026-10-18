@@ -45,7 +45,7 @@
     ["forwardPE", "Forventet P/E (lav først)", "num1", "asc"],
     ["dividendYield", "Direkteavkastning", "pctu"],
   ];
-  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["screener", "Screener"], ["varsler", "Varsler"]];
+  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["screener", "Screener"], ["varsler", "Varsler"]];
 
   const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
   const detailCache = {};
@@ -108,6 +108,7 @@
     ideer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.3 1-1.8A6 6 0 0 0 12 3z"/></svg>',
     kjop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg>',
     portefolje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
+    auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M8 4h8M9 14h.01M15 14h.01M9 17h6"/></svg>',
     screener: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
     varsler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
   };
@@ -127,6 +128,7 @@
       else state.error = e;
     }
     if (btn) btn.classList.remove("spin");
+    if (force && auto) loadAuto(true);
     render();
   }
 
@@ -483,6 +485,9 @@
           <p><b>Lekepenger</b> er en virtuell portefølje med fiktiv startkapital. Kjøp og salg skjer til siste sluttkurs i appen, og avkastningskurven bygges dag for dag. Bruk den til å prøve ut anbefalingene en stund før du handler med ekte penger.</p>
           <p>Begge lagres bare på denne enheten. Bruk «Sikkerhetskopi» nederst i Portefølje-fanen for å flytte dem til en annen telefon.</p>
         </div>
+        <div class="card"><h3>Autotrader</h3>
+          <p>En virtuell portefølje som følger anbefalingene helt automatisk, hver handelsdag, på serveren – uavhengig av om du åpner appen. Den kjøper dagens beste kjøpskandidater med like store posisjoner og selger ved Avvent/Unngå, trendbrudd eller stop-loss, med kurtasje og slippage trukket fra. Avkastningen måles mot et likevektet gjennomsnitt av hele universet, så du ser om reglene faktisk slår markedet over tid.</p>
+        </div>
         <div class="card"><h3>Begrensninger</h3>
           <p>Data fra Yahoo Finance er ca. 15 minutter forsinket, og analytikerdekningen på mindre nordiske selskaper er tynn. Reglene er ikke backtestet. Bruk listene som et utgangspunkt for egen vurdering – dette er ikke investeringsråd.</p>
         </div>
@@ -756,6 +761,88 @@
       </div></div>`;
   }
 
+  // ---------- autotrader (kjører på serveren hver handelsdag – appen viser resultatet) ----------
+  let auto = null, autoLoading = false, autoError = null;
+  async function loadAuto(force) {
+    autoLoading = true; autoError = null;
+    try {
+      const r = await fetch("autotrader.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      auto = await r.json();
+    } catch (e) { autoError = e; }
+    autoLoading = false;
+    if (state.tab === "auto") render();
+  }
+
+  function lineChart(series, dates) {
+    // series: [{values, color, width, dash}] – samme skala for alle
+    const W = 360, H = 170, padL = 6, padR = 52, padT = 10, padB = 22;
+    const all = series.flatMap(s => s.values).filter(isNum);
+    if (all.length < 2) return "";
+    const n = Math.max.apply(null, series.map(s => s.values.length));
+    const lo = Math.min.apply(null, all), hi = Math.max.apply(null, all), span = hi - lo || 1;
+    const x = i => padL + (n === 1 ? 0 : (i / (n - 1)) * (W - padL - padR));
+    const y = v => padT + (1 - (v - lo) / span) * (H - padT - padB);
+    const path = arr => arr.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("");
+    const grid = [lo, lo + span / 2, hi].map(v => `<line x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)"/>
+      <text x="${W - padR + 6}" y="${(y(v) + 4).toFixed(1)}" font-size="10" fill="var(--muted)">${num(v / 1000, 1)}k</text>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verdiutvikling">${grid}
+      ${series.map(s => `<path d="${path(s.values)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
+      <text x="${padL}" y="${H - 6}" font-size="10" fill="var(--muted)">${fmtDate(dates[0])}</text>
+      <text x="${W - padR}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="end">${fmtDate(dates[dates.length - 1])}</text></svg>`;
+  }
+
+  function viewAuto() {
+    if (!auto && !autoError) { if (!autoLoading) loadAuto(false); return `<div class="skeleton"><span></span><span></span></div>`; }
+    if (!auto) return `<div class="empty-card" style="margin-top:16px"><b>Autotraderen har ikke kjørt ennå.</b><p>Den starter ved neste daglige analyse og vises her etterpå.</p></div>`;
+    const a = auto, base = a.base || "NOK";
+    const m = (v, d) => (isNum(v) ? num(v, d == null ? 0 : d) + nbsp + base : "–");
+    const ret = isNum(a.total) ? a.total - a.start_cash : null;
+    const diff = (isNum(a.return_pct) && isNum(a.bench_return_pct)) ? a.return_pct - a.bench_return_pct : null;
+    let html = summaryCard([
+      ["Total verdi", m(a.total)],
+      ["Avkastning", `${isNum(ret) ? (ret >= 0 ? "+" : "") + m(ret) : "–"} (${pct(a.return_pct)})`, sign(ret)],
+      ["Markedet (likevektet univers)", pct(a.bench_return_pct), sign(a.bench_return_pct)],
+      ["Mot markedet", pct(diff), sign(diff)],
+    ]);
+    html += `<p class="hint" style="margin-top:8px">Startet ${fmtDate(a.start_date)} med ${m(a.start_cash)} · sist handlet på sluttkurs ${fmtDate(a.price_date)} · kontanter ${m(a.cash)} · ${a.stats.days_running} dager</p>`;
+    const hist = a.history || [];
+    html += `<div class="chart">${hist.length >= 2
+      ? lineChart([{ values: hist.map(h => h.bench), color: "var(--muted)", width: 1.4, dash: "4 3" }, { values: hist.map(h => h.total), color: "var(--accent)", width: 2.2 }], hist.map(h => h.date))
+      : `<p class="muted" style="margin:6px 8px;font-size:13px">Kurven fylles dag for dag – første punkt er satt.</p>`}
+      <div class="legend"><span><i style="background:var(--accent)"></i>Autotrader</span><span><i style="background:var(--muted)"></i>Markedet (likevektet)</span></div></div>`;
+
+    const hs = a.holdings || [];
+    html += `<div class="section">${sectionHead("Beholdning", hs.length)}${hs.length ? list(hs.map(h => {
+      const idx = byTicker(h.ticker) || { ticker: h.ticker, name: h.name, market: h.market, verdict: h.verdict, score: h.score };
+      const info = `${num(h.shares, 0)} stk · ${m(h.value_base)} · <b class="${sign(h.pnl)}">${isNum(h.pnl) ? (h.pnl >= 0 ? "+" : "") + m(h.pnl) : "–"}</b> (${pct(h.pnl_pct)})`;
+      return row(idx, { info, sub: `Kjøpt ${fmtDate(h.bought)} med score ${num(h.buy_score, 0)} · ${h.days} dager · nå ${esc(h.verdict || "–")}` });
+    }).join("")) : `<div class="empty">Ingen posisjoner akkurat nå – venter på kjøpskandidater som oppfyller kravene.</div>`}</div>`;
+
+    const st = a.stats || {};
+    html += `<div class="card"><h3>Statistikk</h3><dl class="kv" style="margin:0">
+      <div><dt>Handler</dt><dd>${st.n_trades || 0}</dd></div><div><dt>Avsluttede</dt><dd>${st.n_closed || 0}</dd></div>
+      <div><dt>Treffprosent</dt><dd>${pct(st.win_rate, false, 0)}</dd></div><div><dt>Snitt per avsluttet</dt><dd class="${sign(st.avg_pnl_pct)}">${pct(st.avg_pnl_pct)}</dd></div>
+      <div><dt>Realisert</dt><dd class="${sign(st.realized_pnl)}">${isNum(st.realized_pnl) ? (st.realized_pnl >= 0 ? "+" : "") + m(st.realized_pnl) : "–"}</dd></div><div><dt>Største fall fra topp</dt><dd>${pct(st.max_drawdown_pct, false)}</dd></div>
+      ${st.best ? `<div><dt>Beste handel</dt><dd class="pos">${esc(st.best.ticker)} ${pct(st.best.pnl_pct)}</dd></div>` : ""}${st.worst ? `<div><dt>Svakeste handel</dt><dd class="neg">${esc(st.worst.ticker)} ${pct(st.worst.pnl_pct)}</dd></div>` : ""}
+    </dl></div>`;
+
+    const tr = a.trades || [];
+    if (tr.length) {
+      html += `<div class="section">${sectionHead("Handler", tr.length)}<div class="card" style="margin-top:0"><div class="lines">${tr.slice(0, 30).map(t =>
+        `<div class="ln"><span class="d">${fmtDate(t.date)}</span><span class="t"><b>${t.kind === "buy" ? "Kjøp" : "Salg"}</b> <span class="mono">${esc(t.ticker)}</span> · ${num(t.shares, 0)} stk à ${num(t.price, 2)} ${esc(t.currency || "")}<br><span class="muted" style="font-size:12px">${esc(t.reason || "")}${t.kind === "sell" && isNum(t.held_days) ? ` · ${t.held_days} dager` : ""}</span></span><span class="v ${t.kind === "buy" ? "" : sign(t.pnl)}">${t.kind === "buy" ? m(t.value_base) : (isNum(t.pnl) ? (t.pnl >= 0 ? "+" : "") + m(t.pnl) : "")}</span></div>`).join("")}</div></div></div>`;
+    }
+    const r = a.rules || {};
+    html += `<div class="card"><h3>Reglene</h3><ul class="reasons" style="margin:0;padding-left:18px">
+      <li><b>Kjøper</b> dagens kjøpskandidater (Sterkt kjøp/Kjøp) med score ≥ ${r.min_score} og minst delvis datagrunnlag, best score først, like store posisjoner (verdi delt på ${r.max_positions})${r.max_per_market ? `, maks ${r.max_per_market} per børs` : ""}.</li>
+      <li><b>Selger</b> når anbefalingen faller til Avvent/Unngå eller ved trendbrudd (tidligst etter ${r.min_hold_days} dager), og alltid ved ${pct(r.stop_loss_pct, false, 0)} stop-loss.</li>
+      <li>Kurtasje ${pct(r.commission_pct, false, 2)} per handel og ${pct(r.slippage_pct, false, 1)} slippage i disfavør. Solgte aksjer kjøpes ikke igjen før etter ${r.cooldown_days} dager.</li>
+      <li>Handler til sluttkursen i morgenens data – i praksis gårsdagens sluttkurs. Markedet = likevektet gjennomsnitt av hele universet.</li>
+    </ul></div>
+    <p class="note">Autotraderen kjører på serveren hver ukedag kl. 08:40 og handler bare med lekepenger. Den er en ærlig test av reglene, ikke investeringsråd. Reglene justeres i <span class="mono">config.yaml</span>.</p>`;
+    return html;
+  }
+
   // ---------- rammen ----------
   function renderHeader() {
     const d = state.data;
@@ -787,7 +874,7 @@
       main.innerHTML = `<div class="error"><p><b>Fant ingen data.</b></p><p>Kjør <code>python run.py</code> i prosjektmappen – da lages <code>docs/data.json</code>. Åpner du filen lokalt: start <code>python -m http.server 8000 -d docs</code> og gå til <code>http://localhost:8000</code>.</p>${state.error ? `<p class="muted">${esc(state.error.message || state.error)}</p>` : ""}</div>`;
       return;
     }
-    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, screener: viewScreener, varsler: viewVarsler };
+    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, auto: viewAuto, screener: viewScreener, varsler: viewVarsler };
     main.innerHTML = views[state.tab]();
     if (state.tab === "screener") {
       const q = $("#q");

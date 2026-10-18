@@ -18,11 +18,14 @@ Stegene:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import time
 from datetime import date
+from pathlib import Path
 
+from aksjeradar.autotrader import run_autotrader
 from aksjeradar.config import all_tickers, load_config
 from aksjeradar.data import FX_DEMO, demo_details, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
@@ -145,6 +148,18 @@ def main() -> int:
     # ---------- 4. rapport + datafil til mobil-appen ----------
     md = render_markdown(table, ideas, run_date, cfg, demo=args.demo)
     md_path, html_path = write_reports(md, run_date, cfg["report"]["output_dir"])
+    # Autotrader – virtuell portefølje som følger anbefalingene (egen fane i appen)
+    if cfg["autotrader"].get("enabled", True):
+        try:
+            auto = run_autotrader(store, table, cfg, fx)
+            auto_path = Path(cfg["_root"]) / "docs" / "autotrader.json"
+            auto_path.write_text(json.dumps(auto, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            if auto:
+                log.info("Autotrader: verdi %.0f %s (%+.1f %%), %d posisjoner, %d handler totalt",
+                         auto["total"], auto["base"], (auto["return_pct"] or 0) * 100, len(auto["holdings"]), auto["stats"]["n_trades"])
+        except Exception as e:  # noqa: BLE001
+            log.exception("Autotrader feilet: %s", e)
+
     skipped = [t for t in tickers if t not in prices]
     if skipped:
         log.warning("Hoppet over (ingen kursdata): %s", ", ".join(skipped))

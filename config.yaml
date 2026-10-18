@@ -243,6 +243,19 @@ notify:
   telegram: true                  # krever TELEGRAM_BOT_TOKEN og TELEGRAM_CHAT_ID i .env
   email: false                    # krever SMTP_* og EMAIL_TO i .env
 
+autotrader:                       # virtuell portefølje som følger anbefalingene automatisk (egen fane i appen)
+  enabled: true
+  start_cash: 100000              # startkapital i basisvaluta
+  base_currency: "NOK"
+  max_positions: 10               # like store posisjoner: total verdi / max_positions
+  max_per_market: 4               # maks posisjoner per børs (0 = ingen grense)
+  min_score: 65                   # kjøper bare Sterkt kjøp/Kjøp med score >= dette
+  stop_loss_pct: 0.12             # selger hvis kursen er 12 % under snittkurs
+  min_hold_days: 5                # selger ikke på anbefaling/trendbrudd før etter 5 dager (stop-loss gjelder alltid)
+  cooldown_days: 10               # venter 10 dager før en solgt aksje kan kjøpes igjen
+  commission_pct: 0.0005          # kurtasje 0,05 % per handel
+  slippage_pct: 0.002             # 0,2 % dårligere kurs enn sluttkursen, i disfavør
+
 export:
   json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart
   details_dir: "docs/stocks"      # én detaljfil per aksje (hentes når du åpner aksjen)

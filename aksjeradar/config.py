@@ -58,6 +58,11 @@ DEFAULTS = {
         "spark_days": 30,               # kursdager i de små grafene i listene
     },
     "universe_extra": {"sp500": False},
+    "autotrader": {
+        "enabled": True, "start_cash": 100000, "base_currency": "NOK", "max_positions": 10, "max_per_market": 4,
+        "min_score": 65, "stop_loss_pct": 0.12, "min_hold_days": 5, "cooldown_days": 10,
+        "commission_pct": 0.0005, "slippage_pct": 0.002,
+    },
 }
 
 
