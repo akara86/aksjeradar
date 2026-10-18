@@ -45,7 +45,7 @@
     ["forwardPE", "Forventet P/E (lav først)", "num1", "asc"],
     ["dividendYield", "Direkteavkastning", "pctu"],
   ];
-  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["screener", "Screener"], ["varsler", "Varsler"]];
+  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["intradag", "Intradag"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["mer", "Mer"]];
 
   const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
   const detailCache = {};
@@ -109,6 +109,8 @@
     kjop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg>',
     portefolje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
     auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M8 4h8M9 14h.01M15 14h.01M9 17h6"/></svg>',
+    intradag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>',
+    mer: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
     screener: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
     varsler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
   };
@@ -129,6 +131,7 @@
     }
     if (btn) btn.classList.remove("spin");
     if (force && auto) loadAuto(true);
+    if (force && intra) loadIntra(true);
     render();
   }
 
@@ -488,6 +491,9 @@
         <div class="card"><h3>Autotrader</h3>
           <p>En virtuell portefølje som følger anbefalingene helt automatisk, hver handelsdag, på serveren – uavhengig av om du åpner appen. Den kjøper dagens beste kjøpskandidater med like store posisjoner og selger ved Avvent/Unngå, trendbrudd eller stop-loss, med kurtasje og slippage trukket fra. Avkastningen måles mot et likevektet gjennomsnitt av hele universet, så du ser om reglene faktisk slår markedet over tid.</p>
         </div>
+        <div class="card"><h3>Intradag</h3>
+          <p>Kortsiktige setups på 15-minutters kurser for ~120 likvide aksjer, oppdatert hvert kvarter i børstiden: Gap-and-go, Åpningsbrudd, VWAP-reclaim og Trenddag, hver med inngang, stop og mål. Hvert setup etterprøves etter stenging, og treffprosent og snitt per setup vises i fanen. Kursene er ca. 15 minutter forsinket.</p>
+        </div>
         <div class="card"><h3>Begrensninger</h3>
           <p>Data fra Yahoo Finance er ca. 15 minutter forsinket, og analytikerdekningen på mindre nordiske selskaper er tynn. Reglene er ikke backtestet. Bruk listene som et utgangspunkt for egen vurdering – dette er ikke investeringsråd.</p>
         </div>
@@ -496,6 +502,7 @@
 
   function closeSheet() {
     const sheet = $("#sheet");
+    currentSubview = null;
     if (sheet.hidden) return;
     sheet.classList.remove("open");
     document.body.style.overflow = "";
@@ -507,7 +514,8 @@
     else if (e.state && e.state.search) openSearch(false);
     else if (e.state && e.state.trade) openTrade(e.state.trade, e.state.ticker, false);
     else if (e.state && e.state.backup) openBackup(false);
-    else { currentTicker = null; closeSheet(); }
+    else if (e.state && e.state.sub) openSubview(e.state.sub, false);
+    else { currentTicker = null; currentSubview = null; closeSheet(); }
   });
 
   // ---------- portefølje: «Mine aksjer» og «Lekepenger» (lagres lokalt på enheten) ----------
@@ -843,6 +851,143 @@
     return html;
   }
 
+  // ---------- intradag (oppdateres hvert 15. min på serveren i børstiden) ----------
+  let intra = null, intraLoading = false, intraError = null, intraTimer = null;
+  const TYPE_CLASS = { gap: "t-gap", orb: "t-orb", vwap: "t-vwap", trend: "t-trend" };
+  async function loadIntra(force) {
+    if (intraLoading) return;
+    intraLoading = true; intraError = null;
+    try {
+      const r = await fetch("intraday.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      intra = await r.json();
+    } catch (e) { intraError = e; }
+    intraLoading = false;
+    if (state.tab === "intradag") render();
+  }
+  function fmtClock(iso) {
+    if (!iso) return "–";
+    const d = new Date(iso);
+    return isNaN(d) ? "–" : d.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" });
+  }
+  function ageMinutes(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? null : Math.round((Date.now() - d.getTime()) / 60000);
+  }
+  function setupCard(s) {
+    const idx = byTicker(s.ticker);
+    const exp = s.expires ? fmtClock(s.expires) : "stenging";
+    const why = (s.why || []).map(w => `<span class="chip on">${esc(w)}</span>`).join("");
+    return `<button class="setup ${TYPE_CLASS[s.type] || ""}" data-ticker="${esc(s.ticker)}" ${idx ? "" : 'data-nodetail="1"'}>
+      <span class="su-top"><span class="tb">${esc(s.type_label)}</span><span class="su-mkt">${esc(s.market)}</span><span class="pill ${scClass(s.score)}">${s.score}</span></span>
+      <span class="su-name"><span class="tick mono">${esc(s.ticker)}</span><span class="name">${esc(s.name || "")}</span>
+        <span class="mono ${sign(s.change_pct)}" style="margin-left:auto;font-size:13px">${pct(s.change_pct)} i dag</span></span>
+      <span class="levels">
+        <span><i>Inngang</i><b class="mono">${num(s.entry, 2)}</b></span>
+        <span><i>Stop</i><b class="mono neg">${num(s.stop, 2)}</b><small class="mono">${pct(s.stop_pct)}</small></span>
+        <span><i>Mål</i><b class="mono pos">${num(s.target, 2)}</b><small class="mono">${pct(s.target_pct)}</small></span>
+        <span><i>R:R</i><b class="mono">${num(s.rr, 1)}</b></span>
+      </span>
+      <span class="chips" style="margin-top:8px">${why}</span>
+      <span class="su-meta">Sett ${fmtClock(s.first_seen || s.seen_at)} · gyldig til ${exp} · siste bar ${esc(s.last_bar || "")}${s.vwap ? ` · VWAP ${num(s.vwap, 2)}` : ""}</span>
+    </button>`;
+  }
+  function viewIntradag() {
+    if (!intra && !intraError) { if (!intraLoading) loadIntra(false); return `<div class="skeleton"><span></span><span></span></div>`; }
+    if (!intra) return `<div class="empty-card" style="margin-top:16px"><b>Intradag-modulet har ikke kjørt ennå.</b><p>Det starter neste ukedag når Oslo Børs åpner (kl. 09:00) og oppdaterer seg hvert kvarter til USA stenger.</p></div>`;
+    const a = intra;
+    const age = ageMinutes(a.generated_at);
+    const mk = a.markets || {};
+    const openMarkets = Object.values(mk).filter(m => m.open);
+    let html = `<p class="hint" style="margin-top:12px">Oppdatert ${fmtClock(a.generated_at)}${isNum(age) ? ` (${age} min siden)` : ""} · kurser ca. ${a.data_delay_min || 15} min forsinket · ${a.universe} aksjer · ${a.interval || "15m"}-barer</p>`;
+    html += `<div class="mkts">${["Oslo", "Stockholm", "København", "Helsinki", "USA"].map(m => mk[m] ? `<span class="mkt ${mk[m].open ? "on" : ""}">${esc(m)}: ${mk[m].open ? `åpen til ${esc(mk[m].closes_at)}` : `stengt (${esc(mk[m].opens_at)}–${esc(mk[m].closes_at)})`}</span>` : "").join("")}</div>`;
+    if (a.demo) html += `<div class="banner demo" style="margin-top:10px"><span><b>Demo-data.</b> Setupene er laget av tilfeldige kurser.</span></div>`;
+
+    const setups = (a.setups || []).filter(s => inMarket({ market: s.market }));
+    html += `<div class="section">${sectionHead("Aktive setups", setups.length)}`;
+    if (!openMarkets.length) {
+      html += `<div class="empty-card"><b>Børsene er stengt.</b><p>Nye setups kommer når Oslo åpner kl. 09:00. Under ser du hvordan de siste setupene gikk.</p></div>`;
+    } else if (!setups.length) {
+      html += `<div class="empty">Ingen setups oppfyller reglene akkurat nå. Det er normalt – de fleste kvarter er stille.</div>`;
+    } else {
+      html += setups.map(setupCard).join("");
+    }
+    html += `</div>`;
+
+    const mv = (a.movers || []).filter(m => inMarket(m));
+    if (mv.length) {
+      html += `<div class="section">${sectionHead("Dagens bevegelser", mv.length)}<div class="list">${mv.slice(0, 12).map(m => {
+        const idx = byTicker(m.ticker);
+        return `<button class="row" data-ticker="${esc(m.ticker)}" ${idx ? "" : 'data-nodetail="1"'}>
+          <span class="l"><span class="l1"><span class="tick">${esc(m.ticker)}</span><span class="name">${esc(m.name || "")}</span></span>
+          <span class="l2"><span class="info mono">volum ${isNum(m.rel_volume) ? num(m.rel_volume, 1) + "×" : "–"} · ${isNum(m.vs_vwap_pct) ? pct(m.vs_vwap_pct) + " mot VWAP" : ""}${isNum(m.gap_pct) ? ` · gap ${pct(m.gap_pct)}` : ""}</span></span></span>
+          <span class="mid"></span><span class="r"><span class="metric mono ${sign(m.change_pct)}" style="min-width:64px;text-align:right">${pct(m.change_pct)}</span></span></button>`;
+      }).join("")}</div></div>`;
+    }
+
+    const st = (a.stats || {}).all || { n: 0 };
+    const bt = (a.stats || {}).by_type || {};
+    html += `<div class="card"><h3>Etterprøving</h3>
+      ${st.n ? `<dl class="kv" style="margin:0">
+        <div><dt>Setups evaluert</dt><dd>${st.n}</dd></div><div><dt>Venter på stenging</dt><dd>${(a.stats || {}).pending || 0}</dd></div>
+        <div><dt>Traff målet</dt><dd class="pos">${pct(st.hit_rate, false, 0)}</dd></div><div><dt>Traff stoppen</dt><dd class="neg">${pct(st.stop_rate, false, 0)}</dd></div>
+        <div><dt>Positive (inkl. stenging)</dt><dd>${pct(st.win_rate, false, 0)}</dd></div><div><dt>Snitt per setup</dt><dd class="${sign(st.avg_r)}">${isNum(st.avg_r) ? (st.avg_r >= 0 ? "+" : "") + num(st.avg_r, 2) + " R" : "–"}</dd></div>
+        <div><dt>Sum</dt><dd class="${sign(st.sum_r)}">${isNum(st.sum_r) ? (st.sum_r >= 0 ? "+" : "") + num(st.sum_r, 1) + " R" : "–"}</dd></div>
+      </dl>
+      <div class="lines" style="margin-top:12px">${Object.entries(bt).filter(([, v]) => v.n).map(([k, v]) => `<div class="ln"><span class="t"><span class="tb ${TYPE_CLASS[k]}" style="display:inline-block">${esc(({ gap: "Gap-and-go", orb: "Åpningsbrudd", vwap: "VWAP-reclaim", trend: "Trenddag" })[k])}</span></span><span class="v">${v.n} stk · mål ${pct(v.hit_rate, false, 0)} · snitt ${isNum(v.avg_r) ? (v.avg_r >= 0 ? "+" : "") + num(v.avg_r, 2) : "–"} R</span></div>`).join("")}</div>`
+      : `<p class="muted" style="margin:0">Ingen setups er evaluert ennå. Hvert setup sjekkes etter stenging: traff det målet (+${num((a.rules || {}).target_r || 2, 1)} R), stoppen (−1 R), eller endte det ved stenging? Etter noen uker ser du her om reglene har noe for seg.</p>`}
+    </div>`;
+    const rec = a.recent || [];
+    if (rec.length) {
+      html += `<div class="section">${sectionHead("Siste utfall", rec.length)}<div class="card" style="margin-top:0"><div class="lines">${rec.slice(0, 20).map(r =>
+        `<div class="ln"><span class="d">${fmtDate(r.session)}</span><span class="t"><span class="mono">${esc(r.ticker)}</span> · ${esc(r.type_label || r.type)}<br><span class="muted" style="font-size:12px">inngang ${num(r.entry, 2)} · ${esc(r.outcome)}</span></span><span class="v ${sign(r.r)}">${isNum(r.r) ? (r.r >= 0 ? "+" : "") + num(r.r, 1) + " R" : "–"}</span></div>`).join("")}</div></div></div>`;
+    }
+    const ru = a.rules || {};
+    html += `<div class="card"><h3>Slik lages setupene</h3><ul class="reasons" style="margin:0;padding-left:18px">
+      <li><b>Gap-and-go</b> – gap opp ≥ ${pct(ru.min_gap_pct, false, 0)}, holder gevinsten, over VWAP, volum ≥ 1,5× normalt.</li>
+      <li><b>Åpningsbrudd</b> – brudd over høyeste i de første 30 minuttene, over VWAP, volum ≥ ${num(ru.min_rel_volume, 1)}×, i første del av dagen.</li>
+      <li><b>VWAP-reclaim</b> – kursen krysser opp gjennom VWAP med volum, 15m-RSI 45–70.</li>
+      <li><b>Trenddag</b> – over VWAP hele dagen, ny dagshøyde, volum ≥ ${num(ru.min_rel_volume, 1)}×, opp ≥ 1,5 %.</li>
+      <li>Stop legges under VWAP/åpningsintervallet (${pct(ru.min_stop_pct, false, 1)}–${pct(ru.max_stop_pct, false, 0)} unna), mål = ${num(ru.target_r, 1)}× risikoen. Bare long. Gyldig til børsen stenger.</li>
+    </ul></div>
+    <p class="note">Kursene er ca. 15 minutter forsinket og oppdateres hvert kvarter – dette er ikke sanntid, og det er ikke investeringsråd. Daytrading er der flest småsparere taper penger; bruk setupene som struktur og etterprøvingen som dommer, på lekepenger, lenge før ekte penger.</p>`;
+    return html;
+  }
+  function scheduleIntraRefresh() {
+    if (intraTimer) clearInterval(intraTimer);
+    intraTimer = setInterval(() => {
+      if (state.tab === "intradag" && document.visibilityState === "visible") loadIntra(true);
+    }, 5 * 60 * 1000);
+  }
+
+  // ---------- «Mer»: screener, varsler, om ----------
+  let currentSubview = null;
+  function viewMer() {
+    const warnCount = ideaItems("warnings").length;
+    return `<div class="section" style="margin-top:14px"><div class="list">
+      <button class="row menu" data-sub="screener"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Screener</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Sorter og filtrer alle ${stocks().length} aksjene</span></span></span><span class="mid"></span><span class="r">›</span></button>
+      <button class="row menu" data-sub="varsler"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Varsler</span>${warnCount ? `<span class="pill lo">${warnCount}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Aksjer i universet som viser svakhet</span></span></span><span class="mid"></span><span class="r">›</span></button>
+      <button class="row menu" id="info-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Om Aksjeradar</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Hvordan score, anbefalinger og autotrader regnes ut</span></span></span><span class="mid"></span><span class="r">›</span></button>
+    </div></div>`;
+  }
+  function openSubview(key, push) {
+    const titles = { screener: ["Screener", "Sorter og filtrer"], varsler: ["Varsler", "Svakhetstegn i universet"] };
+    currentSubview = key;
+    showSheet(`${sheetTop(titles[key][0], titles[key][1])}<div class="gutter sheet-body" id="subview"></div>`, push, { sub: key });
+    rerenderSubview();
+  }
+  function rerenderSubview() {
+    const box = $("#subview");
+    if (!box || !currentSubview) return;
+    const views = { screener: viewScreener, varsler: viewVarsler };
+    box.innerHTML = views[currentSubview]();
+    if (currentSubview === "screener") {
+      const q = $("#q");
+      q.addEventListener("input", () => { state.query = q.value; state.limit = 80; const pos = q.selectionStart; rerenderSubview(); const q2 = $("#q"); q2.focus(); q2.setSelectionRange(pos, pos); });
+      $("#sort").addEventListener("change", e => { state.sort = e.target.value; rerenderSubview(); });
+    }
+  }
+
   // ---------- rammen ----------
   function renderHeader() {
     const d = state.data;
@@ -862,7 +1007,8 @@
     const warnCount = state.data ? ideaItems("warnings").length : 0;
     const buyCount = state.data ? buyCandidates().length : 0;
     $("#tabs").innerHTML = TABS.map(([k, label]) => {
-      const badge = k === "varsler" && warnCount ? `<span class="badge">${warnCount}</span>` : k === "kjop" && buyCount ? `<span class="badge ok">${buyCount}</span>` : "";
+      const intraCount = intra && intra.setups ? intra.setups.filter(x => inMarket({ market: x.market })).length : 0;
+      const badge = k === "mer" && warnCount ? `<span class="badge">${warnCount}</span>` : k === "kjop" && buyCount ? `<span class="badge ok">${buyCount}</span>` : k === "intradag" && intraCount ? `<span class="badge ok">${intraCount}</span>` : "";
       return `<button data-tab="${k}" aria-current="${k === state.tab ? "page" : "false"}">${I[k]}${label}${badge}</button>`;
     }).join("");
   }
@@ -874,7 +1020,7 @@
       main.innerHTML = `<div class="error"><p><b>Fant ingen data.</b></p><p>Kjør <code>python run.py</code> i prosjektmappen – da lages <code>docs/data.json</code>. Åpner du filen lokalt: start <code>python -m http.server 8000 -d docs</code> og gå til <code>http://localhost:8000</code>.</p>${state.error ? `<p class="muted">${esc(state.error.message || state.error)}</p>` : ""}</div>`;
       return;
     }
-    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, auto: viewAuto, screener: viewScreener, varsler: viewVarsler };
+    const views = { ideer: viewIdeer, kjop: viewKjop, intradag: viewIntradag, portefolje: viewPortefolje, auto: viewAuto, mer: viewMer, screener: viewScreener, varsler: viewVarsler };
     main.innerHTML = views[state.tab]();
     if (state.tab === "screener") {
       const q = $("#q");
@@ -885,7 +1031,10 @@
 
   document.addEventListener("click", e => {
     const row = e.target.closest("[data-ticker]");
-    if (row) { openStock(row.dataset.ticker); return; }
+    if (row) { if (!row.dataset.nodetail) openStock(row.dataset.ticker); return; }
+    const sub = e.target.closest("[data-sub]");
+    if (sub) { openSubview(sub.dataset.sub); return; }
+    if (e.target.closest("#info-menu")) { openInfo(); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
     const trade = e.target.closest("[data-trade]");
@@ -928,7 +1077,8 @@
     if (mb) {
       const k = mb.dataset.more;
       if (k === "screener") state.limit += 100; else if (k.startsWith("verdict:")) state.expand[k.slice(8)] = true;
-      render(); return;
+      if (currentSubview && !$("#sheet").hidden) rerenderSubview(); else render();
+      return;
     }
     const tile = e.target.closest("[data-verdict]");
     if (tile) { state.verdictFilter = state.verdictFilter === tile.dataset.verdict ? null : tile.dataset.verdict; state.expand = {}; render(); return; }
@@ -956,5 +1106,7 @@
   $("#info").innerHTML = I.info;
   $("#search").innerHTML = I.search;
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
+  scheduleIntraRefresh();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.tab === "intradag") loadIntra(true); });
   load(false);
 })();

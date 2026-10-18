@@ -113,7 +113,9 @@ kjøpskandidater og ideer, en Kjøp-fane med anbefalinger, en **Portefølje-fane
 du eier, og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
 en **Autotrader-fane** (virtuell portefølje som følger anbefalingene automatisk hver handelsdag på
 serveren, målt mot et likevektet marked – reglene står i `config.yaml` under `autotrader:`),
-screener, varsler, **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
+en **Intradag-fane** (kortsiktige setups på 15-minutters kurser, oppdatert hvert kvarter i børstiden av
+`.github/workflows/intraday.yml`, med stop/mål og etterprøving – regler under `intraday:` i `config.yaml`),
+screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
 kursgraf, score, signaler, analytikere og innsidehandler. Porteføljene lagres lokalt på telefonen
 (ingen server) og kan kopieres ut som sikkerhetskopi. Valutakurser (USD/SEK/DKK/EUR mot NOK) hentes
 daglig, så porteføljen summeres riktig. Den fungerer uten
@@ -188,6 +190,7 @@ Reglene for hver kategori står i fanen «Om scoringen» i dashboardet og i `aks
 ```
 aksjeradar/
 ├── run.py              # daglig kjøring (pipeline)
+├── intraday_run.py     # intradag-kjøring (hvert 15. min i børstiden)
 ├── dashboard.py        # Streamlit-dashboard
 ├── config.yaml         # aksjer, terskler, vekter
 ├── .env.example        # mal for Telegram/e-post-hemmeligheter
@@ -202,6 +205,7 @@ aksjeradar/
 │   ├── notify.py       # Telegram og e-post
 │   └── storage.py      # SQLite-database
 │   ├── autotrader.py   # virtuell portefølje som følger anbefalingene automatisk
+│   ├── intraday.py     # intradag-setups på 15m-kurser + etterprøving
 │   ├── universe.py     # setter sammen universet (config + S&P 500 fra Wikipedia)
 ├── docs/               # mobil-appen (index.html, app.js, app.css, sw.js, ikoner) + data.json, stocks/, autotrader.json
 ├── data/               # databasen havner her

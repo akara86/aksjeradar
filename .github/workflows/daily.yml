@@ -50,12 +50,22 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python run.py
+      - name: Behold siste intradag-fil fra nettsiden
+        run: |
+          URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/intraday.json"
+          curl -fsSL "$URL" -o docs/intraday.json || echo "ingen intradag-fil ennå"
       - name: Klargjør GitHub Pages
         uses: actions/configure-pages@v5
       - name: Pakk mobil-appen
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+      - name: Lagre nettsiden for intradag-kjøringene
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: docs
+          retention-days: 14
       - name: Last opp rapporter
         uses: actions/upload-artifact@v4
         with:

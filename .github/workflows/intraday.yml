@@ -1,0 +1,58 @@
+# Intradag: hvert 15. minutt på ukedager i børstiden (07:00–20:59 UTC dekker Oslo 09:00 til USA stenger 22:00 norsk tid).
+# Henter siste publiserte nettside (fra den daglige kjøringen), legger til ferske intradag-setups
+# (docs/intraday.json) og publiserer hele nettsiden på nytt. Den daglige analysen rører ikke dette.
+#
+# GitHub kan være 5–20 minutter forsinket med planlagte kjøringer når det er travelt – det er normalt.
+# Loggen over setups (for etterprøving) leses fra sist publiserte intraday.json og skrives tilbake dit.
+
+name: Aksjeradar intradag
+
+on:
+  schedule:
+    - cron: "*/15 7-20 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+
+concurrency:
+  group: aksjeradar-pages
+  cancel-in-progress: false
+
+jobs:
+  intradag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Installer avhengigheter
+        run: pip install -r requirements.txt
+      - name: Hent siste publiserte nettside (data.json, aksjefiler, autotrader)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID=$(gh run list --workflow "Aksjeradar daglig" --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "Bruker nettside fra daglig kjøring $RUN_ID"
+          gh run download "$RUN_ID" -n site -D site
+          ls site | head
+      - name: Lag intradag-setups og etterprøv gårsdagens
+        run: python intraday_run.py --site site
+      - name: Klargjør GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Pakk nettsiden
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Publiser
+        id: deployment
+        uses: actions/deploy-pages@v4

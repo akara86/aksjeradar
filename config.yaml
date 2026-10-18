@@ -256,6 +256,31 @@ autotrader:                       # virtuell portefølje som følger anbefalinge
   commission_pct: 0.0005          # kurtasje 0,05 % per handel
   slippage_pct: 0.002             # 0,2 % dårligere kurs enn sluttkursen, i disfavør
 
+intraday:                         # intradag-modul: setups på 15-minutters kurser (egen fane i appen)
+  enabled: true
+  interval: "15m"
+  max_tickers: 120                # universet under + dagens kjøpskandidater + autotraderens beholdning
+  include_buy_candidates: true
+  include_autotrader_holdings: true
+  universe:
+    oslo: [EQNR.OL, DNB.OL, AKRBP.OL, NHY.OL, YAR.OL, MOWI.OL, SALM.OL, LSG.OL, TEL.OL, ORK.OL, KOG.OL, TOM.OL,
+           STB.OL, GJF.OL, NOD.OL, AKSO.OL, SUBC.OL, VAR.OL, FRO.OL, HAFNI.OL, BWLPG.OL, MPCC.OL, AUTO.OL, KIT.OL,
+           ELK.OL, NEL.OL, BAKKA.OL, AKER.OL, ATEA.OL, BORR.OL, DNO.OL, SCATC.OL, TGS.OL, PROT.OL, NAS.OL, GSF.OL,
+           HEX.OL, OKEA.OL, WAWI.OL, VEND.OL]
+    usa: [AAPL, MSFT, NVDA, AMZN, META, GOOGL, TSLA, AMD, AVGO, NFLX, PLTR, COIN, MSTR, UBER, SHOP, CRM, ORCL, MU,
+          SMCI, ARM, INTC, QCOM, BA, JPM, BAC, XOM, CVX, LLY, UNH, ABBV, PFE, MRK, COST, WMT, HD, DIS, NKE, SBUX,
+          MCD, PEP, KO, V, MA, GS, MS, C, WFC, CAT, DE, GE]
+    stockholm: [VOLV-B.ST, ERIC-B.ST, ABB.ST, ATCO-A.ST, INVE-B.ST, SEB-A.ST, SAND.ST, HM-B.ST, EVO.ST, BOL.ST]
+    copenhagen: [NOVO-B.CO, MAERSK-B.CO, DSV.CO, ORSTED.CO, VWS.CO, CARL-B.CO, GMAB.CO]
+    helsinki: [NOKIA.HE, NESTE.HE, UPM.HE, FORTUM.HE, SAMPO.HE]
+  rules:
+    min_gap_pct: 0.02             # Gap-and-go krever minst 2 % gap opp
+    min_rel_volume: 1.3           # volum minst 1,3x normalt for klokkeslettet
+    max_rsi: 80                   # ikke kjøp når 15m-RSI er over 80
+    target_r: 2.0                 # mål = 2x risikoen (avstand til stop)
+    min_stop_pct: 0.004           # stop minst 0,4 % unna (ellers støy)
+    max_stop_pct: 0.04            # stop maks 4 % unna
+
 export:
   json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart
   details_dir: "docs/stocks"      # én detaljfil per aksje (hentes når du åpner aksjen)

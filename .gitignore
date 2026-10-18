@@ -7,3 +7,4 @@ __pycache__/
 .venv/
 venv/
 docs/autotrader.json
+docs/intraday.json

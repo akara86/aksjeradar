@@ -58,6 +58,11 @@ DEFAULTS = {
         "spark_days": 30,               # kursdager i de små grafene i listene
     },
     "universe_extra": {"sp500": False},
+    "intraday": {
+        "enabled": True, "interval": "15m", "max_tickers": 120, "include_buy_candidates": True,
+        "include_autotrader_holdings": True, "universe": {},
+        "rules": {"min_gap_pct": 0.02, "min_rel_volume": 1.3, "max_rsi": 80, "target_r": 2.0, "min_stop_pct": 0.004, "max_stop_pct": 0.04},
+    },
     "autotrader": {
         "enabled": True, "start_cash": 100000, "base_currency": "NOK", "max_positions": 10, "max_per_market": 4,
         "min_score": 65, "stop_loss_pct": 0.12, "min_hold_days": 5, "cooldown_days": 10,
