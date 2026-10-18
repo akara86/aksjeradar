@@ -9,6 +9,7 @@
 #   København      -> .CO    (NOVO-B.CO)
 #   Helsinki       -> .HE    (NOKIA.HE)
 #   USA            -> ingen suffiks (AAPL). Merk: BRK.B skrives BRK-B.
+# Tickere Yahoo ikke finner blir hoppet over (står under "skipped" i docs/data.json).
 universe:
   oslo:
     - EQNR.OL      # Equinor
@@ -42,69 +43,190 @@ universe:
     - BAKKA.OL     # Bakkafrost
     - SBO.OL       # Selvaag Bolig
     - ENTRA.OL     # Entra
-  norden:
+    - AKER.OL      # Aker ASA
+    - AFG.OL       # AF Gruppen
+    - ATEA.OL      # Atea
+    - BORR.OL      # Borr Drilling
+    - BONHR.OL     # Bonheur
+    - BWO.OL       # BW Offshore
+    - CRAYN.OL     # Crayon
+    - DNO.OL       # DNO
+    - EPR.OL       # Europris
+    - GSF.OL       # Grieg Seafood
+    - HEX.OL       # Hexagon Composites
+    - KID.OL       # Kid
+    - KOA.OL       # Kongsberg Automotive
+    - LINK.OL      # Link Mobility
+    - MING.OL      # SpareBank 1 SMN
+    - NONG.OL      # SpareBank 1 Nord-Norge
+    - SPOL.OL      # SpareBank 1 Østlandet
+    - NSKOG.OL     # Norske Skog
+    - OKEA.OL      # OKEA
+    - OET.OL       # Okeanis Eco Tankers
+    - TGS.OL       # TGS
+    - PROT.OL      # Protector Forsikring
+    - REC.OL       # REC Silicon
+    - SCATC.OL     # Scatec
+    - SNI.OL       # Stolt-Nielsen
+    - SOFF.OL      # Solstad Offshore
+    - WAWI.OL      # Wallenius Wilhelmsen
+    - WWI.OL       # Wilh. Wilhelmsen
+    - ZAP.OL       # Zaptec
+    - 2020.OL      # 2020 Bulkers
+    - ABG.OL       # ABG Sundal Collier
+    - B2I.OL       # B2 Impact
+    - BELCO.OL     # Belships
+    - BOUV.OL      # Bouvet
+    - CADLR.OL     # Cadeler
+    - CLOUD.OL     # Cloudberry Clean Energy
+    - DOFG.OL      # DOF Group
+    - ELO.OL       # Elopak
+    - FLNG.OL      # Flex LNG
+    - HAUTO.OL     # Höegh Autoliners
+    - IDEX.OL      # IDEX Biometrics
+    - KCC.OL       # Klaveness Combination Carriers
+    - MEDI.OL      # Medistim
+    - MULTI.OL     # Multiconsult
+    - NORBT.OL     # Norbit
+    - NORCO.OL     # Norconsult
+    - NYKD.OL      # Nykode Therapeutics
+    - ODL.OL       # Odfjell Drilling
+    - ODF.OL       # Odfjell SE
+    - PEN.OL       # Panoro Energy
+    - PHO.OL       # Photocure
+    - RANA.OL      # Rana Gruber
+    - SDRL.OL      # Seadrill
+    - SHLF.OL      # Shelf Drilling
+    - SMCRT.OL     # SmartCraft
+    - VEI.OL       # Veidekke
+    - VOW.OL       # Vow
+    - XXL.OL       # XXL
+    - AKH.OL       # Aker Horizons
+    - HPUR.OL      # Hexagon Purus
+  stockholm:
     - VOLV-B.ST    # Volvo
     - ERIC-B.ST    # Ericsson
-    - ATCO-A.ST    # Atlas Copco
+    - ATCO-A.ST    # Atlas Copco A
+    - ATCO-B.ST    # Atlas Copco B
     - INVE-B.ST    # Investor
     - SEB-A.ST     # SEB
     - SAND.ST      # Sandvik
     - ASSA-B.ST    # Assa Abloy
     - EVO.ST       # Evolution
+    - ABB.ST       # ABB
+    - ALFA.ST      # Alfa Laval
+    - AZN.ST       # AstraZeneca
+    - BOL.ST       # Boliden
+    - ELUX-B.ST    # Electrolux
+    - ESSITY-B.ST  # Essity
+    - GETI-B.ST    # Getinge
+    - HM-B.ST      # H&M
+    - HEXA-B.ST    # Hexagon
+    - INDU-C.ST    # Industrivärden
+    - KINV-B.ST    # Kinnevik
+    - NDA-SE.ST    # Nordea
+    - NIBE-B.ST    # NIBE
+    - SAAB-B.ST    # Saab
+    - SCA-B.ST     # SCA
+    - SHB-A.ST     # Handelsbanken
+    - SINCH.ST     # Sinch
+    - SKF-B.ST     # SKF
+    - SWED-A.ST    # Swedbank
+    - TEL2-B.ST    # Tele2
+    - TELIA.ST     # Telia
+    - SBB-B.ST     # SBB
+    - EQT.ST       # EQT
+    - LIFCO-B.ST   # Lifco
+    - LATO-B.ST    # Latour
+    - SWEC-B.ST    # Sweco
+    - HUSQ-B.ST    # Husqvarna
+    - SSAB-A.ST    # SSAB
+    - HOLM-B.ST    # Holmen
+    - BETS-B.ST    # Betsson
+    - BILL.ST      # Billerud
+    - AXFO.ST      # Axfood
+    - THULE.ST     # Thule
+    - MTG-B.ST     # MTG
+    - EMBRAC-B.ST  # Embracer
+    - SKA-B.ST     # Skanska
+    - EPI-A.ST     # Epiroc
+    - BALD-B.ST    # Balder
+    - CAST.ST      # Castellum
+    - SECU-B.ST    # Securitas
+    - LUND-B.ST    # Lundbergföretagen
+  copenhagen:
     - NOVO-B.CO    # Novo Nordisk
-    - MAERSK-B.CO  # Maersk
+    - MAERSK-A.CO  # Maersk A
+    - MAERSK-B.CO  # Maersk B
     - DSV.CO       # DSV
     - ORSTED.CO    # Ørsted
     - VWS.CO       # Vestas
+    - CARL-B.CO    # Carlsberg
+    - COLO-B.CO    # Coloplast
+    - DANSKE.CO    # Danske Bank
+    - GN.CO        # GN Store Nord
+    - GMAB.CO      # Genmab
+    - NSIS-B.CO    # Novonesis
+    - PNDORA.CO    # Pandora
+    - ROCK-B.CO    # Rockwool
+    - TRYG.CO      # Tryg
+    - DEMANT.CO    # Demant
+    - AMBU-B.CO    # Ambu
+    - ISS.CO       # ISS
+    - JYSK.CO      # Jyske Bank
+    - NKT.CO       # NKT
+    - SYDB.CO      # Sydbank
+    - BAVA.CO      # Bavarian Nordic
+    - ZEAL.CO      # Zealand Pharma
+    - NETC.CO      # Netcompany
+    - FLS.CO       # FLSmidth
+    - RILBA.CO     # Ringkjøbing Landbobank
+  helsinki:
     - NOKIA.HE     # Nokia
     - NESTE.HE     # Neste
     - KNEBV.HE     # Kone
     - SAMPO.HE     # Sampo
-  usa:
-    - AAPL
-    - MSFT
-    - NVDA
-    - AMZN
-    - GOOGL
-    - META
-    - TSLA
-    - BRK-B
-    - JPM
-    - V
-    - UNH
-    - XOM
-    - LLY
-    - AVGO
-    - COST
-    - HD
-    - PG
-    - JNJ
-    - ABBV
-    - MRK
-    - CRM
-    - AMD
-    - NFLX
-    - ORCL
-    - ADBE
-    - PEP
-    - KO
-    - CVX
-    - WMT
-    - BAC
-    - DIS
-    - CSCO
-    - QCOM
-    - TXN
-    - AMAT
-    - MU
-    - PLTR
-    - UBER
+    - UPM.HE       # UPM
+    - STERV.HE     # Stora Enso
+    - FORTUM.HE    # Fortum
+    - WRT1V.HE     # Wärtsilä
+    - ELISA.HE     # Elisa
+    - ORNBV.HE     # Orion
+    - KESKOB.HE    # Kesko
+    - METSO.HE     # Metso
+    - NDA-FI.HE    # Nordea (Helsinki)
+    - OUT1V.HE     # Outokumpu
+    - TIETO.HE     # Tietoevry
+    - KCR.HE       # Konecranes
+    - VALMT.HE     # Valmet
+    - HUH1V.HE     # Huhtamäki
+    - CGCBV.HE     # Cargotec
+    - QTCOM.HE     # Qt Group
+    - TYRES.HE     # Nokian Tyres
+    - KEMIRA.HE    # Kemira
+    - REG1V.HE     # Revenio
+    - HARVIA.HE    # Harvia
+    - MANTA.HE     # Mandatum
+  usa_ekstra:               # Store selskaper som ikke er i S&P 500
     - SHOP
     - ASML
+    - ARM
+    - MELI
+    - PDD
+    - TTD
+    - MSTR
+    - COIN
+    - SPOT
+    - SNOW
+
+universe_extra:
+  sp500: true               # legg til hele S&P 500 (hentes fra Wikipedia ved hver kjøring)
 
 data:
   history_period: "2y"            # kurshistorikk som hentes (1y, 2y, 5y ...)
-  fundamentals_max_age_days: 2    # fundamental-/analytikerdata gjenbrukes så mange dager før de hentes på nytt
+  fundamentals_max_age_days: 3    # fundamental-/analytikerdata gjenbrukes så mange dager før de hentes på nytt
+  max_details_per_run: 350        # maks aksjer som får hentet fundamentaldata per kjøring (de eldste først)
+  request_pause: 0.3              # sekunder pause mellom hver aksje (vær snill med Yahoo)
   db_path: "data/aksjeradar.db"
 
 signals:
@@ -124,8 +246,8 @@ scoring:
 
 report:
   top_n: 10                       # antall i "topp"-listen
-  per_category: 5                 # antall ideer per kategori
-  screener_rows: 40               # rader i screener-tabellen i rapporten
+  per_category: 6                 # antall ideer per kategori
+  screener_rows: 60               # rader i screener-tabellen i rapporten
   output_dir: "reports"
 
 notify:
@@ -133,5 +255,7 @@ notify:
   email: false                    # krever SMTP_* og EMAIL_TO i .env
 
 export:
-  json_path: "docs/data.json"     # datafilen mobil-appen (docs/index.html) leser
+  json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart
+  details_dir: "docs/stocks"      # én detaljfil per aksje (hentes når du åpner aksjen)
   history_days: 130               # antall kursdager i grafen i appen
+  spark_days: 30                  # antall kursdager i de små grafene i listene

@@ -47,7 +47,10 @@
   ];
   const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["screener", "Screener"], ["varsler", "Varsler"]];
 
-  const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null };
+  const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
+  const detailCache = {};
+  let searchQuery = "";
+  let currentTicker = null;
   try {
     state.tab = localStorage.getItem("ar.tab") || state.tab;
     state.market = localStorage.getItem("ar.market") || state.market;
@@ -98,6 +101,7 @@
   const I = {
     radar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 19 6"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></svg>',
     info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></svg>',
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
     ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>',
@@ -140,9 +144,9 @@
     .sort((a, b) => (b.score || 0) - (a.score || 0));
 
   // ---------- byggeklosser ----------
-  function sparkline(h, W, H) {
-    if (!h || !h.close || h.close.length < 5) return "";
-    const pts = h.close.slice(-45);
+  function sparkline(arr, W, H) {
+    if (!arr || arr.length < 5) return "";
+    const pts = arr.slice(-45);
     const lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts), span = hi - lo || 1;
     const x = i => (i / (pts.length - 1)) * (W - 2) + 1;
     const y = v => H - 2 - ((v - lo) / span) * (H - 4);
@@ -165,12 +169,15 @@
         <span class="l1">${rank}<span class="tick">${esc(st.ticker)}</span><span class="name">${esc(st.name)}</span></span>
         <span class="l2">${vbadge(st.verdict)}<span class="info mono">${info}</span></span>
       </span>
-      <span class="mid">${sparkline(st.history, 64, 26)}</span>
+      <span class="mid">${sparkline(st.spark, 64, 26)}</span>
       <span class="r"><span class="pill ${scClass(st.score)}">${sc(st.score)}</span></span>${sub}
     </button>`;
   }
   function list(html, emptyText) {
     return html ? `<div class="list">${html}</div>` : `<div class="empty">${emptyText || "Ingen treff."}</div>`;
+  }
+  function more(remaining, key) {
+    return remaining > 0 ? `<button class="more" data-more="${esc(key)}">Vis flere (${remaining} til)</button>` : "";
   }
   function sectionHead(title, count) {
     return `<div class="section-head"><h2>${esc(title)}</h2>${count != null ? `<span class="count">${count}</span>` : ""}</div>`;
@@ -181,7 +188,7 @@
       <span class="hc-top">${vbadge(s.verdict)}<span class="pill ${scClass(s.score)}">${sc(s.score)}</span></span>
       <span class="hc-tick">${esc(s.ticker)}</span>
       <span class="hc-name">${esc(s.name)} · ${esc(s.market)}</span>
-      <span class="hc-spark">${sparkline(s.history, 240, 56)}</span>
+      <span class="hc-spark">${sparkline(s.spark, 240, 56)}</span>
       <span class="hc-price"><b class="mono">${num(s.price, 2)}</b> <span class="muted">${esc(s.currency || "")}</span> <span class="mono ${sign(s.change_1d)}">${pct(s.change_1d)}</span></span>
       <span class="hc-why">${reasons.map(r => `<span>${esc(r)}</span>`).join("")}</span>
     </button>`;
@@ -214,8 +221,9 @@
     const show = state.verdictFilter ? [state.verdictFilter] : VERDICTS;
     for (const v of show) {
       const rows = all.filter(s => s.verdict === v).sort((a, b) => (b.score || 0) - (a.score || 0));
+      const cap = state.expand[v] ? rows.length : 40;
       html += `<div class="section">${sectionHead(v, rows.length)}<p class="hint">${esc(VHINT[v])}</p>${list(
-        rows.map(s => row(s, { rank: s.rank, sub: esc((s.verdict_reasons || []).slice(1, 4).join(" · ")) })).join(""), "Ingen i dette markedet.")}</div>`;
+        rows.slice(0, cap).map(s => row(s, { rank: s.rank, sub: esc((s.verdict_reasons || []).slice(1, 4).join(" · ")) })).join(""), "Ingen i dette markedet.")}${more(rows.length - cap, "verdict:" + v)}</div>`;
     }
     html += `<p class="note">Reglene: score ≥ 75 gir Sterkt kjøp, ≥ 65 Kjøp, ≥ 50 Hold, ≥ 40 Avvent, ellers Unngå. Kjøp krever kurs over SMA200; death cross, sterkt overkjøpt RSI, negative analytikere eller kurs over kursmål trekker ned. Ikke investeringsråd.</p>`;
     return html;
@@ -232,15 +240,15 @@
       return dir === "asc" ? av - bv : bv - av;
     });
     const options = SORTS.map(x => `<option value="${x[0]}" ${x[0] === state.sort ? "selected" : ""}>${esc(x[1])}</option>`).join("");
-    const html = rows.map(s => row(s, {
+    const html = rows.slice(0, state.limit).map(s => row(s, {
       rank: s.rank,
       info: `${esc(label)}: <b class="${kind === "pct" ? sign(s[key]) : ""}">${fmtValue(key, kind, s)}</b>`,
     })).join("");
     return `<div class="tools">
-        <input id="q" type="search" placeholder="Søk ticker eller navn" value="${esc(state.query)}" autocomplete="off">
+        <input id="q" type="search" placeholder="Filtrer på ticker eller navn" value="${esc(state.query)}" autocomplete="off">
         <select id="sort" aria-label="Sorter etter">${options}</select>
       </div>
-      <div class="section">${sectionHead(label, rows.length)}${list(html)}</div>`;
+      <div class="section">${sectionHead(label, rows.length)}${list(html)}${more(rows.length - state.limit, "screener")}</div>`;
   }
 
   function viewVarsler() {
@@ -284,15 +292,63 @@
     </svg>`;
   }
 
-  function showSheet(html, push, key) {
+  function showSheet(html, push, key, replace) {
     const sheet = $("#sheet");
+    const top = replace ? sheet.scrollTop : 0;
     sheet.innerHTML = html;
     sheet.hidden = false;
     requestAnimationFrame(() => sheet.classList.add("open"));
-    sheet.scrollTop = 0;
+    sheet.scrollTop = top;
     document.body.style.overflow = "hidden";
     $("#back").addEventListener("click", () => history.back());
-    if (push !== false) history.pushState(key, "", "");
+    if (push !== false && !replace) history.pushState(key, "", "");
+  }
+
+  // ---------- søk ----------
+  function searchStocks(q) {
+    q = q.trim().toLowerCase();
+    if (!q) return [];
+    const all = stocks();
+    const score = s => {
+      const t = s.ticker.toLowerCase(), base = t.split(".")[0], n = String(s.name || "").toLowerCase(), sec = String(s.sector || "").toLowerCase();
+      if (t === q || base === q) return 0;
+      if (base.startsWith(q)) return 1;
+      if (n.startsWith(q)) return 2;
+      if (n.split(/\s+/).some(w => w.startsWith(q))) return 3;
+      if (n.includes(q) || t.includes(q)) return 4;
+      if (sec.includes(q)) return 5;
+      return 99;
+    };
+    return all.map(s => [score(s), s]).filter(x => x[0] < 99)
+      .sort((a, b) => a[0] - b[0] || (b[1].score || 0) - (a[1].score || 0)).map(x => x[1]);
+  }
+  function renderSearchResults() {
+    const box = $("#search-results");
+    if (!box) return;
+    const hits = searchStocks(searchQuery);
+    const n = stocks().length;
+    if (!searchQuery.trim()) {
+      box.innerHTML = `<p class="note" style="margin-top:14px">Søk blant ${n} aksjer på ticker (f.eks. <span class="mono">EQNR</span>), navn (<span class="mono">Equinor</span>) eller sektor (<span class="mono">Energy</span>). Universet dekker Oslo Børs, Stockholm, København, Helsinki og hele S&P 500.</p>`;
+      return;
+    }
+    if (!hits.length) {
+      box.innerHTML = `<div class="empty" style="margin-top:14px">Ingen treff på «${esc(searchQuery)}» blant de ${n} aksjene som følges. Vil du ha den med, kan tickeren legges til i <span class="mono">config.yaml</span>.</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="section">${sectionHead("Treff", hits.length)}${list(hits.slice(0, 60).map(s => row(s, { rank: s.rank })).join(""))}</div>`;
+  }
+  function openSearch(push) {
+    showSheet(`
+      ${sheetTop("Søk", "Finn en bestemt aksje")}
+      <div class="gutter sheet-body" style="padding-top:10px">
+        <input id="search-input" class="search-input" type="search" placeholder="Ticker, navn eller sektor" value="${esc(searchQuery)}" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+        <div id="search-results"></div>
+      </div>`, push, { search: true });
+    const inp = $("#search-input");
+    inp.addEventListener("input", () => { searchQuery = inp.value; renderSearchResults(); });
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { const h = searchStocks(searchQuery); if (h.length) openStock(h[0].ticker); } });
+    renderSearchResults();
+    setTimeout(() => { try { inp.focus(); } catch (e) { /* ignorer */ } }, 50);
   }
   function sheetTop(title, subtitle, right) {
     return `<div class="sheet-top"><div class="gutter bar">
@@ -301,9 +357,23 @@
       </div></div>`;
   }
 
-  function openStock(ticker, push) {
-    const s = byTicker(ticker);
-    if (!s) return;
+  async function openStock(ticker, push) {
+    const idx = byTicker(ticker);
+    if (!idx) return;
+    currentTicker = ticker;
+    let s = detailCache[ticker];
+    if (s) { renderStock(s, push, false); return; }
+    renderStock(Object.assign({ _loading: true }, idx), push, false);
+    try {
+      const r = await fetch("stocks/" + encodeURIComponent(ticker) + ".json");
+      if (r.ok) { s = await r.json(); detailCache[ticker] = s; }
+    } catch (e) { /* uten nett eller fil – vis det vi har */ }
+    if (currentTicker !== ticker) return;
+    renderStock(s || Object.assign({ _nodetail: true }, idx), false, true);
+  }
+
+  function renderStock(s, push, replace) {
+    const ticker = s.ticker;
     const w = (state.data && state.data.weights) || {};
     const ideaReasons = [];
     for (const [key] of CATEGORIES.concat([["warnings"]])) {
@@ -361,7 +431,7 @@
           <p class="vd-hint">${esc(VHINT[s.verdict] || "")}</p>
           ${vr.length ? `<ul class="vd-why">${vr.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
         </div>
-        <div class="chart">${chartSVG(s.history)}
+        <div class="chart">${s._loading ? `<div class="skeleton" style="margin:0"><span style="height:170px"></span></div>` : s.history ? chartSVG(s.history) : `<p class="muted" style="margin:6px 8px">Kursgrafen er ikke tilgjengelig akkurat nå.</p>`}
           <div class="legend"><span><i style="background:var(--accent)"></i>SMA50</span><span><i style="background:var(--warn)"></i>SMA200</span><span><i style="background:var(--muted)"></i>Sluttkurs</span></div>
         </div>
         ${ideaReasons.length ? `<div class="card"><h3>Signaler i dag</h3><ul class="reasons" style="margin:0;padding-left:18px">${[...new Set(ideaReasons)].map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
@@ -373,7 +443,7 @@
         <div class="card"><h3>Innsidehandler (180 d)</h3>${insider}</div>
         <a class="ext" href="https://finance.yahoo.com/quote/${encodeURIComponent(s.ticker)}" target="_blank" rel="noopener">Åpne i Yahoo Finance ${I.ext}</a>
         <p class="note">Mekaniske signaler fra offentlige data – ikke investeringsråd. Gjør egen vurdering før du handler.</p>
-      </div>`, push, { ticker });
+      </div>`, push, { ticker }, replace);
   }
 
   function openInfo(push) {
@@ -422,7 +492,8 @@
   window.addEventListener("popstate", e => {
     if (e.state && e.state.ticker) openStock(e.state.ticker, false);
     else if (e.state && e.state.info) openInfo(false);
-    else closeSheet();
+    else if (e.state && e.state.search) openSearch(false);
+    else { currentTicker = null; closeSheet(); }
   });
 
   // ---------- rammen ----------
@@ -460,7 +531,7 @@
     main.innerHTML = views[state.tab]();
     if (state.tab === "screener") {
       const q = $("#q");
-      q.addEventListener("input", () => { state.query = q.value; const pos = q.selectionStart; render(); const q2 = $("#q"); q2.focus(); q2.setSelectionRange(pos, pos); });
+      q.addEventListener("input", () => { state.query = q.value; state.limit = 80; const pos = q.selectionStart; render(); const q2 = $("#q"); q2.focus(); q2.setSelectionRange(pos, pos); });
       $("#sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
     }
   }
@@ -468,14 +539,21 @@
   document.addEventListener("click", e => {
     const row = e.target.closest("[data-ticker]");
     if (row) { openStock(row.dataset.ticker); return; }
+    const mb = e.target.closest("[data-more]");
+    if (mb) {
+      const k = mb.dataset.more;
+      if (k === "screener") state.limit += 100; else if (k.startsWith("verdict:")) state.expand[k.slice(8)] = true;
+      render(); return;
+    }
     const tile = e.target.closest("[data-verdict]");
-    if (tile) { state.verdictFilter = state.verdictFilter === tile.dataset.verdict ? null : tile.dataset.verdict; render(); return; }
+    if (tile) { state.verdictFilter = state.verdictFilter === tile.dataset.verdict ? null : tile.dataset.verdict; state.expand = {}; render(); return; }
     const seg = e.target.closest("[data-market]");
-    if (seg) { state.market = seg.dataset.market; try { localStorage.setItem("ar.market", state.market); } catch (x) { /* ignorer */ } render(); return; }
+    if (seg) { state.market = seg.dataset.market; state.limit = 80; state.expand = {}; try { localStorage.setItem("ar.market", state.market); } catch (x) { /* ignorer */ } render(); return; }
     const tab = e.target.closest("[data-tab]");
-    if (tab) { state.tab = tab.dataset.tab; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ } render(); window.scrollTo(0, 0); return; }
+    if (tab) { state.tab = tab.dataset.tab; state.limit = 80; state.expand = {}; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ } render(); window.scrollTo(0, 0); return; }
     if (e.target.closest("#refresh")) { load(true); return; }
     if (e.target.closest("#info")) { openInfo(); return; }
+    if (e.target.closest("#search")) { openSearch(); return; }
     if (e.target.closest("#hint-close")) { try { localStorage.setItem("ar.hint", "1"); } catch (x) { /* ignorer */ } renderHeader(); }
   });
 
@@ -487,6 +565,7 @@
   $("#brand-icon").innerHTML = I.radar;
   $("#refresh").innerHTML = I.refresh;
   $("#info").innerHTML = I.info;
+  $("#search").innerHTML = I.search;
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
   load(false);
 })();

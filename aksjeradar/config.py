@@ -20,7 +20,9 @@ DEFAULTS = {
     "universe": {},
     "data": {
         "history_period": "2y",          # hvor lang kurshistorikk som hentes
-        "fundamentals_max_age_days": 2,  # hvor gamle fundamentaldata kan være før de hentes på nytt
+        "fundamentals_max_age_days": 3,  # hvor gamle fundamentaldata kan være før de hentes på nytt
+        "max_details_per_run": 350,      # maks aksjer som får hentet fundamentaldata per kjøring
+        "request_pause": 0.3,            # sekunder pause mellom hver aksje
         "db_path": "data/aksjeradar.db",
     },
     "signals": {
@@ -50,9 +52,12 @@ DEFAULTS = {
         "email": False,
     },
     "export": {
-        "json_path": "docs/data.json",  # datafilen mobil-appen leser
+        "json_path": "docs/data.json",  # lett indeks som mobil-appen leser ved oppstart
+        "details_dir": "docs/stocks",   # én detaljfil per aksje
         "history_days": 130,            # kursdager som tas med i grafen
+        "spark_days": 30,               # kursdager i de små grafene i listene
     },
+    "universe_extra": {"sp500": False},
 }
 
 
@@ -80,6 +85,7 @@ def load_config(path: str | Path | None = None) -> dict:
     # Gjør relative stier absolutte, slik at scriptet kan kjøres fra hvor som helst
     cfg["data"]["db_path"] = str((ROOT / cfg["data"]["db_path"]).resolve())
     cfg["report"]["output_dir"] = str((ROOT / cfg["report"]["output_dir"]).resolve())
+    cfg["export"]["details_dir"] = str((ROOT / cfg["export"]["details_dir"]).resolve())
     return cfg
 
 

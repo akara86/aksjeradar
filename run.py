@@ -30,6 +30,7 @@ from aksjeradar.notify import send_email, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
 from aksjeradar.scoring import CATEGORIES, build_table, generate_ideas
 from aksjeradar.storage import Storage
+from aksjeradar.universe import build_universe
 
 log = logging.getLogger("aksjeradar")
 
@@ -52,12 +53,16 @@ def main() -> int:
     logging.getLogger("peewee").setLevel(logging.ERROR)
 
     cfg = load_config(args.config)
-    tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()] if args.tickers else all_tickers(cfg)
+    store = Storage(cfg["data"]["db_path"])
+    if args.tickers:
+        tickers = [t.strip().upper() for t in args.tickers.split(",") if t.strip()]
+    elif args.demo:
+        tickers = all_tickers(cfg)
+    else:
+        tickers = build_universe(cfg, store)
     if not tickers:
         log.error("Ingen tickere i config.yaml.")
         return 1
-
-    store = Storage(cfg["data"]["db_path"])
     run_date = date.today().isoformat()
     t0 = time.time()
 
@@ -84,24 +89,40 @@ def main() -> int:
     # ---------- 2. fundamental / analytiker / innsider ----------
     details: dict[str, dict] = {}
     max_age = float(cfg["data"]["fundamentals_max_age_days"])
-    fetched = 0
-    for i, t in enumerate(prices, start=1):
-        if args.demo:
+    max_fetch = int(cfg["data"].get("max_details_per_run", 350))
+    pause = float(cfg["data"].get("request_pause", 0.3))
+    if args.demo:
+        for t in prices:
             details[t] = demo_details(t, float(prices[t]["Close"].iloc[-1]))
             store.save_snapshot("details", t, details[t])
-            continue
-        payload, age = store.load_snapshot("details", t)
-        if payload and not args.refresh and age is not None and age < max_age:
-            details[t] = payload
-            continue
-        details[t] = fetch_details(t)
-        store.save_snapshot("details", t, details[t])
-        fetched += 1
-        time.sleep(0.4)  # vær snill med Yahoo
-        if i % 10 == 0:
-            log.info("  ... %d/%d aksjer", i, len(prices))
-    if not args.demo:
-        log.info("Fundamentaldata: %d hentet nå, %d fra buffer.", fetched, len(prices) - fetched)
+    else:
+        # Bruk buffer der den er fersk; hent de som mangler eller er eldst – inntil taket per kjøring
+        todo: list[tuple[float, str]] = []
+        for t in prices:
+            payload, age = store.load_snapshot("details", t)
+            if payload and not args.refresh and age is not None and age < max_age:
+                details[t] = payload
+            else:
+                todo.append((age if age is not None else 1e9, t))
+                if payload:
+                    details[t] = payload  # bruk gammel versjon inntil ny er hentet
+        todo.sort(key=lambda x: -x[0])  # mangler/eldst først
+        if len(todo) > max_fetch:
+            log.info("%d aksjer trenger fundamentaldata; henter %d nå, resten neste kjøring.", len(todo), max_fetch)
+        fetched = failed = 0
+        for i, (_, t) in enumerate(todo[:max_fetch], start=1):
+            d = fetch_details(t)
+            if d["fundamentals"].get("shortName") or d["fundamentals"].get("currentPrice"):
+                details[t] = d
+                store.save_snapshot("details", t, d)
+                fetched += 1
+            else:
+                failed += 1  # tomt svar (f.eks. ratebegrensning) – prøves igjen neste kjøring
+                details.setdefault(t, d)
+            time.sleep(pause)
+            if i % 25 == 0:
+                log.info("  ... %d/%d aksjer", i, min(len(todo), max_fetch))
+        log.info("Fundamentaldata: %d hentet nå, %d tomme svar, %d fra buffer.", fetched, failed, len(prices) - fetched - failed)
 
     # ---------- 3. signaler, score, ideer ----------
     table = build_table(prices, details, cfg)

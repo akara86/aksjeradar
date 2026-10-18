@@ -228,6 +228,10 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .ext { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; color: var(--accent); font-weight: 600; text-decoration: none; }
 .ext svg { width: 16px; height: 16px; }
 
+.more { display: block; width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); color: var(--accent); font-weight: 600; font-size: 14px; }
+.more:active { background: var(--surface-2); }
+.search-input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; font-size: 16px; }
+.search-input:focus { border-color: var(--accent); }
 .error { margin: 40px 0; text-align: center; color: var(--muted); }
 .error code { font-family: var(--font-mono); background: var(--surface-2); padding: 2px 6px; border-radius: 6px; }
 

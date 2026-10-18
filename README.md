@@ -107,9 +107,11 @@ crontab -e
 
 ## 6. Mobil-app på iPhone (og Android)
 
-Mappen `docs/` er en komplett mobil-app (web-app) som leser `docs/data.json` – filen `run.py` lager
-ved hver kjøring. Den har dagens ideer, topplisten, en screener med søk og sortering, varsler og
-detaljside per aksje med kursgraf, score, signaler, analytikere og innsidehandler. Den fungerer uten
+Mappen `docs/` er en komplett mobil-app (web-app) som leser `docs/data.json` (lett indeks) og
+`docs/stocks/<TICKER>.json` (detaljer) – filene `run.py` lager ved hver kjøring. Den har dagens
+kjøpskandidater og ideer, en Kjøp-fane med anbefalinger, screener, varsler, **søk etter enkeltaksjer**
+(forstørrelsesglasset øverst – ticker, navn eller sektor) og detaljside per aksje med kursgraf, score,
+signaler, analytikere og innsidehandler. Den fungerer uten
 nett (viser siste data) og følger mørk/lys modus på telefonen.
 
 **Publiser den (gratis, via GitHub Pages):**
@@ -137,6 +139,9 @@ Alt styres fra `config.yaml`:
 
 - **`universe`** – hvilke aksjer som følges. Legg til/fjern fritt. Yahoo-tickere:
   Oslo `.OL`, Stockholm `.ST`, København `.CO`, Helsinki `.HE`, USA uten suffiks.
+  Med `universe_extra: sp500: true` hentes i tillegg hele S&P 500 fra Wikipedia ved hver kjøring
+  (ca. 700 aksjer totalt). Fundamentaldata hentes for maks `max_details_per_run` aksjer per kjøring,
+  de eldste først, så første kjøring med stort univers bruker 2–3 dager på å fylle alt.
 - **`signals`** – perioder for RSI/SMA, terskel for volumhopp og utbrudd.
 - **`scoring.weights`** – hvor mye teknisk / analytiker / fundamental / innsider skal telle.
 - **`report`** – hvor mange aksjer som vises.
