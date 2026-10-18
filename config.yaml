@@ -25,7 +25,8 @@ universe:
     - TOM.OL       # Tomra
     - STB.OL       # Storebrand
     - GJF.OL       # Gjensidige
-    - SCHA.OL      # Schibsted A
+    - VEND.OL      # Vend Marketplaces (tidl. Schibsted)
+    - NAS.OL       # Norwegian Air Shuttle
     - NOD.OL       # Nordic Semiconductor
     - AKSO.OL      # Aker Solutions
     - SUBC.OL      # Subsea 7
