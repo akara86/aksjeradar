@@ -281,6 +281,69 @@ intraday:                         # intradag-modul: setups på 15-minutters kurs
     min_stop_pct: 0.004           # stop minst 0,4 % unna (ellers støy)
     max_stop_pct: 0.04            # stop maks 4 % unna
 
+funds:                            # aksjefond: gunstige innganger ut fra fall i NOK og valuta (under «Mer» i appen)
+  enabled: true
+  base_currency: "NOK"
+  thresholds:
+    good_drawdown: -0.08          # >= 8 % under 52-ukers topp (i NOK) = Gunstig
+    strong_drawdown: -0.15        # >= 15 % = Svært gunstig
+    fx_expensive: 0.04            # kronen 4 % svakere enn 200d-snitt + fond nær topp = Dyr
+  # Hvert fond kobles til en ETF (proxy) som følger samme indeks. currency = ETF-ens handelsvaluta.
+  # hedged: true = valutasikret fond (ingen valutaeffekt). fx_relevant: false = underliggende i NOK uansett.
+  list:
+    - id: global
+      name: "Globalt indeksfond (MSCI World)"
+      examples: "KLP AksjeGlobal Indeks, DNB Global Indeks, Nordnet Indeksfond Global"
+      proxy: URTH
+      currency: USD
+    - id: global_acwi
+      name: "Globalt indeksfond, alle markeder (MSCI ACWI)"
+      examples: "Storebrand Indeks Alle Markeder, KLP AksjeGlobal Indeks (nær)"
+      proxy: ACWI
+      currency: USD
+    - id: global_hedged
+      name: "Globalt indeksfond, valutasikret til NOK"
+      examples: "KLP AksjeGlobal Indeks Valutasikret, DNB Global Indeks Valutasikret"
+      proxy: URTH
+      currency: USD
+      hedged: true
+    - id: usa
+      name: "USA – S&P 500"
+      examples: "KLP AksjeUSA Indeks, DNB USA Indeks, Storebrand Indeks USA"
+      proxy: SPY
+      currency: USD
+    - id: norge
+      name: "Norge – Oslo Børs"
+      examples: "KLP AksjeNorge Indeks, DNB Norge Indeks, Nordnet Indeksfond Norge"
+      proxy: NORW
+      currency: USD
+      fx_relevant: false          # norske aksjer – valutaen nøytraliseres når ETF-en regnes om til NOK
+    - id: em
+      name: "Fremvoksende markeder"
+      examples: "KLP AksjeFremvoksende Markeder Indeks, DNB Global Emerging Markets Indeks"
+      proxy: IEMG
+      currency: USD
+    - id: europa
+      name: "Europa"
+      examples: "KLP AksjeEuropa Indeks, DNB Europa Indeks"
+      proxy: VGK
+      currency: USD
+    - id: teknologi
+      name: "Teknologi (Nasdaq-100)"
+      examples: "DNB Teknologi (nær), Nordnet Indeksfond Teknologi"
+      proxy: QQQ
+      currency: USD
+    - id: helse
+      name: "Helse (global)"
+      examples: "DNB Health Care (nær)"
+      proxy: XLV
+      currency: USD
+    - id: fornybar
+      name: "Fornybar energi"
+      examples: "DNB Miljøinvest, Storebrand Fornybar Energi (nær)"
+      proxy: ICLN
+      currency: USD
+
 export:
   json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart
   details_dir: "docs/stocks"      # én detaljfil per aksje (hentes når du åpner aksjen)

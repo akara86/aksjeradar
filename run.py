@@ -27,8 +27,9 @@ from pathlib import Path
 
 from aksjeradar.autotrader import run_autotrader
 from aksjeradar.config import all_tickers, load_config
-from aksjeradar.data import FX_DEMO, demo_details, demo_prices, fetch_details, fetch_fx, fetch_prices
+from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
+from aksjeradar.funds import run_funds
 from aksjeradar.notify import send_email, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
 from aksjeradar.scoring import CATEGORIES, build_table, generate_ideas
@@ -148,6 +149,23 @@ def main() -> int:
     # ---------- 4. rapport + datafil til mobil-appen ----------
     md = render_markdown(table, ideas, run_date, cfg, demo=args.demo)
     md_path, html_path = write_reports(md, run_date, cfg["report"]["output_dir"])
+    # Fond – gunstige innganger ut fra fall i NOK og valuta
+    funds_payload = {}
+    if cfg["funds"].get("enabled", True) and cfg["funds"].get("list"):
+        try:
+            proxies = sorted({f["proxy"] for f in cfg["funds"]["list"]})
+            currencies = sorted({f.get("currency", "USD") for f in cfg["funds"]["list"]} - {"NOK"})
+            if args.demo:
+                proxy_frames = demo_prices(proxies, seed=5)
+                fx_frames = demo_fx_frames()
+            else:
+                proxy_frames = fetch_prices(proxies, "2y")
+                fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "2y")
+            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames)
+            log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
+        except Exception as e:  # noqa: BLE001
+            log.exception("Fondsmodulen feilet: %s", e)
+
     # Autotrader – virtuell portefølje som følger anbefalingene (egen fane i appen)
     if cfg["autotrader"].get("enabled", True):
         try:
@@ -163,7 +181,7 @@ def main() -> int:
     skipped = [t for t in tickers if t not in prices]
     if skipped:
         log.warning("Hoppet over (ingen kursdata): %s", ", ".join(skipped))
-    json_path = export_json(store, table, ideas, run_date, cfg, demo=args.demo, skipped=skipped, fx=fx)
+    json_path = export_json(store, table, ideas, run_date, cfg, demo=args.demo, skipped=skipped, fx=fx, funds=funds_payload)
 
     # Kort oppsummering i terminalen
     print()
@@ -184,7 +202,7 @@ def main() -> int:
     # ---------- 5. varsling ----------
     if not args.no_notify:
         if cfg["notify"].get("telegram"):
-            send_telegram(render_telegram(table, ideas, run_date, demo=args.demo))
+            send_telegram(render_telegram(table, ideas, run_date, demo=args.demo, funds=funds_payload))
         if cfg["notify"].get("email"):
             send_email(f"Aksjeradar {run_date}", render_html(md), md)
 

@@ -1,7 +1,7 @@
 /* Service worker: gjør appen rask å starte og brukbar uten nett (siste data vises).
    - app-filene: hentes fra hurtigbuffer, oppdateres i bakgrunnen
    - data.json:  hentes fra nett først, faller tilbake til siste lagrede versjon */
-const CACHE = "aksjeradar-v6";
+const CACHE = "aksjeradar-v7";
 const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 

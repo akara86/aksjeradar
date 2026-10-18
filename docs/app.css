@@ -297,3 +297,10 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .levels small { font-size: 11px; color: var(--muted); }
 .su-meta { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
 .row.menu .r { color: var(--muted); font-size: 20px; }
+
+/* ---------- fond ---------- */
+.fund { margin-top: 10px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-left-width: 4px; border-radius: 14px; }
+.fund.v-strong, .fund.v-buy { border-left-color: var(--up); } .fund.v-hold { border-left-color: var(--muted); } .fund.v-wait { border-left-color: var(--warn); }
+.fund-name { font-size: 16px; font-weight: 700; margin-top: 8px; }
+.fund-ex { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.fund .levels { margin-top: 10px; }

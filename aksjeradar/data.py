@@ -271,6 +271,17 @@ def demo_prices(tickers: list[str], days: int = 520, seed: int = 7) -> dict[str,
     return out
 
 
+def demo_fx_frames(days: int = 520, seed: int = 11) -> dict[str, pd.DataFrame]:
+    """Syntetisk valutahistorikk (USDNOK=X osv.) til demo-modus."""
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=days)
+    out = {}
+    for cur, base in (("USD", 10.6), ("EUR", 11.6), ("SEK", 1.02), ("DKK", 1.55), ("GBP", 13.4)):
+        rate = base * np.exp(np.cumsum(rng.normal(0, 0.004, days)))
+        out[f"{cur}NOK=X"] = pd.DataFrame({"Open": rate, "High": rate * 1.002, "Low": rate * 0.998, "Close": rate, "Volume": 0.0}, index=dates)
+    return out
+
+
 def demo_details(ticker: str, price: float, seed: int = 7) -> dict:
     """Lager tilfeldige fundamentaldata, analytikerkonsensus og innsidehandler."""
     rng = np.random.default_rng(zlib.crc32(f"{ticker}:{seed}".encode()))

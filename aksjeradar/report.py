@@ -137,7 +137,7 @@ def render_html(markdown_text: str, title: str = "Aksjeradar") -> str:
 
 
 # ---------- Telegram ----------
-def render_telegram(df: pd.DataFrame, ideas: dict, run_date: str, top_n: int = 5, demo: bool = False) -> str:
+def render_telegram(df: pd.DataFrame, ideas: dict, run_date: str, top_n: int = 5, demo: bool = False, funds: dict | None = None) -> str:
     """Kort HTML-formatert melding (Telegram støtter <b>, <i>, <code>)."""
     e = html.escape
     lines = [f"📡 <b>Aksjeradar {e(run_date)}</b>"]
@@ -160,6 +160,17 @@ def render_telegram(df: pd.DataFrame, ideas: dict, run_date: str, top_n: int = 5
         for it in items[:3]:
             reason = "; ".join(it["reasons"][:3]) if it.get("reasons") else ""
             lines.append(f"• <b>{e(it['ticker'])}</b> – {e(reason)}")
+
+    if funds and funds.get("funds"):
+        good = [f for f in funds["funds"] if f["level"] in ("Gunstig", "Svært gunstig")]
+        if funds.get("alerts"):
+            lines.append("\n💱 <b>Fond – nytt siden sist</b>")
+            for a in funds["alerts"][:5]:
+                lines.append(f"• {e(a['text'])}")
+        if good:
+            lines.append("\n<b>Fond med gunstig inngang nå</b>")
+            for f in good[:6]:
+                lines.append(f"• <b>{e(f['name'])}</b> – {e(f['level'].lower())} ({f['dd_52w'] * 100:+.1f} % fra topp i NOK)")
 
     warns = ideas.get("warnings") or []
     if warns:

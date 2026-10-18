@@ -208,6 +208,11 @@
       ? `<div class="hero">${cands.map(heroCard).join("")}</div>`
       : `<div class="empty">Ingen aksjer oppfyller kjøpskravene i dette markedet i dag.</div>`;
     html += `</div>`;
+    const gf = goodFunds();
+    if (gf.length) {
+      html += `<div class="section">${sectionHead("Fond – gunstig inngang nå", gf.length)}${gf.slice(0, 4).map(f => fundCard(f, true)).join("")}
+        <button class="more" data-sub="fond">Se alle fond</button></div>`;
+    }
     for (const [key, title] of CATEGORIES) {
       const items = ideaItems(key);
       html += `<div class="section">${sectionHead(title, items.length)}${list(
@@ -490,6 +495,9 @@
         </div>
         <div class="card"><h3>Autotrader</h3>
           <p>En virtuell portefølje som følger anbefalingene helt automatisk, hver handelsdag, på serveren – uavhengig av om du åpner appen. Den kjøper dagens beste kjøpskandidater med like store posisjoner og selger ved Avvent/Unngå, trendbrudd eller stop-loss, med kurtasje og slippage trukket fra. Avkastningen måles mot et likevektet gjennomsnitt av hele universet, så du ser om reglene faktisk slår markedet over tid.</p>
+        </div>
+        <div class="card"><h3>Fond</h3>
+          <p>Aksjefond følges via en indeks-ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. For hvert fond ser du fall fra 52-ukers topp i kroner, hvor mye som skyldes indeksen og hvor mye kronekursen, og et nivå (Svært gunstig / Gunstig / Nøytral / Dyr). Varsel når nivået skifter. Fondene du eier kan legges til i config.yaml under <span class="mono">funds.list</span>.</p>
         </div>
         <div class="card"><h3>Intradag</h3>
           <p>Kortsiktige setups på 15-minutters kurser for ~120 likvide aksjer, oppdatert hvert kvarter i børstiden: Gap-and-go, Åpningsbrudd, VWAP-reclaim og Trenddag, hver med inngang, stop og mål. Hvert setup etterprøves etter stenging, og treffprosent og snitt per setup vises i fanen. Kursene er ca. 15 minutter forsinket.</p>
@@ -960,18 +968,74 @@
     }, 5 * 60 * 1000);
   }
 
+  // ---------- fond: gunstige innganger (proxy-ETF × valuta) ----------
+  const LEVEL_CLASS = { "Svært gunstig": "v-strong", "Gunstig": "v-buy", "Nøytral": "v-hold", "Dyr": "v-wait" };
+  const fundsData = () => (state.data && state.data.funds && state.data.funds.funds) || [];
+  const goodFunds = () => fundsData().filter(f => f.level === "Gunstig" || f.level === "Svært gunstig");
+
+  function fundChart(h) {
+    // to linjer, hver indeksert til 100 ved start: fondet i NOK og indeksen i egen valuta
+    if (!h || !h.nok || h.nok.length < 5) return "";
+    const n0 = h.nok[0], i0 = h.idx[0];
+    const nok = h.nok.map(v => v / n0 * 100), idx = h.idx.map(v => v / i0 * 100);
+    return lineChart([{ values: idx, color: "var(--muted)", width: 1.3, dash: "4 3" }, { values: nok, color: "var(--accent)", width: 2.2 }], h.dates);
+  }
+  function fundCard(f, compact) {
+    const fxLine = f.fx_relevant && isNum(f.fx_vs_sma200)
+      ? `<span><i>Krone mot ${esc(f.currency)}</i><b class="mono ${f.fx_vs_sma200 < 0 ? "pos" : "neg"}">${pct(-f.fx_vs_sma200)}</b><small>${f.fx_vs_sma200 < 0 ? "sterkere enn snitt" : "svakere enn snitt"}</small></span>`
+      : `<span><i>Valuta</i><b class="mono">–</b><small>${f.hedged ? "valutasikret" : "ikke relevant"}</small></span>`;
+    return `<div class="fund ${LEVEL_CLASS[f.level] || ""}" data-fund="${esc(f.id)}">
+      <div class="su-top">${vbadge(f.level)}<span class="su-mkt mono">${esc(f.proxy)} · ${esc(f.currency)}${f.hedged ? " · sikret" : ""}</span><span class="pill ${scClass(f.score)}">${sc(f.score)}</span></div>
+      <div class="fund-name">${esc(f.name)}</div>
+      ${f.examples ? `<div class="fund-ex">${esc(f.examples)}</div>` : ""}
+      <div class="levels">
+        <span><i>Fra 52u-topp</i><b class="mono ${sign(f.dd_52w)}">${pct(f.dd_52w)}</b><small>i NOK</small></span>
+        <span><i>Mot 200d</i><b class="mono ${sign(f.vs_sma200)}">${pct(f.vs_sma200)}</b><small>snitt</small></span>
+        <span><i>1 mnd</i><b class="mono ${sign(f.ret_1m)}">${pct(f.ret_1m)}</b><small>indeks ${pct(f.idx_ret_1m)}</small></span>
+        ${fxLine}
+      </div>
+      ${compact ? "" : `<div class="chart" style="margin-top:10px">${fundChart(f.history)}<div class="legend"><span><i style="background:var(--accent)"></i>Fondet i NOK</span><span><i style="background:var(--muted)"></i>Indeksen i ${esc(f.currency)}</span><span>begge = 100 ved start</span></div></div>
+      <ul class="vd-why" style="margin-top:10px">${(f.why || []).map(w => `<li>${esc(w)}</li>`).join("")}</ul>
+      <div class="su-meta">Sist ${fmtDate(f.last_date)} · 1 år ${pct(f.ret_1y)} i NOK (indeks ${pct(f.idx_ret_1y)}) · RSI ${num(f.rsi, 0)}${f.prev_level && f.prev_level !== f.level ? ` · var ${esc(f.prev_level)} i går` : ""}</div>`}
+    </div>`;
+  }
+  function viewFond() {
+    const fs = fundsData();
+    if (!fs.length) return `<div class="empty-card" style="margin-top:16px"><b>Ingen fond er satt opp.</b><p>Fond kobles til en indeks-ETF i config.yaml under <span class="mono">funds.list</span>.</p></div>`;
+    const alerts = (state.data.funds.alerts || []);
+    let html = `<p class="hint" style="margin-top:12px">Hvert fond følges via en ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. Nivået sier om fondet er «på salg» målt mot egen historikk – ikke om fallet er over.</p>`;
+    if (alerts.length) html += `<div class="alert">💱 <b>Nytt siden sist:</b> ${alerts.map(a => esc(a.text)).join(" · ")}</div>`;
+    const groups = [["Svært gunstig", "Svært gunstig inngang"], ["Gunstig", "Gunstig inngang"], ["Nøytral", "Nøytralt"], ["Dyr", "Dyrt akkurat nå"]];
+    for (const [lvl, title] of groups) {
+      const items = fs.filter(f => f.level === lvl);
+      if (!items.length) continue;
+      html += `<div class="section">${sectionHead(title, items.length)}${items.map(f => fundCard(f, false)).join("")}</div>`;
+    }
+    const th = state.data.funds.thresholds || {};
+    html += `<div class="card"><h3>Slik vurderes fondene</h3><ul class="reasons" style="margin:0;padding-left:18px">
+      <li><b>Inngangsscore</b> (0–100): fall fra 52-ukers topp i NOK (20 % = fullt utslag), avstand under 200-dagers snitt, RSI, og hvor sterk kronen er mot sitt 200-dagers snitt i fondets valuta (sterk krone = billigere inngang).</li>
+      <li><b>Gunstig</b> = score ≥ 45 eller fall ≥ ${pct(-(th.good_drawdown || -0.08), false, 0)} fra topp. <b>Svært gunstig</b> = score ≥ 70 eller fall ≥ ${pct(-(th.strong_drawdown || -0.15), false, 0)}. <b>Dyr</b> = nær topp, langt over 200d-snitt og svak krone.</li>
+      <li>Varsel sendes (Telegram, hvis satt opp) når et fond skifter til eller fra gunstig inngang.</li>
+      <li>Valutasikrede fond vurderes uten valutaeffekt. Norske fond: valutaen nøytraliseres når ETF-en regnes om til NOK.</li>
+    </ul></div>
+    <p class="note">Et fall kan fortsette. Dette er en mekanisk «på salg»-måling for langsiktig sparing (f.eks. ekstra innskudd ved fall), ikke en spådom – og ikke investeringsråd. ETF-ene avviker litt fra fondene (honorar, én dags forsinkelse i andelskurs).</p>`;
+    return html;
+  }
+
   // ---------- «Mer»: screener, varsler, om ----------
   let currentSubview = null;
   function viewMer() {
     const warnCount = ideaItems("warnings").length;
+    const good = goodFunds().length;
     return `<div class="section" style="margin-top:14px"><div class="list">
+      <button class="row menu" data-sub="fond"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Fond</span>${good ? `<span class="pill hi">${good}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Gunstige innganger i aksjefond – fall i NOK og valuta</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" data-sub="screener"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Screener</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Sorter og filtrer alle ${stocks().length} aksjene</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" data-sub="varsler"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Varsler</span>${warnCount ? `<span class="pill lo">${warnCount}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Aksjer i universet som viser svakhet</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" id="info-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Om Aksjeradar</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Hvordan score, anbefalinger og autotrader regnes ut</span></span></span><span class="mid"></span><span class="r">›</span></button>
     </div></div>`;
   }
   function openSubview(key, push) {
-    const titles = { screener: ["Screener", "Sorter og filtrer"], varsler: ["Varsler", "Svakhetstegn i universet"] };
+    const titles = { screener: ["Screener", "Sorter og filtrer"], varsler: ["Varsler", "Svakhetstegn i universet"], fond: ["Fond", "Gunstige innganger i aksjefond"] };
     currentSubview = key;
     showSheet(`${sheetTop(titles[key][0], titles[key][1])}<div class="gutter sheet-body" id="subview"></div>`, push, { sub: key });
     rerenderSubview();
@@ -979,7 +1043,7 @@
   function rerenderSubview() {
     const box = $("#subview");
     if (!box || !currentSubview) return;
-    const views = { screener: viewScreener, varsler: viewVarsler };
+    const views = { screener: viewScreener, varsler: viewVarsler, fond: viewFond };
     box.innerHTML = views[currentSubview]();
     if (currentSubview === "screener") {
       const q = $("#q");
@@ -1034,6 +1098,8 @@
     if (row) { if (!row.dataset.nodetail) openStock(row.dataset.ticker); return; }
     const sub = e.target.closest("[data-sub]");
     if (sub) { openSubview(sub.dataset.sub); return; }
+    const fc = e.target.closest("[data-fund]");
+    if (fc && !currentSubview) { openSubview("fond"); return; }
     if (e.target.closest("#info-menu")) { openInfo(); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
