@@ -242,6 +242,16 @@ report:
 notify:
   telegram: true                  # krever TELEGRAM_BOT_TOKEN og TELEGRAM_CHAT_ID i .env
   email: false                    # krever SMTP_* og EMAIL_TO i .env
+  push:                           # push-varsler til mobilen via ntfy (gratis app: ntfy.sh)
+    enabled: true
+    ntfy_server: "https://ntfy.sh"
+    ntfy_topic: "aksjeradar-fvrmjamfiy12"         # abonner på dette emnet i ntfy-appen. Kan overstyres med hemmeligheten NTFY_TOPIC.
+    app_url: "https://akara86.github.io/aksjeradar/"   # varselet åpner appen
+    morning: true                 # daglig oppsummering etter morgenkjøringen
+    funds: true                   # når et fond skifter til/fra gunstig inngang
+    autotrader: true              # når autotraderen handler
+    intraday: true                # nye intradag-setups i børstiden
+    max_intraday_per_day: 6       # tak på intradag-varsler per dag
 
 autotrader:                       # virtuell portefølje som følger anbefalingene automatisk (egen fane i appen)
   enabled: true

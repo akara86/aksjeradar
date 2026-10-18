@@ -522,6 +522,7 @@
     else if (e.state && e.state.search) openSearch(false);
     else if (e.state && e.state.trade) openTrade(e.state.trade, e.state.ticker, false);
     else if (e.state && e.state.backup) openBackup(false);
+    else if (e.state && e.state.pushinfo) openPush(false);
     else if (e.state && e.state.sub) openSubview(e.state.sub, false);
     else { currentTicker = null; currentSubview = null; closeSheet(); }
   });
@@ -740,6 +741,32 @@
     try { localStorage.setItem("ar.tab", state.tab); } catch (e) { /* ignorer */ }
     render();
     history.back();
+  }
+
+  function openPush(push) {
+    const p = (state.data && state.data.push) || {};
+    const topic = p.topic || "";
+    const server = (p.server || "https://ntfy.sh").replace(/\/$/, "");
+    showSheet(`
+      ${sheetTop("Push-varsler", "Via ntfy – gratis og uten konto")}
+      <div class="gutter sheet-body">
+        ${p.enabled && topic ? `<div class="card"><h3>Slik slår du på varsler</h3>
+          <ol class="reasons" style="margin:0;padding-left:20px">
+            <li>Installer appen <b>ntfy</b> fra App Store (gratis, laget av ntfy.sh).</li>
+            <li>Åpne ntfy, trykk <b>+</b> (Subscribe to topic) og lim inn emnet under.</li>
+            <li>Tillat varsler når iPhonen spør. Ferdig – varslene åpner Aksjeradar når du trykker på dem.</li>
+          </ol>
+          <div class="picked" style="margin-top:12px"><span class="tick mono" id="push-topic">${esc(topic)}</span><button class="btn small" id="push-copy">Kopier</button></div>
+          <p class="muted" style="font-size:13px">Server: ${esc(server)}. Emnet er en tilfeldig kode – del den ikke, så får ingen andre varslene dine.</p>
+        </div>
+        <div class="card"><h3>Dette varsles</h3><ul class="reasons" style="margin:0;padding-left:18px">
+          <li><b>Hver morgen</b> ca. 08:40–09:00: dagens kjøpskandidater, antall per anbefaling, fond med gunstig inngang og autotraderens status.</li>
+          <li><b>Fond</b>: når et fond skifter til eller fra gunstig inngang.</li>
+          <li><b>Autotrader</b>: hver gang den kjøper eller selger.</li>
+          <li><b>Intradag</b>: nye setups i børstiden, maks 6 per dag.</li>
+        </ul><p class="muted" style="font-size:13px">Hva som sendes styres i config.yaml under <span class="mono">notify.push</span>.</p></div>`
+        : `<div class="card"><h3>Push er ikke satt opp</h3><p>Slå på <span class="mono">notify.push</span> i config.yaml og legg inn et ntfy-emne, så vises oppskriften her.</p></div>`}
+      </div>`, push, { pushinfo: true });
   }
 
   function openBackup(push) {
@@ -1031,6 +1058,7 @@
       <button class="row menu" data-sub="fond"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Fond</span>${good ? `<span class="pill hi">${good}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Gunstige innganger i aksjefond – fall i NOK og valuta</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" data-sub="screener"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Screener</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Sorter og filtrer alle ${stocks().length} aksjene</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" data-sub="varsler"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Varsler</span>${warnCount ? `<span class="pill lo">${warnCount}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Aksjer i universet som viser svakhet</span></span></span><span class="mid"></span><span class="r">›</span></button>
+      <button class="row menu" id="push-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Push-varsler</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Få varsler på låseskjermen – oppsett på to minutter</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" id="info-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Om Aksjeradar</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Hvordan score, anbefalinger og autotrader regnes ut</span></span></span><span class="mid"></span><span class="r">›</span></button>
     </div></div>`;
   }
@@ -1101,6 +1129,13 @@
     const fc = e.target.closest("[data-fund]");
     if (fc && !currentSubview) { openSubview("fond"); return; }
     if (e.target.closest("#info-menu")) { openInfo(); return; }
+    if (e.target.closest("#push-menu")) { openPush(); return; }
+    if (e.target.closest("#push-copy")) {
+      const txt = $("#push-topic").textContent;
+      const done = () => { $("#push-copy").textContent = "Kopiert ✓"; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
+      return;
+    }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
     const trade = e.target.closest("[data-trade]");

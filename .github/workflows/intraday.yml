@@ -46,6 +46,8 @@ jobs:
           gh run download "$RUN_ID" -n site -D site
           ls site | head
       - name: Lag intradag-setups og etterprøv gårsdagens
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python intraday_run.py --site site
       - name: Klargjør GitHub Pages
         uses: actions/configure-pages@v5

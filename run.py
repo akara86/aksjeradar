@@ -30,7 +30,7 @@ from aksjeradar.config import all_tickers, load_config
 from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
 from aksjeradar.funds import run_funds
-from aksjeradar.notify import send_email, send_telegram
+from aksjeradar.notify import push_settings, send_email, send_push, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
 from aksjeradar.scoring import CATEGORIES, build_table, generate_ideas
 from aksjeradar.storage import Storage
@@ -167,6 +167,7 @@ def main() -> int:
             log.exception("Fondsmodulen feilet: %s", e)
 
     # Autotrader – virtuell portefølje som følger anbefalingene (egen fane i appen)
+    auto = {}
     if cfg["autotrader"].get("enabled", True):
         try:
             auto = run_autotrader(store, table, cfg, fx)
@@ -205,6 +206,37 @@ def main() -> int:
             send_telegram(render_telegram(table, ideas, run_date, demo=args.demo, funds=funds_payload))
         if cfg["notify"].get("email"):
             send_email(f"Aksjeradar {run_date}", render_html(md), md)
+
+    # ---------- 6. push-varsler (ntfy) ----------
+    pc = (cfg["notify"].get("push") or {})
+    if not args.no_notify and push_settings(cfg):
+        if pc.get("morning", True):
+            lines = []
+            buys = [r for _, r in table.head(30).iterrows() if r.get("verdict") in ("Sterkt kjøp", "Kjøp")][:3]
+            if buys:
+                lines.append("Kjøp: " + ", ".join(f"{r['ticker']} ({r['score']:.0f})" for r in buys))
+            vc = {v: int((table["verdict"] == v).sum()) for v in ("Sterkt kjøp", "Kjøp", "Avvent", "Unngå")}
+            lines.append(f"{vc['Sterkt kjøp'] + vc['Kjøp']} kjøp · {vc['Avvent']} avvent · {vc['Unngå']} unngå · {len(ideas.get('warnings') or [])} varsler")
+            good = [f for f in (funds_payload.get("funds") or []) if f["level"] in ("Gunstig", "Svært gunstig")]
+            if good:
+                lines.append("Fond gunstig: " + ", ".join(f"{f['name']} ({f['dd_52w'] * 100:+.0f} %)" for f in good[:3]))
+            if auto and auto.get("traded_today"):
+                todays = [t for t in auto.get("trades", []) if t.get("date") == auto.get("price_date")]
+                if todays:
+                    lines.append("Autotrader: " + ", ".join(f"{'kjøpte' if t['kind'] == 'buy' else 'solgte'} {t['ticker']}" for t in todays[:6]))
+            if auto:
+                lines.append(f"Autotrader {auto['return_pct'] * 100:+.1f} % · marked {auto['bench_return_pct'] * 100:+.1f} %")
+            send_push(cfg, f"Aksjeradar {run_date}", "\n".join(lines), tags=["satellite"])
+        if pc.get("funds", True):
+            for a in (funds_payload.get("alerts") or []):
+                send_push(cfg, "Fond: " + ("gunstig inngang" if a["kind"] == "inngang" else "ikke lenger gunstig"), a["text"],
+                          tags=["moneybag" if a["kind"] == "inngang" else "white_check_mark"], priority=4 if a["kind"] == "inngang" else 3)
+        if pc.get("autotrader", True) and auto and auto.get("traded_today"):
+            todays = [t for t in auto.get("trades", []) if t.get("date") == auto.get("price_date")]
+            for t in todays[:8]:
+                send_push(cfg, f"Autotrader {'kjøpte' if t['kind'] == 'buy' else 'solgte'} {t['ticker']}",
+                          f"{t['shares']} stk à {t['price']:.2f} {t.get('currency') or ''} · {t.get('reason') or ''}"
+                          + (f" · {t['pnl']:+.0f} kr" if t.get('pnl') is not None else ""), tags=["robot"])
 
     log.info("Ferdig på %.0f sek.", time.time() - t0)
     store.close()

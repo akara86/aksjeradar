@@ -50,6 +50,8 @@ DEFAULTS = {
     "notify": {
         "telegram": True,
         "email": False,
+        "push": {"enabled": False, "ntfy_server": "https://ntfy.sh", "ntfy_topic": "", "app_url": "",
+                 "morning": True, "funds": True, "autotrader": True, "intraday": True, "max_intraday_per_day": 6},
     },
     "export": {
         "json_path": "docs/data.json",  # lett indeks som mobil-appen leser ved oppstart

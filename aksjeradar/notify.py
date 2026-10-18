@@ -54,6 +54,41 @@ def send_telegram(text: str) -> bool:
     return True
 
 
+def push_settings(cfg: dict) -> dict | None:
+    """Innstillinger for push via ntfy – topic fra NTFY_TOPIC (GitHub-hemmelighet) eller config.yaml."""
+    pc = (cfg.get("notify") or {}).get("push") or {}
+    if not pc.get("enabled"):
+        return None
+    topic = os.getenv("NTFY_TOPIC", "").strip() or str(pc.get("ntfy_topic") or "").strip()
+    if not topic:
+        return None
+    return {"server": (pc.get("ntfy_server") or "https://ntfy.sh").rstrip("/"), "topic": topic,
+            "app_url": pc.get("app_url") or "", "settings": pc}
+
+
+def send_push(cfg: dict, title: str, message: str, click: str | None = None, tags: list[str] | None = None, priority: int = 3) -> bool:
+    """Push-varsel til telefonen via ntfy (gratis app). Returnerer True hvis sendt."""
+    ps = push_settings(cfg)
+    if not ps:
+        log.info("Push er ikke satt opp (notify.push i config.yaml / NTFY_TOPIC) – hopper over.")
+        return False
+    body = {"topic": ps["topic"], "title": title[:120], "message": message[:3500], "priority": int(priority)}
+    if click or ps["app_url"]:
+        body["click"] = click or ps["app_url"]
+    if tags:
+        body["tags"] = tags
+    try:
+        r = requests.post(ps["server"], json=body, timeout=20)
+        if not r.ok:
+            log.warning("ntfy svarte %s: %s", r.status_code, r.text[:200])
+            return False
+    except requests.RequestException as e:
+        log.warning("Push feilet: %s", e)
+        return False
+    log.info("Push sendt: %s", title)
+    return True
+
+
 def send_email(subject: str, html_body: str, text_body: str) -> bool:
     host = os.getenv("SMTP_HOST", "").strip()
     port = int(os.getenv("SMTP_PORT", "587") or 587)

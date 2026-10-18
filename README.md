@@ -82,6 +82,17 @@ python run.py --tickers EQNR.OL,AAPL,NVDA # bare disse aksjene
 E-post fungerer på samme måte med `SMTP_*`-feltene i `.env` (Gmail krever «app-passord»).
 Slå av/på i `config.yaml` under `notify:`.
 
+## 4b. Push-varsler på mobilen (ntfy, to minutter)
+
+1. Installer appen **ntfy** (gratis, App Store / Google Play).
+2. Trykk **+** i ntfy og abonner på emnet som står i `config.yaml` under `notify.push.ntfy_topic`
+   (står også i appen under Mer → Push-varsler, med kopier-knapp).
+3. Tillat varsler. Du får morgenoppsummering, fondsvarsler, autotrader-handler og nye intradag-setups
+   (maks `max_intraday_per_day` per dag). Varslene åpner appen når du trykker på dem.
+
+Vil du holde emnet hemmelig (repoet er offentlig), legg det i stedet inn som GitHub-hemmelighet
+`NTFY_TOPIC` (Settings → Secrets and variables → Actions) – den overstyrer `config.yaml`.
+
 ## 5. Kjør automatisk hver dag
 
 Velg ett av alternativene:

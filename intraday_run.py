@@ -24,7 +24,8 @@ import numpy as np
 import pandas as pd
 
 from aksjeradar.config import load_config, market_of
-from aksjeradar.intraday import MARKETS, run_intraday
+from aksjeradar.intraday import MARKETS, run_intraday, setup_id
+from aksjeradar.notify import push_settings, send_push
 from aksjeradar.storage import Storage
 
 log = logging.getLogger("aksjeradar")
@@ -137,6 +138,28 @@ def main() -> int:
         payload["demo"] = True
     else:
         payload = run_intraday(store, tickers, cfg, names=names)
+
+    # Push-varsel for nye setups (tak per dag), ikke i demo
+    pc = (cfg["notify"].get("push") or {})
+    if not args.demo and pc.get("intraday", True) and push_settings(cfg):
+        maxn = int(pc.get("max_intraday_per_day", 6))
+        today_keys = [k for k, v in payload["log"].items() if v.get("session") == datetime.now(timezone.utc).strftime("%Y-%m-%d")]
+        sent_today = sum(1 for k in today_keys if payload["log"][k].get("pushed"))
+        for s_ in payload["setups"]:
+            if sent_today >= maxn:
+                break
+            if s_.get("first_seen") != s_.get("seen_at"):
+                continue  # ikke nytt i denne kjøringen
+            k = setup_id(s_)
+            if payload["log"].get(k, {}).get("pushed"):
+                continue
+            ok = send_push(cfg, f"Intradag: {s_['ticker']} – {s_['type_label']} (score {s_['score']})",
+                           f"Inngang {s_['entry']:.2f} · stop {s_['stop']:.2f} ({s_['stop_pct'] * 100:+.1f} %) · mål {s_['target']:.2f} ({s_['target_pct'] * 100:+.1f} %)\n"
+                           + " · ".join(s_.get("why") or []) + f"\nGyldig til stenging. Kurser ca. 15 min forsinket.", tags=["zap"])
+            if ok:
+                payload["log"][k]["pushed"] = True
+                sent_today += 1
+        store.save_snapshot("intraday", "log", {"setups": payload["log"]})
 
     out = site / "intraday.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
