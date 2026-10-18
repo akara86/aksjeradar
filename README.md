@@ -153,6 +153,12 @@ Alt styres fra `config.yaml`:
 
 Samlet score = vektet snitt. Mangler en delscore (f.eks. ingen analytikere), fordeles vekten på de andre.
 
+**Anbefaling** (Sterkt kjøp / Kjøp / Hold / Avvent / Unngå) regnes ut fra scoren: ≥ 75 Sterkt kjøp, ≥ 65 Kjøp,
+≥ 50 Hold, ≥ 40 Avvent, ellers Unngå. Kjøp krever at kursen er over SMA200. Death cross eller brudd under
+SMA200 gir høyst Avvent; sterkt overkjøpt RSI (> 78), negative analytikere, kurs over analytikernes kursmål
+eller flere nedgraderinger gir høyst Hold. Hver anbefaling vises med begrunnelse, risikonivå (daglig
+svingning) og datagrunnlag. Reglene ligger i `recommend()` i `aksjeradar/scoring.py`.
+
 **Idékategorier:** Momentum · Analytiker-oppside · Nylige oppgraderinger · Utbrudd / nær 52-ukers topp ·
 Oversolgt kvalitet · Innsidekjøp. Pluss **Varsler** for aksjer som viser svakhet (nyttig for det du eier).
 Reglene for hver kategori står i fanen «Om scoringen» i dashboardet og i `aksjeradar/scoring.py`.

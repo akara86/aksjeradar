@@ -48,6 +48,7 @@ def _md_table(df: pd.DataFrame) -> str:
         ("Marked", lambda r: r["market"]),
         ("Kurs", price_fmt),
         ("1d", lambda r: pct(r.get("change_1d"))),
+        ("Anbefaling", lambda r: str(r.get("verdict") or "–")),
         ("Score", lambda r: score_fmt(r.get("score"))),
         ("Tekn.", lambda r: score_fmt(r.get("score_technical"))),
         ("Anal.", lambda r: score_fmt(r.get("score_analyst"))),
@@ -70,7 +71,8 @@ def _md_ideas(items: list[dict]) -> str:
     out = []
     for it in items:
         cur = it.get("currency") or ""
-        head = f"- **{it['ticker']}** {it['name']} · {num(it['price'], 2)} {cur} · score {score_fmt(it.get('score'))}"
+        verdict = f" · **{it['verdict']}**" if it.get("verdict") else ""
+        head = f"- **{it['ticker']}** {it['name']} · {num(it['price'], 2)} {cur} · score {score_fmt(it.get('score'))}{verdict}"
         if it.get("reasons"):
             head += "  \n  " + "; ".join(it["reasons"])
         out.append(head)
@@ -100,7 +102,9 @@ def render_markdown(df: pd.DataFrame, ideas: dict, run_date: str, cfg: dict, dem
     lines += ["## Varsler – svakhetstegn", "", _md_ideas(ideas.get("warnings", [])), ""]
 
     lines += [f"## Screener – topp {rows}", "", _md_table(df.head(rows)), ""]
-    lines += ["### Slik leses scoren", "",
+    lines += ["### Slik leses anbefalingen og scoren", "",
+              "- **Anbefaling** er regelbasert: samlet score setter utgangspunktet (≥75 Sterkt kjøp, ≥65 Kjøp, ≥50 Hold, ≥40 Avvent, ellers Unngå); "
+              "kjøp krever at kursen er over SMA200, og death cross, sterkt overkjøpt RSI, negative analytikere eller kurs over kursmål trekker ned.",
               "- **Tekn.** trend (SMA50/200), MACD, RSI, utbrudd og volum. ",
               "- **Anal.** analytikerkonsensus (1 = sterkt kjøp … 5 = selg), oppside til snittkursmål og opp-/nedgraderinger.",
               "- **Fund.** P/E, EV/EBITDA, PEG, vekst, marginer, egenkapitalavkastning og gjeld – rangert mot de andre aksjene i universet.",
@@ -145,7 +149,7 @@ def render_telegram(df: pd.DataFrame, ideas: dict, run_date: str, top_n: int = 5
 
     lines.append(f"\n<b>Topp {top_n}</b>")
     for _, r in df.head(top_n).iterrows():
-        lines.append(f"{int(r['rank'])}. <b>{e(r['ticker'])}</b> {e(str(r['name'])[:22])} – {score_fmt(r['score'])} "
+        lines.append(f"{int(r['rank'])}. <b>{e(r['ticker'])}</b> {e(str(r['name'])[:22])} – {score_fmt(r['score'])} · {e(str(r.get('verdict') or ''))} "
                      f"({pct(r.get('change_1d'))} i dag, kursmål {pct(r.get('upside'))})")
 
     for key, title in CATEGORIES:

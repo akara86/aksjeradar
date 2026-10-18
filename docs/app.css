@@ -81,20 +81,83 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .section-head .count { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
 .empty { color: var(--muted); font-size: 14px; padding: 10px 2px; }
 .list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; width: 100%; text-align: left; padding: 11px 14px; border-top: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 10px; align-items: center; width: 100%; text-align: left; padding: 10px 12px 10px 14px; border-top: 1px solid var(--line); }
 .row:first-child { border-top: 0; }
 .row:active { background: var(--surface-2); }
-.row .l { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
-.row .rank { font-family: var(--font-mono); font-size: 12px; color: var(--muted); width: 22px; flex: none; }
+.row .l { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.row .l1 { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.row .l2 { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; color: var(--muted); }
+.row .l2 .info { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-size: 11.5px; }
+.row .rank { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); flex: none; }
 .row .tick { font-family: var(--font-mono); font-weight: 600; font-size: 14px; white-space: nowrap; }
 .row .name { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.row .r { display: flex; align-items: center; gap: 10px; justify-self: end; }
-.row .metric { font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
+.row .mid { display: flex; align-items: center; }
+.row .r { display: flex; align-items: center; justify-self: end; }
 .row .sub { display: block; grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); line-height: 1.35; white-space: normal; }
-.row .sub .delta { font-family: var(--font-mono); }
+.spark { display: block; }
 .pill { font-family: var(--font-mono); font-weight: 600; font-size: 13px; min-width: 38px; text-align: center; padding: 3px 7px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-variant-numeric: tabular-nums; }
-.pill.hi { background: var(--accent); color: var(--accent-ink); }
+.pill.hi { background: var(--up); color: #fff; }
 .pill.mid { background: var(--accent-soft); color: var(--fg); }
+.pill.lo { background: color-mix(in srgb, var(--down) 14%, var(--surface-2)); color: var(--down); }
+
+/* anbefalingsmerker */
+.vb { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; white-space: nowrap; flex: none; line-height: 1.5; }
+.vb.big { font-size: 14px; padding: 5px 12px; border-radius: 8px; }
+.v-strong .vb, .vb.v-strong { background: var(--up); color: #fff; }
+.v-buy .vb, .vb.v-buy { background: color-mix(in srgb, var(--up) 20%, var(--surface)); color: var(--up); }
+.v-hold .vb, .vb.v-hold { background: var(--surface-2); color: var(--muted); }
+.v-wait .vb, .vb.v-wait { background: color-mix(in srgb, var(--warn) 20%, var(--surface)); color: var(--warn); }
+.v-avoid .vb, .vb.v-avoid { background: color-mix(in srgb, var(--down) 18%, var(--surface)); color: var(--down); }
+
+/* dagens kjøpskandidater – kort som sveipes sidelengs */
+.hero { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 2px 0 6px;
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.hero::-webkit-scrollbar { display: none; }
+.hero-card { flex: 0 0 min(78%, 300px); scroll-snap-align: start; display: flex; flex-direction: column; gap: 4px; text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; min-width: 0; }
+.hero-card:active { background: var(--surface-2); }
+.hc-top { display: flex; justify-content: space-between; align-items: center; }
+.hc-tick { font-family: var(--font-mono); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-top: 4px; }
+.hc-name { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-spark { display: block; margin: 6px 0 2px; }
+.hc-spark .spark { width: 100%; height: 56px; }
+.hc-price { font-size: 15px; }
+.hc-price b { font-weight: 600; font-size: 17px; }
+.hc-why { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.hc-why span::before { content: "·"; margin-right: 5px; color: var(--accent); font-weight: 700; }
+
+/* tellere på Kjøp-fanen */
+.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 14px; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); min-width: 0; }
+.tile b { font-size: 18px; font-weight: 600; }
+.tile span { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tile.v-strong b { color: var(--up); } .tile.v-buy b { color: var(--up); } .tile.v-wait b { color: var(--warn); } .tile.v-avoid b { color: var(--down); }
+.tile.on { border-color: var(--accent); background: var(--accent-soft); }
+.hint { font-size: 12.5px; color: var(--muted); margin: -2px 2px 8px; }
+
+/* anbefalingspanel i detaljarket */
+.verdict { margin-top: 12px; border-radius: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-left-width: 4px; }
+.verdict.v-strong, .verdict.v-buy { border-left-color: var(--up); }
+.verdict.v-hold { border-left-color: var(--muted); }
+.verdict.v-wait { border-left-color: var(--warn); }
+.verdict.v-avoid { border-left-color: var(--down); }
+.vd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vd-meta { font-size: 12.5px; color: var(--muted); }
+.vd-hint { margin: 8px 0 0; font-size: 14px; }
+.vd-why { margin: 8px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.5; color: var(--fg); }
+.vd-why li::marker { color: var(--accent); }
+.rules { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.rules div { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.kv.one { grid-template-columns: 1fr; }
+.kv dd.txt { font-family: var(--font-ui); font-size: 13.5px; line-height: 1.45; }
+.card p { margin: 6px 0; font-size: 14px; line-height: 1.5; }
+
+/* lasteskjelett */
+.skeleton { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.skeleton span { display: block; height: 64px; border-radius: 14px; background: linear-gradient(90deg, var(--surface-2), var(--surface), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton span { animation: none; } }
 .pos { color: var(--up); } .neg { color: var(--down); } .warn { color: var(--warn); }
 .arrow { font-family: var(--font-mono); font-size: 12px; }
 
@@ -113,6 +176,7 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .tabs button svg { width: 22px; height: 22px; }
 .tabs button[aria-current="page"] { color: var(--accent); }
 .tabs .badge { position: absolute; top: 7px; left: calc(50% + 8px); background: var(--down); color: #fff; font-size: 10px; line-height: 1.4; font-family: var(--font-mono); font-weight: 700; border-radius: 9px; padding: 1px 5px; }
+.tabs .badge.ok { background: var(--up); }
 
 /* ---------- detaljark ---------- */
 .sheet { position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; -webkit-overflow-scrolling: touch;

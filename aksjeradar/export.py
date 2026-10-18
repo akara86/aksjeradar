@@ -23,6 +23,7 @@ log = logging.getLogger("aksjeradar.export")
 STOCK_COLUMNS = [
     "ticker", "name", "market", "sector", "currency", "market_cap", "rank",
     "price", "change_1d", "last_date",
+    "verdict", "verdict_reasons", "risk", "coverage",
     "score", "score_technical", "score_analyst", "score_fundamental", "score_insider",
     "rsi", "ret_1m", "ret_3m", "ret_6m", "ret_12m", "pct_from_52w_high", "dist_sma_slow",
     "above_sma_fast", "above_sma_slow", "fast_gt_slow", "golden_cross", "death_cross",
@@ -43,7 +44,8 @@ def _round(v, nd: int = 4):
     return v
 
 
-def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str, cfg: dict, demo: bool = False) -> Path:
+def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str, cfg: dict,
+                demo: bool = False, skipped: list[str] | None = None) -> Path:
     out_path = Path(cfg["_root"]) / cfg["export"]["json_path"]
     out_path.parent.mkdir(parents=True, exist_ok=True)
     history_days = int(cfg["export"].get("history_days", 130))
@@ -89,6 +91,8 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "demo": bool(demo),
         "universe": len(stocks),
+        "skipped": skipped or [],
+        "verdict_counts": {v: int((table["verdict"] == v).sum()) for v in ["Sterkt kjøp", "Kjøp", "Hold", "Avvent", "Unngå"]} if "verdict" in table else {},
         "weights": cfg["scoring"]["weights"],
         "ideas": clean_for_json(ideas),
         "stocks": stocks,

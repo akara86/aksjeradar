@@ -112,7 +112,10 @@ def main() -> int:
     # ---------- 4. rapport + datafil til mobil-appen ----------
     md = render_markdown(table, ideas, run_date, cfg, demo=args.demo)
     md_path, html_path = write_reports(md, run_date, cfg["report"]["output_dir"])
-    json_path = export_json(store, table, ideas, run_date, cfg, demo=args.demo)
+    skipped = [t for t in tickers if t not in prices]
+    if skipped:
+        log.warning("Hoppet over (ingen kursdata): %s", ", ".join(skipped))
+    json_path = export_json(store, table, ideas, run_date, cfg, demo=args.demo, skipped=skipped)
 
     # Kort oppsummering i terminalen
     print()

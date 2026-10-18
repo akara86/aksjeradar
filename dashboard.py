@@ -68,11 +68,11 @@ with tab_ideas:
     st.subheader(f"Topp {cfg['report']['top_n']} – samlet score")
     top_df = view.head(int(cfg["report"]["top_n"]))
     st.dataframe(
-        top_df[["rank", "ticker", "name", "market", "price", "currency", "change_1d", "score",
+        top_df[["rank", "ticker", "name", "market", "verdict", "price", "currency", "change_1d", "score",
                 "score_technical", "score_analyst", "score_fundamental", "score_insider", "upside"]],
         hide_index=True, use_container_width=True,
         column_config={
-            "rank": "#", "ticker": "Ticker", "name": "Navn", "market": "Marked",
+            "rank": "#", "ticker": "Ticker", "name": "Navn", "market": "Marked", "verdict": "Anbefaling",
             "price": st.column_config.NumberColumn("Kurs", format="%.2f"), "currency": "Val.",
             "change_1d": st.column_config.NumberColumn("1d", format="%+.1f%%"),
             "score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%.0f"),
@@ -120,7 +120,7 @@ with tab_screen:
     if sector != "Alle":
         s = s[s["sector"] == sector]
 
-    show = ["rank", "ticker", "name", "market", "sector", "price", "change_1d", "score", "score_technical",
+    show = ["rank", "ticker", "name", "market", "verdict", "sector", "price", "change_1d", "score", "score_technical",
             "score_analyst", "score_fundamental", "score_insider", "rsi", "ret_1m", "ret_3m", "ret_6m",
             "pct_from_52w_high", "n_analysts", "rec_mean", "upside", "forwardPE", "enterpriseToEbitda",
             "revenueGrowth", "profitMargins", "dividendYield", "insider_buys_90d"]
@@ -128,7 +128,7 @@ with tab_screen:
     st.dataframe(
         s[show], hide_index=True, use_container_width=True, height=600,
         column_config={
-            "rank": "#", "ticker": "Ticker", "name": "Navn", "market": "Marked", "sector": "Sektor",
+            "rank": "#", "ticker": "Ticker", "name": "Navn", "market": "Marked", "verdict": "Anbefaling", "sector": "Sektor",
             "price": st.column_config.NumberColumn("Kurs", format="%.2f"),
             "change_1d": st.column_config.NumberColumn("1d", format="%+.1f%%"),
             "score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%.0f"),
@@ -161,6 +161,9 @@ with tab_stock:
     ticker = pick.split(" – ")[0]
     r = df[df["ticker"] == ticker].iloc[0]
 
+    st.markdown(f"### Anbefaling: **{r.get('verdict') or '–'}** &nbsp;·&nbsp; risiko {r.get('risk') or '–'} &nbsp;·&nbsp; datagrunnlag {r.get('coverage') or '–'}")
+    if r.get("verdict_reasons"):
+        st.caption("; ".join(r["verdict_reasons"]))
     m1, m2, m3, m4, m5, m6 = st.columns(6)
     m1.metric("Kurs", f"{num(r['price'], 2)} {r.get('currency') or ''}", pct(r.get("change_1d")))
     m2.metric("Samlet score", f"{r['score']:.0f}" if pd.notna(r["score"]) else "–")

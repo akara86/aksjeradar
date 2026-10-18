@@ -36,6 +36,7 @@ LOWER_IS_BETTER = {"trailingPE", "forwardPE", "enterpriseToEbitda", "trailingPeg
 HIGHER_IS_BETTER = {"revenueGrowth", "earningsGrowth", "profitMargins", "operatingMargins", "returnOnEquity", "fcf_yield"}
 
 CATEGORIES = [
+    ("buy", "Kjøpskandidater i dag"),
     ("momentum", "Momentum – sterk trend"),
     ("analyst_upside", "Analytiker-oppside"),
     ("upgrades", "Nylige oppgraderinger"),
@@ -236,7 +237,113 @@ def score_table(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     df["score"] = total
     df = df.sort_values("score", ascending=False).reset_index(drop=True)
     df["rank"] = np.arange(1, len(df) + 1)
+
+    verdicts = [recommend(r, min_an) for _, r in df.iterrows()]
+    df["verdict"] = [v[0] for v in verdicts]
+    df["verdict_reasons"] = [v[1] for v in verdicts]
+    df["risk"] = [v[2] for v in verdicts]
+    df["coverage"] = [v[3] for v in verdicts]
     return df
+
+
+# --------------------------------------------------------------------------
+# 2b. Anbefaling per aksje (regelbasert, forklarbar)
+# --------------------------------------------------------------------------
+VERDICTS = ["Sterkt kjøp", "Kjøp", "Hold", "Avvent", "Unngå"]
+BUY_VERDICTS = {"Sterkt kjøp", "Kjøp"}
+
+
+def _num(x):
+    return None if (x is None or (isinstance(x, float) and np.isnan(x))) else x
+
+
+def recommend(r: pd.Series, min_analysts: int) -> tuple[str, list[str], str, str]:
+    """
+    Gir (anbefaling, begrunnelser, risikonivå, datagrunnlag).
+
+    Trinn:
+      1. Samlet score setter utgangspunktet:  >=75 Sterkt kjøp, >=65 Kjøp, >=50 Hold, >=40 Avvent, ellers Unngå
+      2. Kjøp krever bekreftet opptrend (kurs over SMA200) – ellers ett hakk ned
+      3. Risikoflagg kan begrense: death cross / brudd under SMA200, sterkt overkjøpt RSI,
+         negative analytikere, kurs over kursmål, flere nedgraderinger
+      4. Tynt datagrunnlag (bare én delscore) gir aldri Sterkt kjøp
+    """
+    score = _num(r.get("score"))
+    present = sum(1 for c in ("score_technical", "score_analyst", "score_fundamental", "score_insider")
+                  if _num(r.get(c)) is not None)
+    coverage = "fullt" if present == 4 else "delvis" if present >= 2 else "tynt"
+
+    atr = _num(r.get("atr_pct"))
+    risk = "ukjent" if atr is None else "lav" if atr < 0.015 else "middels" if atr < 0.03 else "høy"
+
+    if score is None:
+        return "Hold", ["for lite data til å vurdere"], risk, coverage
+
+    if score >= 75:
+        level = 0
+    elif score >= 65:
+        level = 1
+    elif score >= 50:
+        level = 2
+    elif score >= 40:
+        level = 3
+    else:
+        level = 4
+    reasons = [f"samlet score {score:.0f}"]
+
+    # 2. trendbekreftelse
+    if level <= 1:
+        if r.get("above_sma_slow"):
+            reasons.append("i opptrend (over SMA200)")
+        else:
+            level += 1
+            reasons.append("mangler bekreftet opptrend (under SMA200)")
+
+    # 3. begrensende flagg – det strengeste vinner
+    rsi = _num(r.get("rsi"))
+    n = int(r.get("n_analysts") or 0)
+    rec = _num(r.get("rec_mean"))
+    upside = _num(r.get("upside"))
+    caps: list[tuple[int, str]] = []
+    if r.get("death_cross") or r.get("broke_below_slow"):
+        caps.append((3, "nylig death cross / brudd under SMA200"))
+    if rsi is not None and rsi > 78:
+        caps.append((2, f"RSI {rsi:.0f} – sterkt overkjøpt, vent på rekyl"))
+    if n >= 5 and rec is not None and rec >= 3.5:
+        caps.append((2, f"analytikerne er negative (snitt {rec:.1f})"))
+    if n >= 5 and upside is not None and upside < 0:
+        caps.append((2, "kursen er over analytikernes snittkursmål"))
+    if int(r.get("downgrades_90d") or 0) >= 2 and int(r.get("upgrades_90d") or 0) == 0:
+        caps.append((2, f"{int(r['downgrades_90d'])} nedgraderinger siste 90 dager"))
+    for cap_level, why in caps:
+        if level < cap_level:
+            level = cap_level
+        reasons.append(why)
+
+    # 4. datagrunnlag
+    if coverage == "tynt" and level == 0:
+        level = 1
+        reasons.append("tynt datagrunnlag")
+
+    # støttende argumenter for kjøpskandidater
+    if level <= 1:
+        if n >= min_analysts and rec is not None and rec <= 2.2:
+            reasons.append(f"analytikerkonsensus kjøp ({n} analytikere)")
+        if upside is not None and upside >= 0.15:
+            reasons.append(f"kursmål {upside * 100:+.0f} % over kursen")
+        if int(r.get("insider_buys_90d") or 0):
+            reasons.append("innsidekjøp siste 90 dager")
+        if r.get("breakout"):
+            reasons.append("ferskt utbrudd på høyt volum")
+    if level >= 3:
+        if not r.get("above_sma_slow"):
+            reasons.append("under SMA200")
+        if _num(r.get("score_fundamental")) is not None and r["score_fundamental"] < 35:
+            reasons.append("svake fundamentale nøkkeltall")
+        if _num(r.get("score_technical")) is not None and r["score_technical"] < 35:
+            reasons.append("svak teknisk trend")
+
+    return VERDICTS[level], reasons, risk, coverage
 
 
 # --------------------------------------------------------------------------
@@ -291,6 +398,7 @@ def _item(r: pd.Series) -> dict:
         "price": r["price"],
         "currency": r.get("currency"),
         "score": None if pd.isna(r["score"]) else round(float(r["score"]), 1),
+        "verdict": r.get("verdict"),
         "reasons": _reasons(r),
     }
 
@@ -305,6 +413,13 @@ def generate_ideas(df: pd.DataFrame, cfg: dict) -> dict:
     d = df.copy()
     for col in ("score_technical", "score_analyst", "score_fundamental", "score_insider", "rsi", "upside"):
         d[col] = pd.to_numeric(d[col], errors="coerce")
+
+    buy = d[d["verdict"].isin(BUY_VERDICTS)]
+    ideas["buy"] = []
+    for _, r in buy.head(k).iterrows():
+        item = _item(r)
+        item["reasons"] = list(r["verdict_reasons"])  # anbefalingens egen begrunnelse
+        ideas["buy"].append(item)
 
     momentum = d[(d["score_technical"] >= 65) & d["above_sma_slow"] & (d["rsi"] <= 75)]
     ideas["momentum"] = [_item(r) for _, r in momentum.head(k).iterrows()]
