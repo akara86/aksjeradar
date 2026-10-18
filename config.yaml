@@ -291,15 +291,38 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
   # Hvert fond kobles til en ETF (proxy) som følger samme indeks. currency = ETF-ens handelsvaluta.
   # hedged: true = valutasikret fond (ingen valutaeffekt). fx_relevant: false = underliggende i NOK uansett.
   list:
-    - id: global
-      name: "Globalt indeksfond (MSCI World)"
-      examples: "KLP AksjeGlobal Indeks, DNB Global Indeks, Nordnet Indeksfond Global"
+    # ---- Dine fond ----
+    - id: klp_global
+      name: "KLP AksjeGlobal Indeks"
+      examples: "Ditt fond · følger MSCI World"
       proxy: URTH
       currency: USD
-    - id: global_acwi
-      name: "Globalt indeksfond, alle markeder (MSCI ACWI)"
-      examples: "Storebrand Indeks Alle Markeder, KLP AksjeGlobal Indeks (nær)"
+    - id: storebrand_solutions
+      name: "Storebrand Global Solutions"
+      examples: "Ditt fond · aktivt forvaltet, referanseindeks MSCI ACWI – ETF-en er en tilnærming"
       proxy: ACWI
+      currency: USD
+    - id: gambak
+      name: "Alfred Berg Gambak"
+      examples: "Ditt fond · aktivt forvaltet norsk fond – følges via Oslo Børs-ETF (tilnærming)"
+      proxy: NORW
+      currency: USD
+      fx_relevant: false          # norske aksjer – valutaen nøytraliseres når ETF-en regnes om til NOK
+    - id: klp_em
+      name: "KLP AksjeFremvoksende Markeder Indeks"
+      examples: "Ditt fond · følger MSCI Emerging Markets"
+      proxy: IEMG
+      currency: USD
+    - id: dnb_teknologi
+      name: "DNB Teknologi"
+      examples: "Ditt fond · aktivt forvaltet teknologi/telekom/media – følges via Nasdaq-100 (tilnærming)"
+      proxy: QQQ
+      currency: USD
+    # ---- Andre fondstyper (til sammenligning og ideer) ----
+    - id: usa
+      name: "USA – S&P 500"
+      examples: "KLP AksjeUSA Indeks, DNB USA Indeks, Storebrand Indeks USA"
+      proxy: SPY
       currency: USD
     - id: global_hedged
       name: "Globalt indeksfond, valutasikret til NOK"
@@ -307,31 +330,16 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       proxy: URTH
       currency: USD
       hedged: true
-    - id: usa
-      name: "USA – S&P 500"
-      examples: "KLP AksjeUSA Indeks, DNB USA Indeks, Storebrand Indeks USA"
-      proxy: SPY
-      currency: USD
     - id: norge
-      name: "Norge – Oslo Børs"
+      name: "Norge – indeksfond"
       examples: "KLP AksjeNorge Indeks, DNB Norge Indeks, Nordnet Indeksfond Norge"
       proxy: NORW
       currency: USD
-      fx_relevant: false          # norske aksjer – valutaen nøytraliseres når ETF-en regnes om til NOK
-    - id: em
-      name: "Fremvoksende markeder"
-      examples: "KLP AksjeFremvoksende Markeder Indeks, DNB Global Emerging Markets Indeks"
-      proxy: IEMG
-      currency: USD
+      fx_relevant: false
     - id: europa
       name: "Europa"
       examples: "KLP AksjeEuropa Indeks, DNB Europa Indeks"
       proxy: VGK
-      currency: USD
-    - id: teknologi
-      name: "Teknologi (Nasdaq-100)"
-      examples: "DNB Teknologi (nær), Nordnet Indeksfond Teknologi"
-      proxy: QQQ
       currency: USD
     - id: helse
       name: "Helse (global)"

@@ -129,7 +129,7 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
         why.append(f"{vs200 * 100:+.1f} % mot 200-dagers snitt")
     if nok_ret["1m"] is not None and idx_ret["1m"] is not None:
         if fx_relevant and fx_ret_1m is not None:
-            why.append(f"siste måned: indeks {idx_ret['1m'] * 100:+.1f} %, kronen {-fx_ret_1m * 100:+.1f} % (sum {nok_ret['1m'] * 100:+.1f} % i NOK)")
+            why.append(f"siste måned: indeks {idx_ret['1m'] * 100:+.1f} %, kronen {abs(fx_ret_1m) * 100:.1f} % {'sterkere' if fx_ret_1m < 0 else 'svakere'} (sum {nok_ret['1m'] * 100:+.1f} % i NOK)")
         else:
             why.append(f"siste måned {nok_ret['1m'] * 100:+.1f} %")
     if fx_relevant and fx_vs_sma200 is not None:
