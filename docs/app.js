@@ -45,7 +45,7 @@
     ["forwardPE", "Forventet P/E (lav først)", "num1", "asc"],
     ["dividendYield", "Direkteavkastning", "pctu"],
   ];
-  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["screener", "Screener"], ["varsler", "Varsler"]];
+  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["screener", "Screener"], ["varsler", "Varsler"]];
 
   const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
   const detailCache = {};
@@ -107,6 +107,7 @@
     ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>',
     ideer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.3 1-1.8A6 6 0 0 0 12 3z"/></svg>',
     kjop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg>',
+    portefolje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
     screener: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
     varsler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
   };
@@ -434,6 +435,7 @@
         <div class="chart">${s._loading ? `<div class="skeleton" style="margin:0"><span style="height:170px"></span></div>` : s.history ? chartSVG(s.history) : `<p class="muted" style="margin:6px 8px">Kursgrafen er ikke tilgjengelig akkurat nå.</p>`}
           <div class="legend"><span><i style="background:var(--accent)"></i>SMA50</span><span><i style="background:var(--warn)"></i>SMA200</span><span><i style="background:var(--muted)"></i>Sluttkurs</span></div>
         </div>
+        ${stockPortfolioCard(s)}
         ${ideaReasons.length ? `<div class="card"><h3>Signaler i dag</h3><ul class="reasons" style="margin:0;padding-left:18px">${[...new Set(ideaReasons)].map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
         <div class="card"><h3>Score</h3><div class="scores">${scoreRows.map(([l, v, cls]) =>
           `<span class="lbl ${cls || ""}">${esc(l)}</span><span class="bar ${cls || ""}"><i style="width:${isNum(v) ? Math.max(2, v) : 0}%"></i></span><span class="val ${cls || ""}">${sc(v)}</span>`).join("")}</div></div>
@@ -476,6 +478,11 @@
             <li><b>Innsidekjøp</b> – innsiderscore ≥ 70 og minst ett kjøp siste 90 dager.</li>
           </ul>
         </div>
+        <div class="card"><h3>Portefølje og lekepenger</h3>
+          <p><b>Mine aksjer</b> er det du faktisk eier: legg inn antall og kjøpskurs, så får du verdi, avkastning og et varsel når en av aksjene får Avvent/Unngå eller viser trendbrudd.</p>
+          <p><b>Lekepenger</b> er en virtuell portefølje med fiktiv startkapital. Kjøp og salg skjer til siste sluttkurs i appen, og avkastningskurven bygges dag for dag. Bruk den til å prøve ut anbefalingene en stund før du handler med ekte penger.</p>
+          <p>Begge lagres bare på denne enheten. Bruk «Sikkerhetskopi» nederst i Portefølje-fanen for å flytte dem til en annen telefon.</p>
+        </div>
         <div class="card"><h3>Begrensninger</h3>
           <p>Data fra Yahoo Finance er ca. 15 minutter forsinket, og analytikerdekningen på mindre nordiske selskaper er tynn. Reglene er ikke backtestet. Bruk listene som et utgangspunkt for egen vurdering – dette er ikke investeringsråd.</p>
         </div>
@@ -493,8 +500,261 @@
     if (e.state && e.state.ticker) openStock(e.state.ticker, false);
     else if (e.state && e.state.info) openInfo(false);
     else if (e.state && e.state.search) openSearch(false);
+    else if (e.state && e.state.trade) openTrade(e.state.trade, e.state.ticker, false);
+    else if (e.state && e.state.backup) openBackup(false);
     else { currentTicker = null; closeSheet(); }
   });
+
+  // ---------- portefølje: «Mine aksjer» og «Lekepenger» (lagres lokalt på enheten) ----------
+  const PF_KEY = "ar.portfolio.v1";
+  const DEFAULT_CASH = 100000;
+  const BASES = ["NOK", "SEK", "DKK", "EUR", "USD"];
+  const today = () => new Date().toISOString().slice(0, 10);
+  function pfDefault() {
+    return { base: "NOK", mode: "real", real: { holdings: [] },
+      paper: { cash: DEFAULT_CASH, startCash: DEFAULT_CASH, startDate: today(), holdings: [], trades: [], history: [] } };
+  }
+  function pfLoad() {
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem(PF_KEY) || "null"); } catch (e) { /* ignorer */ }
+    if (!p || !p.real || !p.paper) p = pfDefault();
+    if (!BASES.includes(p.base)) p.base = "NOK";
+    return p;
+  }
+  function pfSave() { try { localStorage.setItem(PF_KEY, JSON.stringify(pf)); } catch (e) { /* ignorer */ } }
+  let pf = pfLoad();
+
+  function fxToBase(cur) {
+    const fx = (state.data && state.data.fx) || {};
+    const toNok = c => (c === "NOK" ? 1 : fx[c]);
+    const a = toNok(cur || "NOK"), b = toNok(pf.base);
+    return (isNum(a) && isNum(b) && b) ? a / b : null;
+  }
+  const money = (v, cur) => (isNum(v) ? num(v, Math.abs(v) >= 1000 ? 0 : 2) + nbsp + (cur || pf.base) : "–");
+
+  function enrich(holdings) {
+    return holdings.map(h => {
+      const s = byTicker(h.ticker);
+      const cur = (s && s.currency) || h.currency || pf.base;
+      const price = s ? s.price : h.lastPrice;
+      const rate = fxToBase(cur);
+      const value = isNum(price) && rate ? price * h.shares * rate : null;
+      const cost = rate ? h.price * h.shares * rate : null;
+      const gain = (isNum(value) && isNum(cost)) ? value - cost : null;
+      const day = (s && isNum(s.change_1d) && isNum(value)) ? value - value / (1 + s.change_1d) : 0;
+      return { ...h, s, cur, curPrice: price, rate, value, cost, gain, gainPct: (isNum(gain) && cost) ? gain / cost : null, day, missing: !s };
+    });
+  }
+  const sum = (arr, k) => arr.reduce((a, x) => a + (isNum(x[k]) ? x[k] : 0), 0);
+
+  function holdingRow(h, mode) {
+    const base = h.s || { ticker: h.ticker, name: h.name || h.ticker, market: "", verdict: null, score: null };
+    const info = `${num(h.shares, 0)} stk · ${money(h.value)} · <b class="${sign(h.gain)}">${isNum(h.gain) ? (h.gain >= 0 ? "+" : "") + money(h.gain) : "–"}</b> (${pct(h.gainPct)})`;
+    const flags = [];
+    if (h.missing) flags.push("ikke lenger i universet – viser kjøpskurs");
+    if (h.s && (h.s.verdict === "Avvent" || h.s.verdict === "Unngå")) flags.push("anbefaling " + h.s.verdict);
+    if (h.s && (h.s.death_cross || h.s.broke_below_slow)) flags.push("trendbrudd");
+    if (h.s && isNum(h.s.rsi) && h.s.rsi > 78) flags.push("sterkt overkjøpt");
+    return row(base, { info, sub: flags.length ? `<span class="warn">⚠ ${esc(flags.join(" · "))}</span>` : `Snittkurs ${num(h.price, 2)} ${esc(h.cur)} · nå ${num(h.curPrice, 2)}` });
+  }
+
+  function summaryCard(items) {
+    return `<div class="summary">${items.map(([l, v, cls]) => `<div><span class="s-l">${esc(l)}</span><span class="s-v mono ${cls || ""}">${v}</span></div>`).join("")}</div>`;
+  }
+
+  function viewPortefolje() {
+    const mode = pf.mode;
+    const seg = `<div class="seg" style="margin-top:12px"><button data-pfmode="real" aria-pressed="${mode === "real"}">Mine aksjer</button><button data-pfmode="paper" aria-pressed="${mode === "paper"}">Lekepenger</button></div>`;
+    const base = `<div class="pf-tools"><label>Vis i <select id="pf-base">${BASES.map(b => `<option ${b === pf.base ? "selected" : ""}>${b}</option>`).join("")}</select></label><button class="linkbtn" id="pf-backup">Sikkerhetskopi</button></div>`;
+    return seg + (mode === "real" ? viewReal() : viewPaper()) + base +
+      `<p class="note">Porteføljene lagres bare på denne enheten. Kurser er siste sluttkurs fra morgenens kjøring; valuta omregnes med dagens kurser. Ikke investeringsråd.</p>`;
+  }
+
+  function viewReal() {
+    const hs = enrich(pf.real.holdings);
+    if (!hs.length) {
+      return `<div class="empty-card"><b>Ingen aksjer registrert ennå.</b><p>Legg inn aksjene du eier, så får du samlet verdi, avkastning og et varsel når en av dem får Avvent/Unngå eller viser trendbrudd.</p><button class="btn" data-trade="add">Legg til aksje</button></div>`;
+    }
+    const value = sum(hs, "value"), cost = sum(hs, "cost"), day = sum(hs, "day");
+    const gain = value - cost;
+    let html = summaryCard([
+      ["Verdi", money(value)],
+      ["I dag", (day >= 0 ? "+" : "") + money(day), sign(day)],
+      ["Avkastning", (gain >= 0 ? "+" : "") + money(gain) + ` (${pct(cost ? gain / cost : null)})`, sign(gain)],
+    ]);
+    const flagged = hs.filter(h => h.s && (h.s.verdict === "Avvent" || h.s.verdict === "Unngå" || h.s.death_cross || h.s.broke_below_slow));
+    if (flagged.length) html += `<div class="alert">⚠ <b>Følg med:</b> ${flagged.map(h => esc(h.ticker) + (h.s.verdict ? " (" + esc(h.s.verdict) + ")" : "")).join(", ")}</div>`;
+    html += `<div class="section">${sectionHead("Beholdning", hs.length)}${list(hs.sort((a, b) => (b.value || 0) - (a.value || 0)).map(h => holdingRow(h, "real")).join(""))}</div>`;
+    html += `<div class="btn-row"><button class="btn" data-trade="add">Legg til aksje</button></div>`;
+    return html;
+  }
+
+  function viewPaper() {
+    const p = pf.paper;
+    const hs = enrich(p.holdings);
+    const holdingsValue = sum(hs, "value"), day = sum(hs, "day");
+    const total = p.cash + holdingsValue;
+    const ret = total - p.startCash;
+    // Én målepunkt per dag til avkastningskurven
+    if (state.data && (!p.history.length || p.history[p.history.length - 1][0] !== today())) {
+      p.history.push([today(), Math.round(total)]); pfSave();
+    } else if (p.history.length) { p.history[p.history.length - 1][1] = Math.round(total); }
+    let html = summaryCard([
+      ["Total verdi", money(total)],
+      ["Kontanter", money(p.cash)],
+      ["Avkastning", (ret >= 0 ? "+" : "") + money(ret) + ` (${pct(p.startCash ? ret / p.startCash : null)})`, sign(ret)],
+      ["I dag", (day >= 0 ? "+" : "") + money(day), sign(day)],
+    ]);
+    const curve = p.history.map(x => x[1]);
+    html += `<div class="chart"><div class="legend" style="padding-top:0">Siden ${fmtDate(p.startDate)} · start ${money(p.startCash)}</div>${curve.length >= 2 ? sparkline(curve, 340, 70) : `<p class="muted" style="margin:6px 8px;font-size:13px">Avkastningskurven fylles dag for dag – åpne appen jevnlig.</p>`}</div>`;
+    html += `<div class="section">${sectionHead("Beholdning", hs.length)}${hs.length ? list(hs.sort((a, b) => (b.value || 0) - (a.value || 0)).map(h => holdingRow(h, "paper")).join("")) : `<div class="empty">Ingen aksjer ennå. Du har ${money(p.cash)} å handle for – finn en aksje via søk eller Kjøp-fanen, og trykk «Kjøp for lekepenger».</div>`}</div>`;
+    html += `<div class="btn-row"><button class="btn" data-trade="buy">Kjøp aksje</button><button class="btn secondary" id="pf-reset">Start på nytt</button></div>`;
+    if (p.trades.length) {
+      html += `<div class="section">${sectionHead("Handler", p.trades.length)}<div class="card" style="margin-top:0"><div class="lines">${p.trades.slice(-12).reverse().map(t =>
+        `<div class="ln"><span class="d">${fmtDate(t.date)}</span><span class="t"><b>${t.kind === "buy" ? "Kjøp" : "Salg"}</b> ${esc(t.ticker)} · ${num(t.shares, 0)} stk à ${num(t.price, 2)} ${esc(t.currency)}</span><span class="v ${t.kind === "buy" ? "" : sign(t.pnl)}">${t.kind === "buy" ? money(t.valueBase) : (isNum(t.pnl) ? (t.pnl >= 0 ? "+" : "") + money(t.pnl) : "")}</span></div>`).join("")}</div></div></div>`;
+    }
+    return html;
+  }
+
+  // ---------- skjema: legg til / kjøp / selg / rediger ----------
+  function openTrade(kind, ticker, push) {
+    const s = ticker ? byTicker(ticker) : null;
+    const isPaper = kind === "buy" || kind === "sell";
+    const list_ = isPaper ? pf.paper.holdings : pf.real.holdings;
+    const owned = ticker ? list_.find(h => h.ticker === ticker) : null;
+    const titles = { add: "Legg til aksje", edit: "Rediger beholdning", buy: "Kjøp for lekepenger", sell: "Selg (lekepenger)" };
+    const price = s ? s.price : (owned ? owned.price : "");
+    const cur = s ? s.currency : (owned ? owned.currency : pf.base);
+    const picker = s ? `<div class="picked"><span class="tick mono">${esc(s.ticker)}</span><span class="muted">${esc(s.name)} · ${num(s.price, 2)} ${esc(s.currency)}</span>${vbadge(s.verdict)}</div>`
+      : `<label class="field"><span>Aksje</span><input id="f-q" type="search" placeholder="Søk ticker eller navn" autocomplete="off" autocapitalize="characters"><div id="f-hits" class="hits"></div></label>`;
+    const cashInfo = kind === "buy" ? `<p class="muted" style="margin:0 0 8px">Kontanter: <b class="mono">${money(pf.paper.cash)}</b></p>` : "";
+    const ownedInfo = kind === "sell" && owned ? `<p class="muted" style="margin:0 0 8px">Du eier <b class="mono">${num(owned.shares, 0)}</b> stk à ${num(owned.price, 2)} ${esc(owned.currency)}</p>` : "";
+    showSheet(`
+      ${sheetTop(esc(titles[kind]), isPaper ? "Handles til siste sluttkurs i appen" : "Det du faktisk eier")}
+      <div class="gutter sheet-body">
+        ${cashInfo}${ownedInfo}${picker}
+        <div class="form" ${s ? "" : "hidden"} id="f-form">
+          <label class="field"><span>Antall aksjer</span><input id="f-shares" type="number" inputmode="decimal" min="0" step="1" value="${kind === "sell" && owned ? owned.shares : (owned && kind === "edit" ? owned.shares : "")}"></label>
+          <label class="field"><span>Kurs (${esc(cur || "")})</span><input id="f-price" type="number" inputmode="decimal" min="0" step="0.01" value="${kind === "edit" && owned ? owned.price : (isNum(price) ? price : "")}" ${isPaper ? "readonly" : ""}></label>
+          ${isPaper ? "" : `<label class="field"><span>Dato</span><input id="f-date" type="date" value="${kind === "edit" && owned ? owned.date : today()}"></label>`}
+          <p id="f-sum" class="muted" style="margin:0"></p>
+          <p id="f-msg" class="neg" style="margin:0"></p>
+          <div class="btn-row"><button class="btn" id="f-ok" data-kind="${kind}" data-tkr="${esc(ticker || "")}">${esc(titles[kind])}</button>${kind === "edit" ? `<button class="btn danger" id="f-remove" data-tkr="${esc(ticker)}">Fjern</button>` : ""}</div>
+        </div>
+      </div>`, push, { trade: kind, ticker: ticker || null });
+    const upd = () => {
+      const sh = parseFloat($("#f-shares").value), pr = parseFloat($("#f-price").value);
+      const t = $("#f-ok").dataset.tkr, st = byTicker(t);
+      const rate = fxToBase(st ? st.currency : cur) || 1;
+      $("#f-sum").textContent = (sh > 0 && pr > 0) ? `Sum: ${money(sh * pr * rate)}` : "";
+    };
+    if (!s) {
+      const q = $("#f-q");
+      q.addEventListener("input", () => {
+        const hits = searchStocks(q.value).slice(0, 8);
+        $("#f-hits").innerHTML = hits.map(h => `<button class="hit" data-pick="${esc(h.ticker)}"><span class="tick mono">${esc(h.ticker)}</span><span class="muted">${esc(h.name)} · ${num(h.price, 2)} ${esc(h.currency)}</span></button>`).join("");
+      });
+      setTimeout(() => { try { q.focus(); } catch (e) { /* ignorer */ } }, 50);
+    }
+    $("#f-shares").addEventListener("input", upd);
+    $("#f-price").addEventListener("input", upd);
+    upd();
+  }
+
+  function pickStock(ticker) {
+    const s = byTicker(ticker);
+    if (!s) return;
+    const ok = $("#f-ok");
+    ok.dataset.tkr = ticker;
+    $("#f-q").closest(".field").outerHTML = `<div class="picked"><span class="tick mono">${esc(s.ticker)}</span><span class="muted">${esc(s.name)} · ${num(s.price, 2)} ${esc(s.currency)}</span>${vbadge(s.verdict)}</div>`;
+    const form = $("#f-form");
+    form.hidden = false;
+    $("#f-price").value = s.price;
+    const lbl = $("#f-price").closest(".field").querySelector("span");
+    if (lbl) lbl.textContent = `Kurs (${s.currency || ""})`;
+    try { $("#f-shares").focus(); } catch (e) { /* ignorer */ }
+  }
+
+  function submitTrade(kind, ticker) {
+    const msg = $("#f-msg");
+    const s = byTicker(ticker);
+    const shares = parseFloat($("#f-shares").value);
+    const price = parseFloat($("#f-price").value);
+    if (!ticker) { msg.textContent = "Velg en aksje først."; return; }
+    if (!(shares > 0)) { msg.textContent = "Antall må være større enn 0."; return; }
+    if (!(price > 0)) { msg.textContent = "Kursen må være større enn 0."; return; }
+    const cur = s ? s.currency : pf.base;
+    const rate = fxToBase(cur);
+    if (!rate) { msg.textContent = "Mangler valutakurs for " + cur + " – prøv igjen etter neste oppdatering."; return; }
+    const valueBase = shares * price * rate;
+    if (kind === "add" || kind === "edit") {
+      const date = $("#f-date").value || today();
+      const list_ = pf.real.holdings;
+      const ex = list_.find(h => h.ticker === ticker);
+      if (ex && kind === "add") { // slå sammen til nytt snitt
+        const tot = ex.shares + shares;
+        ex.price = (ex.shares * ex.price + shares * price) / tot; ex.shares = tot; ex.date = date;
+      } else if (ex) { ex.shares = shares; ex.price = price; ex.date = date; }
+      else list_.push({ ticker, name: s ? s.name : ticker, currency: cur, shares, price, date, lastPrice: s ? s.price : price });
+    } else if (kind === "buy") {
+      if (valueBase > pf.paper.cash + 0.005) { msg.textContent = `Ikke nok kontanter: dette koster ${money(valueBase)}, du har ${money(pf.paper.cash)}.`; return; }
+      pf.paper.cash -= valueBase;
+      const ex = pf.paper.holdings.find(h => h.ticker === ticker);
+      if (ex) { const tot = ex.shares + shares; ex.price = (ex.shares * ex.price + shares * price) / tot; ex.shares = tot; }
+      else pf.paper.holdings.push({ ticker, name: s ? s.name : ticker, currency: cur, shares, price, date: today(), lastPrice: price });
+      pf.paper.trades.push({ date: today(), kind: "buy", ticker, shares, price, currency: cur, valueBase });
+    } else if (kind === "sell") {
+      const ex = pf.paper.holdings.find(h => h.ticker === ticker);
+      if (!ex) { msg.textContent = "Du eier ikke denne aksjen i lekeporteføljen."; return; }
+      if (shares > ex.shares + 1e-9) { msg.textContent = `Du har bare ${num(ex.shares, 0)} stk.`; return; }
+      const pnl = (price - ex.price) * shares * rate;
+      pf.paper.cash += valueBase;
+      ex.shares -= shares;
+      if (ex.shares <= 1e-9) pf.paper.holdings = pf.paper.holdings.filter(h => h !== ex);
+      pf.paper.trades.push({ date: today(), kind: "sell", ticker, shares, price, currency: cur, valueBase, pnl });
+    }
+    pf.mode = (kind === "buy" || kind === "sell") ? "paper" : "real";
+    pfSave();
+    state.tab = "portefolje";
+    try { localStorage.setItem("ar.tab", state.tab); } catch (e) { /* ignorer */ }
+    render();
+    history.back();
+  }
+
+  function openBackup(push) {
+    showSheet(`
+      ${sheetTop("Sikkerhetskopi", "Kopier ut – eller lim inn for å gjenopprette")}
+      <div class="gutter sheet-body">
+        <div class="card"><h3>Dine data</h3>
+          <textarea id="bk-out" class="ta" readonly>${esc(JSON.stringify(pf))}</textarea>
+          <div class="btn-row"><button class="btn" id="bk-copy">Kopier</button></div>
+          <p class="muted" style="font-size:13px">Lim teksten inn i Notater eller en e-post til deg selv. Da kan du flytte porteføljene til en annen telefon.</p>
+        </div>
+        <div class="card"><h3>Gjenopprett</h3>
+          <textarea id="bk-in" class="ta" placeholder="Lim inn en sikkerhetskopi her"></textarea>
+          <p id="bk-msg" class="neg" style="margin:0"></p>
+          <div class="btn-row"><button class="btn secondary" id="bk-restore">Gjenopprett</button></div>
+        </div>
+      </div>`, push, { backup: true });
+  }
+
+  function stockPortfolioCard(s) {
+    const real = pf.real.holdings.find(h => h.ticker === s.ticker);
+    const paper = pf.paper.holdings.find(h => h.ticker === s.ticker);
+    const rate = fxToBase(s.currency);
+    const line = (h, label) => {
+      const v = rate && isNum(s.price) ? h.shares * s.price * rate : null;
+      const g = rate ? v - h.shares * h.price * rate : null;
+      return `<p style="margin:0 0 6px">${label}: <b class="mono">${num(h.shares, 0)} stk</b> · ${money(v)} · <span class="mono ${sign(g)}">${isNum(g) ? (g >= 0 ? "+" : "") + money(g) : "–"}</span></p>`;
+    };
+    return `<div class="card"><h3>Portefølje</h3>
+      ${real ? line(real, "Mine aksjer") : ""}${paper ? line(paper, "Lekepenger") : ""}
+      <div class="btn-row wrap">
+        <button class="btn secondary small" data-trade="${real ? "edit" : "add"}" data-tkr="${esc(s.ticker)}">${real ? "Rediger i mine aksjer" : "Legg til i mine aksjer"}</button>
+        <button class="btn small" data-trade="buy" data-tkr="${esc(s.ticker)}">Kjøp for lekepenger</button>
+        ${paper ? `<button class="btn danger small" data-trade="sell" data-tkr="${esc(s.ticker)}">Selg</button>` : ""}
+      </div></div>`;
+  }
 
   // ---------- rammen ----------
   function renderHeader() {
@@ -527,7 +787,7 @@
       main.innerHTML = `<div class="error"><p><b>Fant ingen data.</b></p><p>Kjør <code>python run.py</code> i prosjektmappen – da lages <code>docs/data.json</code>. Åpner du filen lokalt: start <code>python -m http.server 8000 -d docs</code> og gå til <code>http://localhost:8000</code>.</p>${state.error ? `<p class="muted">${esc(state.error.message || state.error)}</p>` : ""}</div>`;
       return;
     }
-    const views = { ideer: viewIdeer, kjop: viewKjop, screener: viewScreener, varsler: viewVarsler };
+    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, screener: viewScreener, varsler: viewVarsler };
     main.innerHTML = views[state.tab]();
     if (state.tab === "screener") {
       const q = $("#q");
@@ -539,6 +799,44 @@
   document.addEventListener("click", e => {
     const row = e.target.closest("[data-ticker]");
     if (row) { openStock(row.dataset.ticker); return; }
+    const pick = e.target.closest("[data-pick]");
+    if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
+    const trade = e.target.closest("[data-trade]");
+    if (trade) { openTrade(trade.dataset.trade, trade.dataset.tkr || null); return; }
+    const ok = e.target.closest("#f-ok");
+    if (ok) { submitTrade(ok.dataset.kind, ok.dataset.tkr); return; }
+    const rm = e.target.closest("#f-remove");
+    if (rm) { pf.real.holdings = pf.real.holdings.filter(h => h.ticker !== rm.dataset.tkr); pfSave(); render(); history.back(); return; }
+    const pm = e.target.closest("[data-pfmode]");
+    if (pm) { pf.mode = pm.dataset.pfmode; pfSave(); render(); return; }
+    if (e.target.closest("#pf-backup")) { openBackup(); return; }
+    if (e.target.closest("#pf-reset")) {
+      $("#pf-reset").outerHTML = `<span class="confirm">Startkapital <input id="reset-cash" class="mini" type="number" inputmode="numeric" value="${pf.paper.startCash || DEFAULT_CASH}"> <button class="btn danger small" id="reset-ok">Nullstill</button> <button class="btn secondary small" id="reset-cancel">Avbryt</button></span>`;
+      return;
+    }
+    if (e.target.closest("#reset-cancel")) { render(); return; }
+    if (e.target.closest("#reset-ok")) {
+      const cash = parseFloat($("#reset-cash").value) || DEFAULT_CASH;
+      pf.paper = { cash, startCash: cash, startDate: today(), holdings: [], trades: [], history: [] };
+      pfSave(); render(); return;
+    }
+    if (e.target.closest("#bk-copy")) {
+      const txt = $("#bk-out").value;
+      const done = () => { $("#bk-copy").textContent = "Kopiert ✓"; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => { $("#bk-out").select(); });
+      else { $("#bk-out").select(); }
+      return;
+    }
+    if (e.target.closest("#bk-restore")) {
+      try {
+        const obj = JSON.parse($("#bk-in").value);
+        if (!obj || !obj.real || !obj.paper) throw new Error("ugyldig");
+        pf = obj; if (!BASES.includes(pf.base)) pf.base = "NOK"; pfSave();
+        $("#bk-msg").className = "pos"; $("#bk-msg").textContent = "Gjenopprettet. Gå tilbake for å se porteføljen.";
+        render();
+      } catch (x) { $("#bk-msg").textContent = "Dette ser ikke ut som en sikkerhetskopi fra Aksjeradar."; }
+      return;
+    }
     const mb = e.target.closest("[data-more]");
     if (mb) {
       const k = mb.dataset.more;
@@ -555,6 +853,10 @@
     if (e.target.closest("#info")) { openInfo(); return; }
     if (e.target.closest("#search")) { openSearch(); return; }
     if (e.target.closest("#hint-close")) { try { localStorage.setItem("ar.hint", "1"); } catch (x) { /* ignorer */ } renderHeader(); }
+  });
+
+  document.addEventListener("change", e => {
+    if (e.target && e.target.id === "pf-base") { pf.base = e.target.value; pfSave(); render(); }
   });
 
   // Service worker gir offline-støtte og raskere oppstart (ikke i forhåndsvisning)

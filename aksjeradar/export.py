@@ -54,7 +54,7 @@ def _pick(rec: dict, cols: list[str]) -> dict:
 
 
 def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str, cfg: dict,
-                demo: bool = False, skipped: list[str] | None = None) -> Path:
+                demo: bool = False, skipped: list[str] | None = None, fx: dict | None = None) -> Path:
     index_path = Path(cfg["_root"]) / cfg["export"]["json_path"]
     details_dir = Path(cfg["export"]["details_dir"])
     index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,6 +119,7 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
         "demo": bool(demo),
         "universe": len(index),
         "skipped": skipped or [],
+        "fx": fx or {},  # kurs mot NOK, f.eks. {"USD": 10.6}
         "verdict_counts": {v: int((table["verdict"] == v).sum()) for v in ["Sterkt kjøp", "Kjøp", "Hold", "Avvent", "Unngå"]} if "verdict" in table else {},
         "weights": cfg["scoring"]["weights"],
         "ideas": clean_for_json(ideas),

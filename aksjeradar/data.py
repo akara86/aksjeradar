@@ -108,6 +108,34 @@ def fetch_prices(tickers: list[str], period: str = "2y", batch_size: int = 40) -
 
 
 # --------------------------------------------------------------------------
+# Valutakurser (til NOK) – brukes til å summere porteføljer i appen
+# --------------------------------------------------------------------------
+FX_PAIRS = {"USD": "USDNOK=X", "SEK": "SEKNOK=X", "DKK": "DKKNOK=X", "EUR": "EURNOK=X"}
+FX_DEMO = {"NOK": 1.0, "USD": 10.6, "SEK": 1.02, "DKK": 1.55, "EUR": 11.6}
+
+
+def fetch_fx() -> dict[str, float]:
+    """Siste kurs for USD, SEK, DKK og EUR mot NOK. Tom dict ved feil."""
+    import yfinance as yf
+
+    out: dict[str, float] = {"NOK": 1.0}
+    try:
+        raw = yf.download(list(FX_PAIRS.values()), period="5d", interval="1d", group_by="ticker",
+                          auto_adjust=True, threads=True, progress=False)
+        for cur, pair in FX_PAIRS.items():
+            try:
+                series = raw[pair]["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw["Close"]
+                v = _num(series.dropna().iloc[-1])
+                if v:
+                    out[cur] = round(v, 4)
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception as e:  # noqa: BLE001
+        log.warning("Valutakurser feilet: %s", e)
+    return out if len(out) > 1 else {}
+
+
+# --------------------------------------------------------------------------
 # Fundamentaldata, analytikere, innsidehandler (én aksje om gangen)
 # --------------------------------------------------------------------------
 def fetch_details(ticker: str) -> dict:

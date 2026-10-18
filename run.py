@@ -24,7 +24,7 @@ import time
 from datetime import date
 
 from aksjeradar.config import all_tickers, load_config
-from aksjeradar.data import demo_details, demo_prices, fetch_details, fetch_prices
+from aksjeradar.data import FX_DEMO, demo_details, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
 from aksjeradar.notify import send_email, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
@@ -86,6 +86,18 @@ def main() -> int:
         log.error("Ingen kursdata. Sjekk nettverk eller tickere.")
         return 1
 
+    # Valutakurser (til NOK) – lagres, så forrige kjørings kurser brukes hvis hentingen feiler
+    if args.demo:
+        fx = dict(FX_DEMO)
+    else:
+        fx = fetch_fx()
+        if fx:
+            store.save_snapshot("fx", "NOK", fx)
+        else:
+            fx, _ = store.load_snapshot("fx", "NOK")
+            fx = fx or {}
+            log.warning("Bruker lagrede valutakurser: %s", fx)
+
     # ---------- 2. fundamental / analytiker / innsider ----------
     details: dict[str, dict] = {}
     max_age = float(cfg["data"]["fundamentals_max_age_days"])
@@ -136,7 +148,7 @@ def main() -> int:
     skipped = [t for t in tickers if t not in prices]
     if skipped:
         log.warning("Hoppet over (ingen kursdata): %s", ", ".join(skipped))
-    json_path = export_json(store, table, ideas, run_date, cfg, demo=args.demo, skipped=skipped)
+    json_path = export_json(store, table, ideas, run_date, cfg, demo=args.demo, skipped=skipped, fx=fx)
 
     # Kort oppsummering i terminalen
     print()
