@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # trengs bare for den tomme "hold i live"-committen under
   pages: write
   id-token: write
 
@@ -71,6 +71,19 @@ jobs:
         with:
           name: rapporter
           path: reports/
+      - name: Hold de planlagte kjøringene i live (GitHub skrur dem av etter 60 dager uten commits)
+        if: github.event_name == 'schedule'
+        run: |
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          if [ $(( (NOW - LAST) / 86400 )) -ge 45 ]; then
+            git config user.name "aksjeradar-bot"
+            git config user.email "aksjeradar-bot@users.noreply.github.com"
+            git commit --allow-empty -m "Holder de planlagte kjøringene aktive"
+            git push
+          else
+            echo "Siste commit er nylig – ingenting å gjøre"
+          fi
 
   deploy:
     needs: analyse
