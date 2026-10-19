@@ -127,8 +127,9 @@ serveren, målt mot et likevektet marked – reglene står i `config.yaml` under
 en **Intradag-fane** (kortsiktige setups på 15-minutters kurser, oppdatert hvert kvarter i børstiden av
 `.github/workflows/intraday.yml`, med stop/mål og etterprøving – regler under `intraday:` i `config.yaml`),
 en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
-krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr og varsel ved skifte – fondslisten ligger under `funds:` i
-`config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
+krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr, varsel ved skifte, og en **attraktivitetsrangering** som
+veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med konkret råd for fondene du
+eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
 kursgraf med tidsvelger (1D med 15-minutters kurser, 1U, 1M, 3M, 6M, 1Å, 2Å), avlesing ved å dra
 fingeren over grafen, periodestatistikk, volum og glidende snitt, pluss score, signaler, analytikere
 og innsidehandler. Porteføljene lagres lokalt på telefonen

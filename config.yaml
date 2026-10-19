@@ -300,6 +300,9 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
     fx_expensive: 0.04            # kronen 4 % svakere enn 200d-snitt + fond nær topp = Dyr
   # Hvert fond kobles til en ETF (proxy) som følger samme indeks. currency = ETF-ens handelsvaluta.
   # hedged: true = valutasikret fond (ingen valutaeffekt). fx_relevant: false = underliggende i NOK uansett.
+  # owned: true = du eier fondet (gir konkret råd). role: kjerne/satellitt. markets/sectors kobler fondet til
+  # aksjeanalysen (børser: Oslo, Stockholm, København, Helsinki, USA, alle; sektorer: Yahoo-navn som Technology,
+  # Healthcare, Energy, Financial Services, Industrials, Utilities, Consumer Cyclical, Consumer Defensive ...).
   list:
     # ---- Dine fond ----
     - id: klp_global
@@ -307,60 +310,86 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       examples: "Ditt fond · følger MSCI World"
       proxy: URTH
       currency: USD
+      owned: true
+      role: kjerne
+      markets: [alle]
     - id: storebrand_solutions
       name: "Storebrand Global Solutions"
       examples: "Ditt fond · aktivt forvaltet, referanseindeks MSCI ACWI – ETF-en er en tilnærming"
       proxy: ACWI
       currency: USD
+      owned: true
+      role: satellitt
+      markets: [alle]
     - id: gambak
       name: "Alfred Berg Gambak"
       examples: "Ditt fond · aktivt forvaltet norsk fond – følges via Oslo Børs-ETF (tilnærming)"
       proxy: NORW
       currency: USD
       fx_relevant: false          # norske aksjer – valutaen nøytraliseres når ETF-en regnes om til NOK
+      owned: true
+      role: satellitt
+      markets: [Oslo]
     - id: klp_em
       name: "KLP AksjeFremvoksende Markeder Indeks"
       examples: "Ditt fond · følger MSCI Emerging Markets"
       proxy: IEMG
       currency: USD
+      owned: true
+      role: satellitt
     - id: dnb_teknologi
       name: "DNB Teknologi"
       examples: "Ditt fond · aktivt forvaltet teknologi/telekom/media – følges via Nasdaq-100 (tilnærming)"
       proxy: QQQ
       currency: USD
+      owned: true
+      role: satellitt
+      sectors: [Technology, Communication Services]
     # ---- Andre fondstyper (til sammenligning og ideer) ----
     - id: usa
       name: "USA – S&P 500"
       examples: "KLP AksjeUSA Indeks, DNB USA Indeks, Storebrand Indeks USA"
       proxy: SPY
       currency: USD
+      role: kjerne
+      markets: [USA]
     - id: global_hedged
       name: "Globalt indeksfond, valutasikret til NOK"
       examples: "KLP AksjeGlobal Indeks Valutasikret, DNB Global Indeks Valutasikret"
       proxy: URTH
       currency: USD
       hedged: true
+      role: kjerne
+      markets: [alle]
     - id: norge
       name: "Norge – indeksfond"
       examples: "KLP AksjeNorge Indeks, DNB Norge Indeks, Nordnet Indeksfond Norge"
       proxy: NORW
       currency: USD
       fx_relevant: false
+      role: kjerne
+      markets: [Oslo]
     - id: europa
       name: "Europa"
       examples: "KLP AksjeEuropa Indeks, DNB Europa Indeks"
       proxy: VGK
       currency: USD
+      role: kjerne
+      markets: [Stockholm, København, Helsinki]
     - id: helse
       name: "Helse (global)"
       examples: "DNB Health Care (nær)"
       proxy: XLV
       currency: USD
+      role: satellitt
+      sectors: [Healthcare]
     - id: fornybar
       name: "Fornybar energi"
       examples: "DNB Miljøinvest, Storebrand Fornybar Energi (nær)"
       proxy: ICLN
       currency: USD
+      role: satellitt
+      sectors: [Utilities]
 
 export:
   json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart

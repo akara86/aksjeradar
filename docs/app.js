@@ -1184,9 +1184,13 @@
     const fxLine = f.fx_relevant && isNum(f.fx_vs_sma200)
       ? `<span><i>Krone mot ${esc(f.currency)}</i><b class="mono ${f.fx_vs_sma200 < 0 ? "pos" : "neg"}">${pct(-f.fx_vs_sma200)}</b><small>${f.fx_vs_sma200 < 0 ? "sterkere enn snitt" : "svakere enn snitt"}</small></span>`
       : `<span><i>Valuta</i><b class="mono">–</b><small>${f.hedged ? "valutasikret" : "ikke relevant"}</small></span>`;
-    return `<div class="fund ${LEVEL_CLASS[f.level] || ""}" data-fund="${esc(f.id)}">
-      <div class="su-top">${vbadge(f.level)}<span class="su-mkt mono">${esc(f.proxy)} · ${esc(f.currency)}${f.hedged ? " · sikret" : ""}</span><span class="pill ${scClass(f.score)}">${sc(f.score)}</span></div>
+    const AV = { "Attraktiv": "v-strong", "Nøytral": "v-hold", "Lite attraktiv": "v-wait" };
+    const parts = f.attr_parts || {};
+    const partRow = (l, v) => `<span class="lbl">${l}</span><span class="bar"><i style="width:${isNum(v) ? Math.max(2, v) : 0}%;${isNum(v) ? "" : "opacity:.3"}"></i></span><span class="val">${isNum(v) ? sc(v) : "–"}</span>`;
+    return `<div class="fund ${AV[f.attr_verdict] || LEVEL_CLASS[f.level] || ""}" data-fund="${esc(f.id)}">
+      <div class="su-top"><span class="rank-no mono">#${f.rank || "–"}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">${esc(f.attr_verdict)}</span>` : ""}${vbadge(f.level)}${f.owned ? `<span class="vb own">Ditt</span>` : ""}<span class="su-mkt mono" style="margin-left:auto;margin-right:0">${esc(f.proxy)}${f.hedged ? " · sikret" : ""}</span><span class="pill ${scClass(f.attr_score)}" title="Attraktivitet">${sc(f.attr_score)}</span></div>
       <div class="fund-name">${esc(f.name)}</div>
+      ${f.advice ? `<div class="advice">→ ${esc(f.advice)}</div>` : ""}
       ${f.examples ? `<div class="fund-ex">${esc(f.examples)}</div>` : ""}
       <div class="levels">
         <span><i>Fra 52u-topp</i><b class="mono ${sign(f.dd_52w)}">${pct(f.dd_52w)}</b><small>i NOK</small></span>
@@ -1194,7 +1198,9 @@
         <span><i>1 mnd</i><b class="mono ${sign(f.ret_1m)}">${pct(f.ret_1m)}</b><small>indeks ${pct(f.idx_ret_1m)}</small></span>
         ${fxLine}
       </div>
-      ${compact ? "" : `<div class="chart" style="margin-top:10px">${fundChart(f.history)}<div class="legend"><span><i style="background:var(--accent)"></i>Fondet i NOK</span><span><i style="background:var(--muted)"></i>Indeksen i ${esc(f.currency)}</span><span>begge = 100 ved start</span></div></div>
+      ${compact ? "" : `<div class="scores fund-scores">${partRow("Inngang (20 %)", parts.entry)}${partRow("Trend (35 %)", parts.trend)}${partRow("Sektor/marked (30 %)", parts.market)}${partRow("Risiko/prising (15 %)", parts.risk)}</div>
+      ${(f.attr_why || []).length ? `<ul class="vd-why" style="margin-top:8px">${f.attr_why.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+      <div class="chart" style="margin-top:10px">${fundChart(f.history)}<div class="legend"><span><i style="background:var(--accent)"></i>Fondet i NOK</span><span><i style="background:var(--muted)"></i>Indeksen i ${esc(f.currency)}</span><span>begge = 100 ved start</span></div></div>
       <ul class="vd-why" style="margin-top:10px">${(f.why || []).map(w => `<li>${esc(w)}</li>`).join("")}</ul>
       <div class="su-meta">Sist ${fmtDate(f.last_date)} · 1 år ${pct(f.ret_1y)} i NOK (indeks ${pct(f.idx_ret_1y)}) · RSI ${num(f.rsi, 0)}${f.prev_level && f.prev_level !== f.level ? ` · var ${esc(f.prev_level)} i går` : ""}</div>`}
     </div>`;
@@ -1205,20 +1211,22 @@
     const alerts = (state.data.funds.alerts || []);
     let html = `<p class="hint" style="margin-top:12px">Hvert fond følges via en ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. Nivået sier om fondet er «på salg» målt mot egen historikk – ikke om fallet er over.</p>`;
     if (alerts.length) html += `<div class="alert">💱 <b>Nytt siden sist:</b> ${alerts.map(a => esc(a.text)).join(" · ")}</div>`;
-    const groups = [["Svært gunstig", "Svært gunstig inngang"], ["Gunstig", "Gunstig inngang"], ["Nøytral", "Nøytralt"], ["Dyr", "Dyrt akkurat nå"]];
-    for (const [lvl, title] of groups) {
-      const items = fs.filter(f => f.level === lvl);
-      if (!items.length) continue;
-      html += `<div class="section">${sectionHead(title, items.length)}${items.map(f => fundCard(f, false)).join("")}</div>`;
+    const owned = fs.filter(f => f.owned);
+    if (owned.length) {
+      html += `<div class="section">${sectionHead("Dine fond", owned.length)}<div class="list">${owned.map(f => `<div class="row" style="cursor:default"><span class="l"><span class="l1"><span class="rank-no mono">#${f.rank}</span><span class="tick" style="font-family:var(--font-ui);font-size:13.5px">${esc(f.name)}</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">${esc(f.advice || "")}</span></span></span><span class="mid"></span><span class="r"><span class="vb ${({ "Attraktiv": "v-strong", "Nøytral": "v-hold", "Lite attraktiv": "v-wait" })[f.attr_verdict] || ""}">${esc(f.attr_verdict || "")}</span></span></div>`).join("")}</div></div>`;
     }
+    const sorted = fs.slice().sort((a, b) => (a.rank || 99) - (b.rank || 99));
+    html += `<div class="section">${sectionHead("Rangering etter attraktivitet", sorted.length)}<p class="hint">Hvor attraktivt det er å sette nye penger i fondet nå – relativt til de andre fondene i listen. Trykk på et kort for detaljer.</p>${sorted.map(f => fundCard(f, false)).join("")}</div>`;
     const th = state.data.funds.thresholds || {};
     html += `<div class="card"><h3>Slik vurderes fondene</h3><ul class="reasons" style="margin:0;padding-left:18px">
+      <li><b>Attraktivitet</b> (0–100) veier fire deler: <b>Inngang</b> 20 % (hvor «på salg» fondet er i NOK, som bonus), <b>Trend</b> 35 % (over 200-dagers snitt, 50-dagers over 200, positive 3 mnd, 1 år mot globalt indeksfond), <b>Sektor/marked</b> 30 % (andel aksjer i opptrend, snittscore og andel kjøpsanbefalinger i aksjeuniverset for den sektoren/børsen) og <b>Risiko/prising</b> 15 % (årlige svingninger og forventet P/E mot hele universet). ≥ 60 = Attraktiv, ≥ 45 = Nøytral.</li>
+      <li><b>Råd for dine fond</b> kombinerer attraktivitet og inngang: «øk innskuddet», «fortsett spareavtalen», «behold» eller «pause nye innskudd». Rådene gjelder <i>nye</i> penger – de sier aldri «selg», fordi fondssparing er langsiktig og salg utløser skatt.</li>
       <li><b>Inngangsscore</b> (0–100): fall fra 52-ukers topp i NOK (20 % = fullt utslag), avstand under 200-dagers snitt, RSI, og hvor sterk kronen er mot sitt 200-dagers snitt i fondets valuta (sterk krone = billigere inngang).</li>
       <li><b>Gunstig</b> = score ≥ 45 eller fall ≥ ${pct(-(th.good_drawdown || -0.08), false, 0)} fra topp. <b>Svært gunstig</b> = score ≥ 70 eller fall ≥ ${pct(-(th.strong_drawdown || -0.15), false, 0)}. <b>Dyr</b> = nær topp, langt over 200d-snitt og svak krone.</li>
       <li>Varsel sendes (Telegram, hvis satt opp) når et fond skifter til eller fra gunstig inngang.</li>
       <li>Valutasikrede fond vurderes uten valutaeffekt. Norske fond: valutaen nøytraliseres når ETF-en regnes om til NOK.</li>
     </ul></div>
-    <p class="note">Et fall kan fortsette. Dette er en mekanisk «på salg»-måling for langsiktig sparing (f.eks. ekstra innskudd ved fall), ikke en spådom – og ikke investeringsråd. ETF-ene avviker litt fra fondene (honorar, én dags forsinkelse i andelskurs).</p>`;
+    <p class="note">Rangeringen er en mekanisk sammenligning – den vet ikke hva som skjer i morgen. En sunn fondsportefølje har et bredt globalt indeksfond som kjerne og sektor-/regionsfond som mindre satellitter uansett hva rangeringen sier denne uken. Et fall kan fortsette. Dette er en mekanisk «på salg»-måling for langsiktig sparing (f.eks. ekstra innskudd ved fall), ikke en spådom – og ikke investeringsråd. ETF-ene avviker litt fra fondene (honorar, én dags forsinkelse i andelskurs).</p>`;
     return html;
   }
 

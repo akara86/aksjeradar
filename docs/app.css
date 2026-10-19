@@ -320,3 +320,10 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .xh-tip { position: absolute; top: 6px; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; font-size: 12px; line-height: 1.35; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 .xh-tip b { font-size: 14px; }
 .lg-toggle { font-size: 11.5px; font-weight: 700; color: var(--accent); margin-right: 4px; }
+
+.rank-no { font-size: 12px; font-weight: 700; color: var(--muted); }
+.vb.own { background: var(--accent); color: var(--accent-ink); }
+.advice { margin-top: 6px; font-size: 13.5px; font-weight: 600; color: var(--accent); }
+.fund-scores { margin-top: 10px; }
+.fund-scores .lbl { font-size: 12px; color: var(--muted); }
+.fund-scores .val { font-size: 12px; }

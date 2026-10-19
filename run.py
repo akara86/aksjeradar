@@ -161,7 +161,7 @@ def main() -> int:
             else:
                 proxy_frames = fetch_prices(proxies, "2y")
                 fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "2y")
-            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames)
+            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table)
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
         except Exception as e:  # noqa: BLE001
             log.exception("Fondsmodulen feilet: %s", e)
@@ -220,6 +220,9 @@ def main() -> int:
             good = [f for f in (funds_payload.get("funds") or []) if f["level"] in ("Gunstig", "Svært gunstig")]
             if good:
                 lines.append("Fond gunstig: " + ", ".join(f"{f['name']} ({f['dd_52w'] * 100:+.0f} %)" for f in good[:3]))
+            topf = [f for f in (funds_payload.get("funds") or []) if f.get("rank")][:3]
+            if topf:
+                lines.append("Fond topp 3: " + ", ".join(f"{f['name'][:22]} ({f['attr_score']:.0f})" for f in topf))
             if auto and auto.get("traded_today"):
                 todays = [t for t in auto.get("trades", []) if t.get("date") == auto.get("price_date")]
                 if todays:
