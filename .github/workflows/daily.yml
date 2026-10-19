@@ -55,6 +55,11 @@ jobs:
         run: |
           URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/intraday.json"
           curl -fsSL "$URL" -o docs/intraday.json || echo "ingen intradag-fil ennå"
+          # 15m-barer per aksje fra siste intradag-kjøring (til 1D-grafen)
+          RUN_ID=$(gh run list --workflow "Aksjeradar intradag" --status success --limit 1 --json databaseId --jq '.[0].databaseId' || true)
+          if [ -n "$RUN_ID" ]; then gh run download "$RUN_ID" -n intraday-bars -D docs/intraday || echo "ingen intradag-barer ennå"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Klargjør GitHub Pages
         uses: actions/configure-pages@v5
       - name: Pakk mobil-appen

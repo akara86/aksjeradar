@@ -56,7 +56,7 @@ DEFAULTS = {
     "export": {
         "json_path": "docs/data.json",  # lett indeks som mobil-appen leser ved oppstart
         "details_dir": "docs/stocks",   # én detaljfil per aksje
-        "history_days": 130,            # kursdager som tas med i grafen
+        "history_days": 520,            # kursdager som tas med i grafen (ca. 2 år)
         "spark_days": 30,               # kursdager i de små grafene i listene
     },
     "universe_extra": {"sp500": False},

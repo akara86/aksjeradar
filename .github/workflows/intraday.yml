@@ -49,6 +49,13 @@ jobs:
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: python intraday_run.py --site site
+      - name: Lagre 15m-barer (den daglige kjøringen tar dem med videre)
+        uses: actions/upload-artifact@v4
+        with:
+          name: intraday-bars
+          path: site/intraday
+          retention-days: 3
+          if-no-files-found: ignore
       - name: Klargjør GitHub Pages
         uses: actions/configure-pages@v5
       - name: Pakk nettsiden

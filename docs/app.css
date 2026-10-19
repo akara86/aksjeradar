@@ -304,3 +304,19 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .fund-name { font-size: 16px; font-weight: 700; margin-top: 8px; }
 .fund-ex { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .fund .levels { margin-top: 10px; }
+
+/* ---------- stor kursgraf ---------- */
+.chart.big { padding: 10px 8px 8px; }
+.rng { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 9px; margin: 0 4px 10px; }
+.rng button { flex: 1; padding: 6px 0; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--muted); font-family: var(--font-mono); }
+.rng button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.pstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 4px 8px; }
+.pstats > div { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; background: var(--surface-2); border-radius: 9px; min-width: 0; }
+.pstats i { font-style: normal; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pstats b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pstats small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-wrap { position: relative; touch-action: pan-y; }
+.bc-wrap svg { touch-action: none; }
+.xh-tip { position: absolute; top: 6px; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; font-size: 12px; line-height: 1.35; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.xh-tip b { font-size: 14px; }
+.lg-toggle { font-size: 11.5px; font-weight: 700; color: var(--accent); margin-right: 4px; }

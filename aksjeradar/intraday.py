@@ -15,6 +15,7 @@ Kursdata fra Yahoo er ca. 15 min forsinket. Dette er ikke investeringsråd.
 """
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -388,4 +389,34 @@ def run_intraday(store: Storage, tickers: list[str], cfg: dict, frames: dict[str
         "log": log_["setups"],  # varig logg – leses tilbake hvis databasen mangler
     }
     log.info("Intradag: %d aksjer, %d setups, %d utfall avgjort nå", len(frames), len(setups), decided)
-    return clean_for_json(payload)
+    out = clean_for_json(payload)
+    out["_frames"] = frames  # til per-aksje intradag-filer (fjernes før skriving)
+    return out
+
+
+def write_intraday_bars(frames: dict[str, pd.DataFrame], out_dir, days: int = 2) -> int:
+    """Skriver 15m-barer for siste `days` økter per aksje: <out_dir>/<TICKER>.json (til 1D-grafen i appen)."""
+    from pathlib import Path
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for t, df in frames.items():
+        try:
+            sessions = sorted(set(df.index.date))[-days:]
+            part = df[[d in sessions for d in df.index.date]]
+            if part.empty:
+                continue
+            payload = {
+                "ticker": t, "interval": "15m", "tz": str(part.index.tz),
+                "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "t": [ts.strftime("%Y-%m-%dT%H:%M") for ts in part.index],
+                "o": [round(float(x), 4) for x in part["Open"]], "h": [round(float(x), 4) for x in part["High"]],
+                "l": [round(float(x), 4) for x in part["Low"]], "c": [round(float(x), 4) for x in part["Close"]],
+                "v": [int(x) if not pd.isna(x) else 0 for x in part["Volume"]],
+            }
+            (out_dir / f"{t.replace('/', '_')}.json").write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+            n += 1
+        except Exception as e:  # noqa: BLE001
+            log.debug("Kunne ikke skrive intradag-barer for %s: %s", t, e)
+    return n

@@ -89,11 +89,16 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
             ind = compute_indicators(hist, scfg["rsi_period"], scfg["sma_fast"], scfg["sma_slow"]).tail(history_days)
             closes = [round(float(x), 2) for x in ind["Close"]]
             entry["spark"] = closes[-spark_days:]
+            opt = lambda s, nd=2: [None if pd.isna(x) else round(float(x), nd) for x in s]  # noqa: E731
             detail["history"] = {
                 "dates": [d.strftime("%Y-%m-%d") for d in ind.index],
                 "close": closes,
-                "sma_fast": [None if pd.isna(x) else round(float(x), 2) for x in ind["sma_fast"]],
-                "sma_slow": [None if pd.isna(x) else round(float(x), 2) for x in ind["sma_slow"]],
+                "open": opt(ind["Open"]), "high": opt(ind["High"]), "low": opt(ind["Low"]),
+                "volume": [None if pd.isna(x) else int(x) for x in ind["Volume"]],
+                "sma20": opt(ind["sma20"]),
+                "sma_fast": opt(ind["sma_fast"]),
+                "sma_slow": opt(ind["sma_slow"]),
+                "rsi": opt(ind["rsi"], 1),
             }
         snap, _ = store.load_snapshot("details", t)
         snap = snap or {}

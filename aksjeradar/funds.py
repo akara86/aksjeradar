@@ -172,7 +172,7 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
             log.warning("Fond «%s»: mangler kurser for %s", f["name"], f["proxy"])
             continue
         try:
-            a = analyze_fund(f, proxy, fx_series(fx_frames, f["currency"]), th, int(cfg["export"].get("history_days", 130)))
+            a = analyze_fund(f, proxy, fx_series(fx_frames, f["currency"]), th, 130)  # fondskurven holdes på ~6 mnd (ligger i data.json)
         except Exception as e:  # noqa: BLE001
             log.warning("Fond «%s» feilet: %s", f["name"], e)
             continue

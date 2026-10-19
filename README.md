@@ -129,7 +129,9 @@ en **Intradag-fane** (kortsiktige setups på 15-minutters kurser, oppdatert hver
 en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
 krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr og varsel ved skifte – fondslisten ligger under `funds:` i
 `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
-kursgraf, score, signaler, analytikere og innsidehandler. Porteføljene lagres lokalt på telefonen
+kursgraf med tidsvelger (1D med 15-minutters kurser, 1U, 1M, 3M, 6M, 1Å, 2Å), avlesing ved å dra
+fingeren over grafen, periodestatistikk, volum og glidende snitt, pluss score, signaler, analytikere
+og innsidehandler. Porteføljene lagres lokalt på telefonen
 (ingen server) og kan kopieres ut som sikkerhetskopi. Valutakurser (USD/SEK/DKK/EUR mot NOK) hentes
 daglig, så porteføljen summeres riktig. Den fungerer uten
 nett (viser siste data) og følger mørk/lys modus på telefonen.

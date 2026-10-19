@@ -269,6 +269,180 @@
       <p class="note">Varsler er aksjer i universet som viser svakhet: death cross, brudd under SMA200, flere nedgraderinger, sterkt overkjøpt RSI eller mange innsidesalg. Nyttig for aksjer du eier.</p>`;
   }
 
+  // ---------- kursgraf med tidsvelger (1D · 1U · 1M · 3M · 6M · 1Å · 2Å) ----------
+  const RANGES = [["1D", "1 dag"], ["1W", "1 uke"], ["1M", "1 måned"], ["3M", "3 mnd"], ["6M", "6 mnd"], ["1Y", "1 år"], ["2Y", "2 år"]];
+  const RANGE_DAYS = { "1W": 5, "1M": 21, "3M": 63, "6M": 126, "1Y": 252, "2Y": 520 };
+  const chartState = { range: "3M", sma: true, bars: {}, barsLoading: {} };
+  try { chartState.range = localStorage.getItem("ar.range") || "3M"; chartState.sma = localStorage.getItem("ar.sma") !== "0"; } catch (e) { /* ignorer */ }
+  if (!RANGES.some(r => r[0] === chartState.range)) chartState.range = "3M";
+
+  async function loadBars(ticker) {
+    if (chartState.bars[ticker] !== undefined || chartState.barsLoading[ticker]) return;
+    chartState.barsLoading[ticker] = true;
+    try {
+      const r = await fetch("intraday/" + encodeURIComponent(ticker) + ".json", { cache: "reload" });
+      chartState.bars[ticker] = r.ok ? await r.json() : null;
+    } catch (e) { chartState.bars[ticker] = null; }
+    chartState.barsLoading[ticker] = false;
+    if (currentTicker === ticker) rerenderChart(ticker);
+  }
+
+  // Lager serien for valgt periode: {t: etiketter, c: slutt, o,h,l, v, sma20, sma50, sma200, prev: referansekurs, intraday}
+  function seriesFor(s, range) {
+    const h = s.history;
+    if (range === "1D") {
+      const b = chartState.bars[s.ticker];
+      if (b === undefined) { loadBars(s.ticker); return { loading: true }; }
+      if (!b || !b.c || b.c.length < 2) return { none: true, reason: "Ingen 15-minutters kurser for denne aksjen (intradag-universet dekker ~120 av aksjene)." };
+      const days = [...new Set(b.t.map(x => x.slice(0, 10)))];
+      const last = days[days.length - 1];
+      const idx = b.t.map((x, i) => i).filter(i => b.t[i].startsWith(last));
+      const prevIdx = b.t.map((x, i) => i).filter(i => !b.t[i].startsWith(last));
+      const prev = prevIdx.length ? b.c[prevIdx[prevIdx.length - 1]] : (h && h.close.length > 1 ? h.close[h.close.length - 2] : b.o[idx[0]]);
+      return {
+        intraday: true, date: last, tz: b.tz,
+        t: idx.map(i => b.t[i].slice(11)), c: idx.map(i => b.c[i]), o: idx.map(i => b.o[i]), h: idx.map(i => b.h[i]), l: idx.map(i => b.l[i]), v: idx.map(i => b.v[i]),
+        prev, generated: b.generated_at,
+      };
+    }
+    if (!h || !h.close || h.close.length < 2) return { none: true, reason: "Ingen kurshistorikk." };
+    const n = Math.min(RANGE_DAYS[range] || 63, h.close.length - 1);
+    const sl = a => (a ? a.slice(-n) : null);
+    const prev = h.close[h.close.length - 1 - n];
+    return {
+      t: sl(h.dates), c: sl(h.close), o: sl(h.open), hi: sl(h.high), lo: sl(h.low), v: sl(h.volume),
+      sma20: sl(h.sma20), sma50: sl(h.sma_fast), sma200: sl(h.sma_slow), prev,
+    };
+  }
+
+  function bigChart(ser, cur) {
+    const W = 360, H = 230, padL = 6, padR = 50, padT = 12, padB = 16, volH = 36;
+    const n = ser.c.length;
+    const highs = ser.hi || ser.h || ser.c, lows = ser.lo || ser.l || ser.c;
+    let vals = highs.concat(lows).filter(isNum);
+    if (chartState.sma && !ser.intraday) vals = vals.concat([ser.sma20, ser.sma50, ser.sma200].flatMap(a => (a || []).filter(isNum)));
+    if (isNum(ser.prev)) vals.push(ser.prev);
+    const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), span = hi - lo || 1;
+    const top = padT, bottom = H - padB - volH - 6;
+    const x = i => padL + (n === 1 ? 0 : (i / (n - 1)) * (W - padL - padR));
+    const y = v => top + (1 - (v - lo) / span) * (bottom - top);
+    const path = arr => { let d = "", on = false; arr.forEach((v, i) => { if (!isNum(v)) { on = false; return; } d += (on ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); on = true; }); return d; };
+    const last = ser.c[n - 1], up = isNum(ser.prev) ? last >= ser.prev : last >= ser.c[0];
+    const col = up ? "var(--up)" : "var(--down)";
+    const closeP = path(ser.c);
+    const area = closeP + `L${x(n - 1).toFixed(1)} ${bottom.toFixed(1)}L${x(0).toFixed(1)} ${bottom.toFixed(1)}Z`;
+    const dec = hi > 500 ? 0 : hi > 20 ? 1 : 2;
+    const ticks = [lo, lo + span * 0.25, lo + span * 0.5, lo + span * 0.75, hi];
+    const grid = ticks.map(v => `<line x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+      <text x="${W - padR + 5}" y="${(y(v) + 3.5).toFixed(1)}" font-size="9.5" fill="var(--muted)" font-family="var(--font-mono)">${num(v, dec)}</text>`).join("");
+    const prevLine = isNum(ser.prev) && ser.prev >= lo && ser.prev <= hi
+      ? `<line x1="${padL}" x2="${W - padR}" y1="${y(ser.prev).toFixed(1)}" y2="${y(ser.prev).toFixed(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/>` : "";
+    // volum
+    const vols = (ser.v || []).map(v => (isNum(v) ? v : 0));
+    const vmax = Math.max.apply(null, vols.concat([1]));
+    const bw = Math.max(1, (W - padL - padR) / n - 1);
+    const volBars = vols.map((v, i) => {
+      const hgt = (v / vmax) * volH;
+      const c = ser.c[i] >= (i ? ser.c[i - 1] : (ser.o ? ser.o[i] : ser.c[i])) ? "var(--up)" : "var(--down)";
+      return `<rect x="${(x(i) - bw / 2).toFixed(1)}" y="${(H - padB - hgt).toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" fill="${c}" opacity="0.45"/>`;
+    }).join("");
+    const smaPaths = (chartState.sma && !ser.intraday)
+      ? `<path d="${path(ser.sma200 || [])}" fill="none" stroke="var(--warn)" stroke-width="1.3" stroke-dasharray="3 3"/>
+         <path d="${path(ser.sma50 || [])}" fill="none" stroke="var(--accent)" stroke-width="1.3"/>
+         <path d="${path(ser.sma20 || [])}" fill="none" stroke="var(--muted)" stroke-width="1" opacity="0.8"/>` : "";
+    // x-etiketter: 3–4 jevnt fordelt
+    const labelIdx = [0, Math.round((n - 1) / 3), Math.round(2 * (n - 1) / 3), n - 1].filter((v, i, a) => a.indexOf(v) === i);
+    const xl = labelIdx.map((i, k) => `<text x="${x(i).toFixed(1)}" y="${H - 3}" font-size="9.5" fill="var(--muted)" text-anchor="${k === 0 ? "start" : k === labelIdx.length - 1 ? "end" : "middle"}">${ser.intraday ? esc(ser.t[i]) : fmtDate(ser.t[i])}</text>`).join("");
+    return `<svg id="bigchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kursgraf">
+      ${grid}${prevLine}
+      <path d="${area}" fill="${col}" opacity="0.10"/>
+      ${smaPaths}
+      <path d="${closeP}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(n - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="3.5" fill="${col}" stroke="var(--surface)" stroke-width="2"/>
+      ${volBars}${xl}
+      <g id="xh" hidden><line id="xh-l" y1="${top}" y2="${H - padB}" stroke="var(--fg)" stroke-width="1" opacity="0.5"/><circle id="xh-c" r="4" fill="var(--fg)" stroke="var(--surface)" stroke-width="2"/></g>
+    </svg>`;
+  }
+
+  function periodStats(ser, cur) {
+    const n = ser.c.length, last = ser.c[n - 1];
+    const ref = isNum(ser.prev) ? ser.prev : ser.c[0];
+    const chg = last / ref - 1;
+    const highs = ser.hi || ser.h || ser.c, lows = ser.lo || ser.l || ser.c;
+    const hi = Math.max.apply(null, highs.filter(isNum)), lo = Math.min.apply(null, lows.filter(isNum));
+    const vols = (ser.v || []).filter(isNum);
+    const avgVol = vols.length ? vols.reduce((a, b) => a + b, 0) / vols.length : null;
+    const fmtVol = v => (!isNum(v) ? "–" : v >= 1e9 ? num(v / 1e9, 1) + " mrd" : v >= 1e6 ? num(v / 1e6, 1) + " mill" : v >= 1e3 ? num(v / 1e3, 0) + " k" : num(v, 0));
+    return `<div class="pstats">
+      <div><i>Endring</i><b class="mono ${sign(chg)}">${pct(chg)}</b><small class="mono ${sign(last - ref)}">${(last - ref >= 0 ? "+" : "") + num(last - ref, 2)}</small></div>
+      <div><i>Høyeste</i><b class="mono">${num(hi, 2)}</b><small class="mono">${pct(last / hi - 1)} under</small></div>
+      <div><i>Laveste</i><b class="mono">${num(lo, 2)}</b><small class="mono">${pct(last / lo - 1)} over</small></div>
+      <div><i>${ser.intraday ? "Volum i dag" : "Snittvolum"}</i><b class="mono">${ser.intraday ? fmtVol(vols.reduce((a, b) => a + b, 0)) : fmtVol(avgVol)}</b><small>${ser.intraday ? (ser.generated ? "oppd. " + fmtClock(ser.generated) : "") : "per dag"}</small></div>
+    </div>`;
+  }
+
+  function chartBlock(s) {
+    const ser = seriesFor(s, chartState.range);
+    const tabs = `<div class="rng">${RANGES.map(([k, l]) => `<button data-range="${k}" aria-pressed="${k === chartState.range}" title="${esc(l)}">${k === "1W" ? "1U" : k === "1Y" ? "1Å" : k === "2Y" ? "2Å" : k}</button>`).join("")}</div>`;
+    let body;
+    if (ser.loading) body = `<div class="skeleton" style="margin:0"><span style="height:230px"></span></div>`;
+    else if (ser.none) body = `<p class="muted" style="margin:14px 8px;font-size:13.5px">${esc(ser.reason)}</p>`;
+    else body = `${periodStats(ser, s.currency)}<div class="bc-wrap">${bigChart(ser, s.currency)}<div id="xh-tip" class="xh-tip" hidden></div></div>`;
+    const legend = ser.intraday
+      ? `<div class="legend"><span>15-min-kurser ${esc(ser.date ? fmtDate(ser.date) : "")} · stiplet = forrige sluttkurs · ca. 15 min forsinket</span></div>`
+      : `<div class="legend"><button class="lg-toggle" id="sma-toggle" aria-pressed="${chartState.sma}">${chartState.sma ? "Skjul" : "Vis"} snitt</button>${chartState.sma ? `<span><i style="background:var(--muted)"></i>SMA20</span><span><i style="background:var(--accent)"></i>SMA50</span><span><i style="background:var(--warn)"></i>SMA200</span>` : ""}<span>stiplet = kurs ved periodestart</span></div>`;
+    return `<div class="chart big" id="chart-box" data-ticker="${esc(s.ticker)}">${tabs}${body}${legend}</div>`;
+  }
+
+  function rerenderChart(ticker) {
+    const box = $("#chart-box");
+    if (!box || box.dataset.ticker !== ticker) return;
+    const s = detailCache[ticker];
+    if (!s) return;
+    box.outerHTML = chartBlock(s);
+    bindCrosshair();
+  }
+
+  // dra fingeren/musa over grafen for å lese av kurs og tidspunkt
+  function bindCrosshair() {
+    const svg = $("#bigchart"), box = $("#chart-box");
+    if (!svg || !box) return;
+    const ticker = box.dataset.ticker, s = detailCache[ticker];
+    if (!s) return;
+    const ser = seriesFor(s, chartState.range);
+    if (!ser.c) return;
+    const n = ser.c.length, W = 360, padL = 6, padR = 50, padT = 12, padB = 16, volH = 36;
+    const highs = ser.hi || ser.h || ser.c, lows = ser.lo || ser.l || ser.c;
+    let vals = highs.concat(lows).filter(isNum);
+    if (chartState.sma && !ser.intraday) vals = vals.concat([ser.sma20, ser.sma50, ser.sma200].flatMap(a => (a || []).filter(isNum)));
+    if (isNum(ser.prev)) vals.push(ser.prev);
+    const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), span = hi - lo || 1;
+    const top = padT, bottom = 230 - padB - volH - 6;
+    const x = i => padL + (n === 1 ? 0 : (i / (n - 1)) * (W - padL - padR));
+    const y = v => top + (1 - (v - lo) / span) * (bottom - top);
+    const g = $("#xh"), ln = $("#xh-l"), c = $("#xh-c"), tip = $("#xh-tip");
+    const move = ev => {
+      const r = svg.getBoundingClientRect();
+      const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+      const fx = px / r.width * W;
+      const i = Math.max(0, Math.min(n - 1, Math.round((fx - padL) / (W - padL - padR) * (n - 1))));
+      const v = ser.c[i];
+      g.hidden = false;
+      ln.setAttribute("x1", x(i).toFixed(1)); ln.setAttribute("x2", x(i).toFixed(1));
+      c.setAttribute("cx", x(i).toFixed(1)); c.setAttribute("cy", y(v).toFixed(1));
+      const ref = isNum(ser.prev) ? ser.prev : ser.c[0];
+      const o = ser.o ? ser.o[i] : null, h_ = highs[i], l_ = lows[i], vol = ser.v ? ser.v[i] : null;
+      tip.hidden = false;
+      tip.innerHTML = `<b class="mono">${num(v, 2)}</b> <span class="mono ${sign(v / ref - 1)}">${pct(v / ref - 1)}</span><br><span class="muted">${ser.intraday ? esc(ser.t[i]) : fmtDate(ser.t[i])}${isNum(o) ? ` · åpn ${num(o, 2)} · h ${num(h_, 2)} · l ${num(l_, 2)}` : ""}${isNum(vol) ? ` · vol ${vol >= 1e6 ? num(vol / 1e6, 1) + " mill" : num(vol, 0)}` : ""}</span>`;
+      const left = Math.min(Math.max(px, 70), r.width - 70);
+      tip.style.left = left + "px";
+      if (ev.cancelable && ev.touches) ev.preventDefault();
+    };
+    const end = () => { g.hidden = true; tip.hidden = true; };
+    svg.addEventListener("mousemove", move); svg.addEventListener("mouseleave", end);
+    svg.addEventListener("touchstart", move, { passive: false }); svg.addEventListener("touchmove", move, { passive: false }); svg.addEventListener("touchend", end);
+  }
+
   // ---------- detaljark ----------
   function chartSVG(h) {
     if (!h || !h.close || h.close.length < 10) return "";
@@ -442,9 +616,7 @@
           <p class="vd-hint">${esc(VHINT[s.verdict] || "")}</p>
           ${vr.length ? `<ul class="vd-why">${vr.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
         </div>
-        <div class="chart">${s._loading ? `<div class="skeleton" style="margin:0"><span style="height:170px"></span></div>` : s.history ? chartSVG(s.history) : `<p class="muted" style="margin:6px 8px">Kursgrafen er ikke tilgjengelig akkurat nå.</p>`}
-          <div class="legend"><span><i style="background:var(--accent)"></i>SMA50</span><span><i style="background:var(--warn)"></i>SMA200</span><span><i style="background:var(--muted)"></i>Sluttkurs</span></div>
-        </div>
+        ${s._loading ? `<div class="chart big"><div class="skeleton" style="margin:0"><span style="height:230px"></span></div></div>` : s.history ? chartBlock(s) : `<div class="chart big"><p class="muted" style="margin:6px 8px">Kursgrafen er ikke tilgjengelig akkurat nå.</p></div>`}
         ${stockPortfolioCard(s)}
         ${ideaReasons.length ? `<div class="card"><h3>Signaler i dag</h3><ul class="reasons" style="margin:0;padding-left:18px">${[...new Set(ideaReasons)].map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
         <div class="card"><h3>Score</h3><div class="scores">${scoreRows.map(([l, v, cls]) =>
@@ -456,6 +628,7 @@
         <a class="ext" href="https://finance.yahoo.com/quote/${encodeURIComponent(s.ticker)}" target="_blank" rel="noopener">Åpne i Yahoo Finance ${I.ext}</a>
         <p class="note">Mekaniske signaler fra offentlige data – ikke investeringsråd. Gjør egen vurdering før du handler.</p>
       </div>`, push, { ticker }, replace);
+    bindCrosshair();
   }
 
   function openInfo(push) {
@@ -1136,6 +1309,9 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
       return;
     }
+    const rb = e.target.closest("[data-range]");
+    if (rb) { chartState.range = rb.dataset.range; try { localStorage.setItem("ar.range", chartState.range); } catch (x) { /* ignorer */ } rerenderChart($("#chart-box").dataset.ticker); return; }
+    if (e.target.closest("#sma-toggle")) { chartState.sma = !chartState.sma; try { localStorage.setItem("ar.sma", chartState.sma ? "1" : "0"); } catch (x) { /* ignorer */ } rerenderChart($("#chart-box").dataset.ticker); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
     const trade = e.target.closest("[data-trade]");

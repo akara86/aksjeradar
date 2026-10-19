@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from aksjeradar.config import load_config, market_of
-from aksjeradar.intraday import MARKETS, run_intraday, setup_id
+from aksjeradar.intraday import MARKETS, run_intraday, setup_id, write_intraday_bars
 from aksjeradar.notify import push_settings, send_push
 from aksjeradar.storage import Storage
 
@@ -161,6 +161,9 @@ def main() -> int:
                 sent_today += 1
         store.save_snapshot("intraday", "log", {"setups": payload["log"]})
 
+    frames = payload.pop("_frames", {})
+    nbars = write_intraday_bars(frames, site / "intraday", days=2)
+    log.info("Skrev 15m-barer for %d aksjer til %s", nbars, site / "intraday")
     out = site / "intraday.json"
     out.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Intradag: {len(payload['setups'])} setups, {payload['universe']} aksjer -> {out}")

@@ -365,5 +365,5 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
 export:
   json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart
   details_dir: "docs/stocks"      # én detaljfil per aksje (hentes når du åpner aksjen)
-  history_days: 130               # antall kursdager i grafen i appen
+  history_days: 520               # antall kursdager i grafen i appen (520 ≈ 2 år)
   spark_days: 30                  # antall kursdager i de små grafene i listene

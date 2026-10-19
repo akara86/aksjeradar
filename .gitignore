@@ -8,3 +8,4 @@ __pycache__/
 venv/
 docs/autotrader.json
 docs/intraday.json
+docs/intraday/
