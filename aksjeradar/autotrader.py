@@ -102,7 +102,21 @@ def run_autotrader(store: Storage, table: pd.DataFrame, cfg: dict, fx: dict) -> 
     rows = {r["ticker"]: r for r in table.to_dict(orient="records")}
     comm = float(acfg.get("commission_pct", 0.0005))
     slip = float(acfg.get("slippage_pct", 0.002))
+    # Samme dato igjen? Regnes som ferdig bare hvis forrige behandling skjedde etter at alle børser var stengt
+    # (USA stenger 20:00/21:00 UTC). Ellers behandles dagen på nytt med fullstendige kurser.
+    now_utc = datetime.now(timezone.utc)
     already = state.get("last_price_date") == price_date
+    if already:
+        processed_at = state.get("last_processed_at")
+        final_after = datetime.fromisoformat(price_date).replace(hour=21, minute=30, tzinfo=timezone.utc)
+        if not processed_at or datetime.fromisoformat(processed_at) < final_after:
+            already = False
+            # rull tilbake markedsindeksen til forrige dag, så den ikke telles dobbelt
+            if len(state["history"]) >= 2 and state["history"][-1]["date"] == price_date:
+                prev_pt = state["history"][-2]
+                state["bench"] = prev_pt["bench"] / state["start_cash"] if state["start_cash"] else 1.0
+                state["history"].pop()
+            log.info("Autotrader: %s behandles på nytt med fullstendige kurser", price_date)
 
     if not already:
         # ---------- 1. selg ----------
@@ -223,6 +237,7 @@ def run_autotrader(store: Storage, table: pd.DataFrame, cfg: dict, fx: dict) -> 
     else:
         state["history"].append(point)
     state["last_price_date"] = price_date
+    state["last_processed_at"] = now_utc.isoformat()
     store.save_snapshot("autotrader", "state", state)
 
     # ---------- 5. statistikk ----------

@@ -64,8 +64,32 @@ def _to_naive(ts) -> pd.Timestamp | None:
 # --------------------------------------------------------------------------
 # Kurser
 # --------------------------------------------------------------------------
+# Stengetid per børs (lokal tid) – brukes til å fjerne en halvferdig dagsstolpe hvis vi kjører mens børsen er åpen
+MARKET_CLOSE = {
+    "Oslo": ("Europe/Oslo", 16, 30), "Stockholm": ("Europe/Stockholm", 17, 35), "København": ("Europe/Copenhagen", 17, 5),
+    "Helsinki": ("Europe/Helsinki", 18, 35), "USA": ("America/New_York", 16, 5),
+}
+
+
+def drop_partial_today(ticker: str, df: pd.DataFrame) -> pd.DataFrame:
+    """Fjerner siste rad hvis den er datert i dag og børsen ikke har stengt ennå (ufullstendig stolpe)."""
+    from zoneinfo import ZoneInfo
+
+    from .config import market_of
+
+    if df.empty:
+        return df
+    tz, hh, mm = MARKET_CLOSE.get(market_of(ticker), MARKET_CLOSE["USA"])
+    now_local = datetime.now(ZoneInfo(tz))
+    last_day = pd.Timestamp(df.index[-1]).date()
+    if last_day == now_local.date() and (now_local.hour, now_local.minute) < (hh, mm):
+        return df.iloc[:-1]
+    return df
+
+
 def fetch_prices(tickers: list[str], period: str = "2y", batch_size: int = 40) -> dict[str, pd.DataFrame]:
-    """Henter daglige kurser for mange aksjer i batcher. Returnerer {ticker: DataFrame}."""
+    """Henter daglige kurser for mange aksjer i batcher. Returnerer {ticker: DataFrame}.
+    Bare fullførte handelsdager tas med – en halvferdig stolpe for i dag fjernes."""
     import yfinance as yf
 
     out: dict[str, pd.DataFrame] = {}
@@ -97,6 +121,7 @@ def fetch_prices(tickers: list[str], period: str = "2y", batch_size: int = 40) -
                 if getattr(df.index, "tz", None) is not None:
                     df.index = df.index.tz_localize(None)
                 df = df[~df.index.duplicated(keep="last")].sort_index()
+                df = drop_partial_today(t, df)
             except Exception as e:  # noqa: BLE001
                 log.warning("Kunne ikke tolke kursdata for %s: %s", t, e)
                 continue
