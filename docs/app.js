@@ -391,12 +391,12 @@
     const legend = ser.intraday
       ? `<div class="legend"><span>15-min-kurser ${esc(ser.date ? fmtDate(ser.date) : "")} · stiplet = forrige sluttkurs · ca. 15 min forsinket</span></div>`
       : `<div class="legend"><button class="lg-toggle" id="sma-toggle" aria-pressed="${chartState.sma}">${chartState.sma ? "Skjul" : "Vis"} snitt</button>${chartState.sma ? `<span><i style="background:var(--muted)"></i>SMA20</span><span><i style="background:var(--accent)"></i>SMA50</span><span><i style="background:var(--warn)"></i>SMA200</span>` : ""}<span>stiplet = kurs ved periodestart</span></div>`;
-    return `<div class="chart big" id="chart-box" data-ticker="${esc(s.ticker)}">${tabs}${body}${legend}</div>`;
+    return `<div class="chart big" id="chart-box" data-chart="${esc(s.ticker)}">${tabs}${body}${legend}</div>`;
   }
 
   function rerenderChart(ticker) {
     const box = $("#chart-box");
-    if (!box || box.dataset.ticker !== ticker) return;
+    if (!box || box.dataset.chart !== ticker) return;
     const s = detailCache[ticker];
     if (!s) return;
     box.outerHTML = chartBlock(s);
@@ -407,7 +407,7 @@
   function bindCrosshair() {
     const svg = $("#bigchart"), box = $("#chart-box");
     if (!svg || !box) return;
-    const ticker = box.dataset.ticker, s = detailCache[ticker];
+    const ticker = box.dataset.chart, s = detailCache[ticker];
     if (!s) return;
     const ser = seriesFor(s, chartState.range);
     if (!ser.c) return;
@@ -1295,6 +1295,9 @@
   }
 
   document.addEventListener("click", e => {
+    const rb = e.target.closest("[data-range]");
+    if (rb) { chartState.range = rb.dataset.range; try { localStorage.setItem("ar.range", chartState.range); } catch (x) { /* ignorer */ } const cb = $("#chart-box"); if (cb) rerenderChart(cb.dataset.chart); return; }
+    if (e.target.closest("#sma-toggle")) { chartState.sma = !chartState.sma; try { localStorage.setItem("ar.sma", chartState.sma ? "1" : "0"); } catch (x) { /* ignorer */ } const cb = $("#chart-box"); if (cb) rerenderChart(cb.dataset.chart); return; }
     const row = e.target.closest("[data-ticker]");
     if (row) { if (!row.dataset.nodetail) openStock(row.dataset.ticker); return; }
     const sub = e.target.closest("[data-sub]");
@@ -1309,9 +1312,6 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
       return;
     }
-    const rb = e.target.closest("[data-range]");
-    if (rb) { chartState.range = rb.dataset.range; try { localStorage.setItem("ar.range", chartState.range); } catch (x) { /* ignorer */ } rerenderChart($("#chart-box").dataset.ticker); return; }
-    if (e.target.closest("#sma-toggle")) { chartState.sma = !chartState.sma; try { localStorage.setItem("ar.sma", chartState.sma ? "1" : "0"); } catch (x) { /* ignorer */ } rerenderChart($("#chart-box").dataset.ticker); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
     const trade = e.target.closest("[data-trade]");
