@@ -83,6 +83,9 @@ class Storage:
         self.conn.executemany(
             "INSERT OR REPLACE INTO prices VALUES (?,?,?,?,?,?,?)", rows
         )
+        # Rader nyere enn det vi nettopp hentet (f.eks. en halvferdig dagsstolpe fra en tidligere kjøring) fjernes
+        if rows:
+            self.conn.execute("DELETE FROM prices WHERE ticker=? AND date>?", (ticker, max(r[1] for r in rows)))
         self.conn.commit()
 
     def load_prices(self, ticker: str) -> pd.DataFrame:

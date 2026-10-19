@@ -85,6 +85,8 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
         detail["rank_prev"] = entry["rank_prev"]
 
         hist = store.load_prices(t)
+        if not hist.empty and rec.get("last_date"):
+            hist = hist[hist.index <= pd.Timestamp(rec["last_date"])]  # aldri nyere enn analysens sluttkurs
         if not hist.empty:
             ind = compute_indicators(hist, scfg["rsi_period"], scfg["sma_fast"], scfg["sma_slow"]).tail(history_days)
             closes = [round(float(x), 2) for x in ind["Close"]]
