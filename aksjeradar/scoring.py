@@ -93,6 +93,8 @@ def build_table(prices: dict[str, pd.DataFrame], details: dict[str, dict], cfg: 
         # Fundamentalt
         for k in FUNDAMENTAL_KEYS:
             row[k] = f.get(k)
+        if row.get("dividendYield") is not None and row["dividendYield"] > 1.0:
+            row["dividendYield"] = row["dividendYield"] / 100.0  # eldre bufrede snapshots i prosent
         fcf, mc = f.get("freeCashflow"), f.get("marketCap")
         row["fcf_yield"] = (fcf / mc) if (fcf is not None and mc) else None
 

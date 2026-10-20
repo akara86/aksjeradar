@@ -180,6 +180,11 @@ def fetch_details(ticker: str) -> dict:
     for k in INFO_KEYS:
         v = info.get(k)
         fundamentals[k] = v if isinstance(v, str) else _num(v)
+    # Yahoo leverer direkteavkastning og utbytteandel som prosent (3.36) for noen aksjer – normaliser til andel (0.0336)
+    for k in ("dividendYield", "payoutRatio"):
+        v = fundamentals.get(k)
+        if v is not None and v > 1.0:
+            fundamentals[k] = v / 100.0
     analyst = {k: fundamentals.get(k) for k in ANALYST_KEYS}
 
     return {
