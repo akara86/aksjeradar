@@ -132,7 +132,9 @@ veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med kon
 eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
 kursgraf med tidsvelger (1D med 15-minutters kurser, 1U, 1M, 3M, 6M, 1Å, 2Å), avlesing ved å dra
 fingeren over grafen, periodestatistikk, volum og glidende snitt, pluss score, signaler, analytikere
-og innsidehandler. Porteføljene lagres lokalt på telefonen
+og innsidehandler, samt en **automatisk skrevet analyse** per aksje (selskapet, trend, prising mot
+sektoren, analytikere, innsidere, risiko, argumenter for/imot kjøp, konklusjon og hva som ville endret
+vurderingen – laget av `aksjeradar/narrative.py` fra tallene). Porteføljene lagres lokalt på telefonen
 (ingen server) og kan kopieres ut som sikkerhetskopi. Valutakurser (USD/SEK/DKK/EUR mot NOK) hentes
 daglig, så porteføljen summeres riktig. Den fungerer uten
 nett (viser siste data) og følger mørk/lys modus på telefonen.

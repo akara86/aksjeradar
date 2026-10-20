@@ -20,8 +20,10 @@ log = logging.getLogger("aksjeradar.data")
 
 # Feltene vi henter fra Yahoo sin "info"-blokk per aksje
 INFO_KEYS = [
-    # Identitet
+    # Identitet og beskrivelse
     "shortName", "longName", "sector", "industry", "currency", "marketCap", "currentPrice",
+    "longBusinessSummary", "country", "fullTimeEmployees", "website",
+    "fiftyTwoWeekHigh", "fiftyTwoWeekLow", "payoutRatio", "earningsQuarterlyGrowth", "totalCash", "totalDebt",
     # Verdsettelse og kvalitet
     "trailingPE", "forwardPE", "enterpriseToEbitda", "trailingPegRatio", "priceToBook",
     "revenueGrowth", "earningsGrowth", "profitMargins", "operatingMargins", "returnOnEquity",

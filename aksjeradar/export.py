@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .narrative import build_narrative, sector_stats
 from .signals import compute_indicators
 from .storage import Storage, clean_for_json
 
@@ -71,6 +72,7 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
         for rec in store.load_scores(prev_date).to_dict(orient="records"):
             prev[rec["ticker"]] = rec
 
+    stats = sector_stats(table)
     index = []
     written = set()
     for rec in table.to_dict(orient="records"):
@@ -107,6 +109,10 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
         detail["upgrades"] = (snap.get("upgrades") or [])[:10]
         detail["insider"] = (snap.get("insider") or [])[:15]
         detail["run_date"] = run_date
+        try:
+            detail["analysis"] = clean_for_json(build_narrative(rec, stats, snap))
+        except Exception as e:  # noqa: BLE001
+            log.debug("Analyse-tekst feilet for %s: %s", t, e)
 
         safe = t.replace("/", "_")
         (details_dir / f"{safe}.json").write_text(json.dumps(detail, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

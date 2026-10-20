@@ -617,6 +617,7 @@
           ${vr.length ? `<ul class="vd-why">${vr.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
         </div>
         ${s._loading ? `<div class="chart big"><div class="skeleton" style="margin:0"><span style="height:230px"></span></div></div>` : s.history ? chartBlock(s) : `<div class="chart big"><p class="muted" style="margin:6px 8px">Kursgrafen er ikke tilgjengelig akkurat nå.</p></div>`}
+        ${analysisCard(s)}
         ${stockPortfolioCard(s)}
         ${ideaReasons.length ? `<div class="card"><h3>Signaler i dag</h3><ul class="reasons" style="margin:0;padding-left:18px">${[...new Set(ideaReasons)].map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>` : ""}
         <div class="card"><h3>Score</h3><div class="scores">${scoreRows.map(([l, v, cls]) =>
@@ -629,6 +630,29 @@
         <p class="note">Mekaniske signaler fra offentlige data – ikke investeringsråd. Gjør egen vurdering før du handler.</p>
       </div>`, push, { ticker }, replace);
     bindCrosshair();
+  }
+
+  // ---------- analysetekst per aksje ----------
+  function md(txt) { return esc(txt).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"); }
+  function analysisCard(s) {
+    const a = s.analysis;
+    if (!a) return s._loading ? "" : `<div class="card"><h3>Analyse</h3><p class="muted" style="margin:0">Analysen skrives ved neste daglige kjøring.</p></div>`;
+    const open_ = (() => { try { return localStorage.getItem("ar.analysis") !== "0"; } catch (e) { return true; } })();
+    return `<div class="card analysis"><h3>Analyse</h3>
+      <p class="lead">${md(a.summary || "")}</p>
+      <div class="procon">
+        <div><h4 class="pos">For kjøp</h4><ul>${(a.pros || []).map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+        <div><h4 class="neg">Mot kjøp</h4><ul>${(a.cons || []).map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      </div>
+      <p class="concl">${md(a.conclusion || "")}</p>
+      ${(a.would_change || []).length ? `<p class="wc"><b>Hva som ville endret vurderingen:</b> ${a.would_change.map(esc).join(" · ")}</p>` : ""}
+      <button class="linkbtn" id="an-toggle" aria-expanded="${open_}">${open_ ? "Skjul" : "Les"} hele analysen</button>
+      <div id="an-body" ${open_ ? "" : "hidden"}>
+        ${(a.sections || []).map(sec => `<h4>${esc(sec.title)}</h4><p>${md(sec.text)}</p>`).join("")}
+        ${a.about ? `<h4>Om selskapet <span class="muted" style="font-weight:400">(fra Yahoo, engelsk)</span></h4><p class="muted">${esc(a.about)}</p>` : ""}
+      </div>
+      <p class="note" style="margin-top:10px">Analysen er skrevet automatisk fra tallene og sammenligner med ${a.sector_ref && a.sector_ref.n ? `${a.sector_ref.n} aksjer i samme sektor` : "universet"}. Den beskriver hva dataene sier – ikke hva som kommer til å skje.</p>
+    </div>`;
   }
 
   function openInfo(push) {
@@ -1314,6 +1338,13 @@
     if (fc && !currentSubview) { openSubview("fond"); return; }
     if (e.target.closest("#info-menu")) { openInfo(); return; }
     if (e.target.closest("#push-menu")) { openPush(); return; }
+    if (e.target.closest("#an-toggle")) {
+      const body = $("#an-body"), btn = $("#an-toggle");
+      body.hidden = !body.hidden;
+      btn.textContent = (body.hidden ? "Les" : "Skjul") + " hele analysen";
+      try { localStorage.setItem("ar.analysis", body.hidden ? "0" : "1"); } catch (x) { /* ignorer */ }
+      return;
+    }
     if (e.target.closest("#push-copy")) {
       const txt = $("#push-topic").textContent;
       const done = () => { $("#push-copy").textContent = "Kopiert ✓"; };
