@@ -322,6 +322,9 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
         except Exception:  # noqa: BLE001
             sec_ok = False
         log.info("SEC EDGAR %s – %s", "tilgjengelig" if sec_ok else "avviser serveren", "bruker SEC" if sec_ok else "bruker 13f.info")
+    prev_state, _ = store.load_snapshot("gurus", "state")
+    prev_state = prev_state or {}
+    new_state: dict[str, str] = {}
     cusip_map: dict[str, dict] = {}
     all_latest: list[tuple[str, dict]] = []
 
