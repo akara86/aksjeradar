@@ -439,12 +439,18 @@ gurus:                            # kjente investorer – porteføljer fra SEC E
       cik: 1709323
       style: "Verdi, svært konsentrert, lang horisont"
       bio: "Charlie Mungers favorittforvalter og mannen bak Berkshires BYD-investering. Eier et fåtall selskaper i mange år."
-    - id: einhorn
-      name: "David Einhorn"
-      firm: "Greenlight Capital"
-      cik: 1079114
-      style: "Verdi, long/short"
-      bio: "Kjent for å ha avslørt Lehman Brothers før kollapsen i 2008. Greenlight ga ca. 20 % årlig det første tiåret; blandet senere."
+    - id: smith
+      name: "Terry Smith"
+      firm: "Fundsmith"
+      cik: 1569205
+      style: "Kvalitetsvekst, «kjøp gode selskaper, ikke betal for mye, gjør ingenting»"
+      bio: "Fundsmith Equity har gitt rundt 15 % årlig siden 2010 med en konsentrert portefølje av selskaper med høy kapitalavkastning. 13F viser bare de amerikanske aksjene."
+    - id: hohn
+      name: "Chris Hohn"
+      firm: "TCI Fund Management"
+      cik: 1647251
+      style: "Svært konsentrert kvalitet, aktivist"
+      bio: "TCI har gitt rundt 18 % årlig siden 2004 og er blant verdens mest lønnsomme hedgefond. Eier et fåtall selskaper med sterke posisjoner (infrastruktur, data, luftfart) i mange år."
     - id: loeb
       name: "Daniel Loeb"
       firm: "Third Point"

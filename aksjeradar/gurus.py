@@ -171,7 +171,9 @@ def _f13_get(url: str):
 
 
 def f13_manager_path(cik: str | None, firm: str) -> str | None:
-    """Finner /manager/<cik>-<slug>-stien, via CIK hvis vi har den, ellers via søk på navn."""
+    """Finner forvaltersiden: direkte via CIK hvis vi har den (13f.info godtar bar CIK), ellers via søk på navn."""
+    if cik:
+        return f"/manager/{cik.zfill(10)}"
     try:
         q = firm.split("(")[0].split(",")[0].strip()
         res = _f13_get(f"{F13_BASE}/data/autocomplete?q={requests.utils.quote(q)}").json()

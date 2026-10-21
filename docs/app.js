@@ -1286,8 +1286,11 @@
       <span class="mid"></span><span class="r">${isNum(h.weight) && h.weight > 0 ? `<span class="pill mid">${pct(h.weight, false, 1)}</span>` : (idx ? `<span class="pill ${scClass(idx.score)}">${sc(idx.score)}</span>` : "")}</span>
     </button>`;
   }
+  function daysSince(iso) { const d = new Date(iso + "T00:00:00"); return isNaN(d) ? null : Math.round((Date.now() - d.getTime()) / 86400000); }
   function investorCard(inv) {
     const open_ = !!guruState.open[inv.id];
+    const age = daysSince(inv.report_date);
+    const stale = isNum(age) && age > 200;
     const nm = inv.n_moves || {};
     const movesHtml = (inv.moves || []).length ? `<div class="list" style="margin-top:8px">${inv.moves.slice(0, 20).map(m =>
       `<button class="row" ${m.ticker && byTicker(m.ticker) ? `data-ticker="${esc(m.ticker)}"` : 'data-nodetail="1"'}>
@@ -1301,7 +1304,7 @@
         <span class="g-meta mono">${bigMoney(inv.total_value)}<small>${inv.n_positions} posisjoner · per ${fmtDate(inv.report_date)}</small></span>
         <span class="chev">${open_ ? "▾" : "▸"}</span>
       </button>
-      <div class="g-tags"><span class="chip">${esc(inv.style)}</span><span class="chip">topp 10 = ${pct(inv.top10_weight, false, 0)}</span>${nm.ny ? `<span class="chip on">${nm.ny} nye</span>` : ""}${nm.solgt ? `<span class="chip on bad">${nm.solgt} solgt</span>` : ""}</div>
+      <div class="g-tags">${stale ? `<span class="chip on bad">Ingen ny rapport siden ${fmtDate(inv.report_date)}</span>` : ""}<span class="chip">${esc(inv.style)}</span><span class="chip">topp 10 = ${pct(inv.top10_weight, false, 0)}</span>${nm.ny ? `<span class="chip on">${nm.ny} nye</span>` : ""}${nm.solgt ? `<span class="chip on bad">${nm.solgt} solgt</span>` : ""}</div>
       <div ${open_ ? "" : "hidden"}>
         <p class="g-bio">${esc(inv.bio)}</p>
         <div class="section-head" style="margin-top:10px"><h2>Bevegelser siste kvartal</h2><span class="count">${fmtDate(inv.prev_report_date)} → ${fmtDate(inv.report_date)}</span></div>
