@@ -178,7 +178,11 @@ def main() -> int:
             gp.write_text(json.dumps(gurus_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             log.info("Guruer: %d investorer, %d nye rapporter", len(gurus_payload.get("investors", [])), len(gurus_payload.get("alerts", [])))
         except Exception as e:  # noqa: BLE001
+            import traceback
             log.exception("Guru-modulen feilet: %s", e)
+            gp = Path(cfg["_root"]) / "docs" / "gurus.json"
+            gp.write_text(json.dumps({"generated_at": date.today().isoformat(), "investors": [], "consensus": {"owned": [], "bought": [], "sold": []},
+                                      "alerts": [], "errors": [{"fatal": repr(e)[:400], "trace": traceback.format_exc()[-2500:]}]}, ensure_ascii=False), encoding="utf-8")
 
     # Autotrader – virtuell portefølje som følger anbefalingene (egen fane i appen)
     auto = {}
