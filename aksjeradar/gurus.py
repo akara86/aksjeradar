@@ -29,9 +29,15 @@ from .storage import Storage, clean_for_json
 
 log = logging.getLogger("aksjeradar.gurus")
 
+import os as _os
+
+# SEC krever at automatiske verktøy oppgir navn og kontaktadresse i User-Agent (ellers 403).
+# Standard er GitHub-kontoens noreply-adresse; kan overstyres med SEC_CONTACT (hemmelighet) eller gurus.contact i config.yaml.
+SEC_CONTACT = _os.getenv("SEC_CONTACT", "").strip() or "akara86@users.noreply.github.com"
 SEC_HEADERS = {
-    "User-Agent": "Aksjeradar/1.0 personal research tool (+https://github.com/akara86/aksjeradar)",
+    "User-Agent": f"Aksjeradar personal research tool {SEC_CONTACT}",
     "Accept-Encoding": "gzip, deflate",
+    "Accept": "application/json, text/html, application/xml;q=0.9, */*;q=0.8",
 }
 SEC_PAUSE = 0.15  # SEC tillater maks 10 forespørsler per sekund
 
@@ -227,6 +233,8 @@ def compare(latest: list[dict], prev: list[dict]) -> list[dict]:
 def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices: dict | None = None,
               verdicts: dict | None = None, demo: bool = False) -> dict:
     gcfg = cfg["gurus"]
+    if gcfg.get("contact") and not _os.getenv("SEC_CONTACT"):
+        SEC_HEADERS["User-Agent"] = f"Aksjeradar personal research tool {gcfg['contact']}"
     out_investors, alerts = [], []
     errors: list[dict] = []
     if not demo:

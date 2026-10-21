@@ -394,6 +394,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
 gurus:                            # kjente investorer – porteføljer fra SEC EDGAR (13F), egen fane «Guruer»
   enabled: true
   refresh_days: 1                 # sjekk daglig om det er kommet ny 13F (selve rapportene kommer kvartalsvis)
+  # contact: "navn@epost.no"      # SEC krever kontaktadresse i forespørslene; standard er GitHub-kontoens noreply-adresse
   # cik = SEC-ID for forvaltningsselskapet. Mangler eller feil cik slås opp via edgar_name automatisk.
   list:
     - id: buffett

@@ -50,6 +50,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
         run: python run.py
       - name: Behold siste intradag-fil fra nettsiden
         run: |
