@@ -60,6 +60,7 @@ DEFAULTS = {
         "spark_days": 30,               # kursdager i de små grafene i listene
     },
     "universe_extra": {"sp500": False},
+    "gurus": {"enabled": True, "refresh_days": 1, "list": []},
     "funds": {"enabled": True, "base_currency": "NOK", "thresholds": {"good_drawdown": -0.08, "strong_drawdown": -0.15, "fx_expensive": 0.04}, "list": []},
     "intraday": {
         "enabled": True, "interval": "15m", "max_tickers": 120, "include_buy_candidates": True,

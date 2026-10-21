@@ -45,7 +45,7 @@
     ["forwardPE", "Forventet P/E (lav først)", "num1", "asc"],
     ["dividendYield", "Direkteavkastning", "pctu"],
   ];
-  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["intradag", "Intradag"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["mer", "Mer"]];
+  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["intradag", "Intradag"], ["guruer", "Guruer"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["mer", "Mer"]];
 
   const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
   const detailCache = {};
@@ -110,6 +110,7 @@
     portefolje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
     auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M8 4h8M9 14h.01M15 14h.01M9 17h6"/></svg>',
     intradag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>',
+    guruer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M4 17 3 7l5 4 4-6 4 6 5-4-1 10z"/></svg>',
     mer: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
     screener: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
     varsler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
@@ -132,6 +133,7 @@
     if (btn) btn.classList.remove("spin");
     if (force && auto) loadAuto(true);
     if (force && intra) loadIntra(true);
+    if (force && gurus) loadGurus(true);
     render();
   }
 
@@ -696,6 +698,9 @@
         <div class="card"><h3>Fond</h3>
           <p>Aksjefond følges via en indeks-ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. For hvert fond ser du fall fra 52-ukers topp i kroner, hvor mye som skyldes indeksen og hvor mye kronekursen, og et nivå (Svært gunstig / Gunstig / Nøytral / Dyr). Varsel når nivået skifter. Fondene du eier kan legges til i config.yaml under <span class="mono">funds.list</span>.</p>
         </div>
+        <div class="card"><h3>Guruer</h3>
+          <p>Porteføljene til kjente investorer (Buffett, Druckenmiller, Burry, Ackman, Tepper, Klarman, Li Lu m.fl.) hentes fra deres 13F-rapporter til SEC hvert kvartal. Fanen viser hva de eier, hva de kjøpte og solgte siste kvartal, og konsensus på tvers – hvilke aksjer flest eier og kjøper. Rapportene kommer inntil 45 dager etter kvartalsslutt og dekker bare amerikanske long-posisjoner.</p>
+        </div>
         <div class="card"><h3>Intradag</h3>
           <p>Kortsiktige setups på 15-minutters kurser for ~120 likvide aksjer, oppdatert hvert kvarter i børstiden: Gap-and-go, Åpningsbrudd, VWAP-reclaim og Trenddag, hver med inngang, stop og mål. Hvert setup etterprøves etter stenging, og treffprosent og snitt per setup vises i fanen. Kursene er ca. 15 minutter forsinket.</p>
         </div>
@@ -1254,6 +1259,80 @@
     return html;
   }
 
+  // ---------- guruer: kjente investorers porteføljer (SEC 13F) ----------
+  let gurus = null, gurusLoading = false, gurusError = null;
+  const guruState = { open: {}, view: "konsensus" };
+  async function loadGurus(force) {
+    if (gurusLoading) return;
+    gurusLoading = true; gurusError = null;
+    try {
+      const r = await fetch("gurus.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      gurus = await r.json();
+    } catch (e) { gurusError = e; }
+    gurusLoading = false;
+    if (state.tab === "guruer") render();
+  }
+  const MOVE_CLASS = { "ny": "v-strong", "økt": "v-buy", "redusert": "v-wait", "solgt": "v-avoid" };
+  const MOVE_LABEL = { "ny": "Ny", "økt": "Økt", "redusert": "Redusert", "solgt": "Solgt" };
+  const bigMoney = v => (!isNum(v) ? "–" : v >= 1e9 ? num(v / 1e9, 1) + " mrd $" : v >= 1e6 ? num(v / 1e6, 0) + " mill $" : num(v, 0) + " $");
+
+  function holdingRowG(h, extra) {
+    const idx = h.ticker ? byTicker(h.ticker) : null;
+    const attrs = idx ? `data-ticker="${esc(h.ticker)}"` : `data-nodetail="1"`;
+    return `<button class="row" ${attrs}>
+      <span class="l"><span class="l1">${h.ticker ? `<span class="tick">${esc(h.ticker)}</span>` : ""}<span class="name">${esc(h.name)}</span></span>
+      <span class="l2">${h.verdict ? vbadge(h.verdict) : ""}<span class="info" style="font-family:var(--font-ui)">${extra}</span></span></span>
+      <span class="mid"></span><span class="r">${isNum(h.weight) && h.weight > 0 ? `<span class="pill mid">${pct(h.weight, false, 1)}</span>` : (idx ? `<span class="pill ${scClass(idx.score)}">${sc(idx.score)}</span>` : "")}</span>
+    </button>`;
+  }
+  function investorCard(inv) {
+    const open_ = !!guruState.open[inv.id];
+    const nm = inv.n_moves || {};
+    const movesHtml = (inv.moves || []).length ? `<div class="list" style="margin-top:8px">${inv.moves.slice(0, 20).map(m =>
+      `<button class="row" ${m.ticker && byTicker(m.ticker) ? `data-ticker="${esc(m.ticker)}"` : 'data-nodetail="1"'}>
+        <span class="l"><span class="l1"><span class="vb ${MOVE_CLASS[m.move]}">${MOVE_LABEL[m.move]}</span>${m.ticker ? `<span class="tick">${esc(m.ticker)}</span>` : ""}<span class="name">${esc(m.name)}</span></span>
+        <span class="l2">${m.verdict ? vbadge(m.verdict) : ""}<span class="info" style="font-family:var(--font-ui)">${m.move === "ny" ? `ny posisjon · ${pct(m.weight, false, 1)} av porteføljen` : m.move === "solgt" ? "hele posisjonen solgt" : `${pct(m.change_shares)} antall aksjer · nå ${pct(m.weight, false, 1)}`}</span></span></span>
+        <span class="mid"></span><span class="r"><span class="metric mono ${m.move === "ny" || m.move === "økt" ? "pos" : "neg"}" style="min-width:40px;text-align:right">${m.move === "ny" ? "+" : m.move === "solgt" ? "−" : (m.change_shares >= 0 ? "▲" : "▼")}</span></span>
+      </button>`).join("")}</div>` : `<div class="empty">Ingen bevegelser siden forrige kvartal.</div>`;
+    return `<div class="guru">
+      <button class="guru-head" data-guru="${esc(inv.id)}" aria-expanded="${open_}">
+        <span class="g-name">${esc(inv.name)}<small>${esc(inv.firm)}</small></span>
+        <span class="g-meta mono">${bigMoney(inv.total_value)}<small>${inv.n_positions} posisjoner · per ${fmtDate(inv.report_date)}</small></span>
+        <span class="chev">${open_ ? "▾" : "▸"}</span>
+      </button>
+      <div class="g-tags"><span class="chip">${esc(inv.style)}</span><span class="chip">topp 10 = ${pct(inv.top10_weight, false, 0)}</span>${nm.ny ? `<span class="chip on">${nm.ny} nye</span>` : ""}${nm.solgt ? `<span class="chip on bad">${nm.solgt} solgt</span>` : ""}</div>
+      <div ${open_ ? "" : "hidden"}>
+        <p class="g-bio">${esc(inv.bio)}</p>
+        <div class="section-head" style="margin-top:10px"><h2>Bevegelser siste kvartal</h2><span class="count">${fmtDate(inv.prev_report_date)} → ${fmtDate(inv.report_date)}</span></div>
+        ${movesHtml}
+        <div class="section-head" style="margin-top:14px"><h2>Største posisjoner</h2><span class="count">${inv.holdings.length} av ${inv.n_positions}</span></div>
+        <div class="list">${inv.holdings.map(h => holdingRowG(h, `${bigMoney(h.value)}${h.in_universe ? "" : " · utenfor universet"}`)).join("")}</div>
+        <p class="note">Rapportert til SEC ${fmtDate(inv.filing_date)} for beholdning per ${fmtDate(inv.report_date)}. Bare amerikanske aksjer (long). Trykk på en aksje for Aksjeradars analyse.</p>
+      </div>
+    </div>`;
+  }
+  function viewGuruer() {
+    if (!gurus && !gurusError) { if (!gurusLoading) loadGurus(false); return `<div class="skeleton"><span></span><span></span></div>`; }
+    if (!gurus) return `<div class="empty-card" style="margin-top:16px"><b>Guru-porteføljene er ikke hentet ennå.</b><p>De hentes fra SEC i den daglige kjøringen.</p></div>`;
+    const g = gurus;
+    let html = `<p class="hint" style="margin-top:12px">Porteføljene til ${g.investors.length} kjente investorer, fra deres kvartalsvise 13F-rapporter til det amerikanske finanstilsynet (SEC). Rapportene kommer inntil 45 dager etter kvartalsslutt.${g.demo ? " <b>Demo-data.</b>" : ""}</p>`;
+    if ((g.alerts || []).length) html += `<div class="alert">👑 <b>Nye rapporter:</b> ${g.alerts.map(a => esc(a.text)).join(" · ")}</div>`;
+    html += `<div class="seg" style="margin-top:10px">${[["konsensus", "Konsensus"], ["investorer", "Investorer"]].map(([k, l]) => `<button data-gview="${k}" aria-pressed="${guruState.view === k}">${l}</button>`).join("")}</div>`;
+    const c = g.consensus || {};
+    if (guruState.view === "konsensus") {
+      const sec = (title, items, fmt) => `<div class="section">${sectionHead(title, (items || []).length)}${(items || []).length ? `<div class="list">${items.map(x => holdingRowG({ ...x, weight: null }, fmt(x))).join("")}</div>` : `<div class="empty">Ingen.</div>`}</div>`;
+      html += sec("Flest guruer eier", c.owned, x => `${x.n} av ${g.investors.length} · snittvekt ${pct(x.avg_weight, false, 1)} · ${esc(x.investors.slice(0, 4).join(", "))}${x.investors.length > 4 ? " …" : ""}`);
+      html += sec("Flest kjøpte siste kvartal", c.bought, x => `${x.n} kjøpte (${x.kinds.filter(k => k === "ny").length} nye) · ${esc(x.investors.slice(0, 4).join(", "))}${x.investors.length > 4 ? " …" : ""}`);
+      html += sec("Flest solgte siste kvartal", c.sold, x => `${x.n} solgte/reduserte · ${esc(x.investors.slice(0, 4).join(", "))}${x.investors.length > 4 ? " …" : ""}`);
+      html += `<p class="note">Konsensus teller hvor mange av investorene som eier, kjøpte eller solgte en aksje. Aksjer som også er i Aksjeradars univers viser anbefalingen vår og kan åpnes. Merk at 13F ikke viser short-posisjoner – en «guru» kan være netto short i noe som står oppført som eid.</p>`;
+    } else {
+      html += (g.investors || []).map(investorCard).join("");
+      html += `<p class="note">Investorene og beskrivelsene er satt opp i config.yaml under <span class="mono">gurus.list</span>. Historisk avkastning er hentet fra offentlige kilder og er ingen garanti for fremtiden – flere av dem har hatt store tapsår.</p>`;
+    }
+    return html;
+  }
+
   // ---------- «Mer»: screener, varsler, om ----------
   let currentSubview = null;
   function viewMer() {
@@ -1317,7 +1396,7 @@
       main.innerHTML = `<div class="error"><p><b>Fant ingen data.</b></p><p>Kjør <code>python run.py</code> i prosjektmappen – da lages <code>docs/data.json</code>. Åpner du filen lokalt: start <code>python -m http.server 8000 -d docs</code> og gå til <code>http://localhost:8000</code>.</p>${state.error ? `<p class="muted">${esc(state.error.message || state.error)}</p>` : ""}</div>`;
       return;
     }
-    const views = { ideer: viewIdeer, kjop: viewKjop, intradag: viewIntradag, portefolje: viewPortefolje, auto: viewAuto, mer: viewMer, screener: viewScreener, varsler: viewVarsler };
+    const views = { ideer: viewIdeer, kjop: viewKjop, intradag: viewIntradag, guruer: viewGuruer, portefolje: viewPortefolje, auto: viewAuto, mer: viewMer, screener: viewScreener, varsler: viewVarsler };
     main.innerHTML = views[state.tab]();
     if (state.tab === "screener") {
       const q = $("#q");
@@ -1351,6 +1430,10 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
       return;
     }
+    const gh = e.target.closest("[data-guru]");
+    if (gh) { guruState.open[gh.dataset.guru] = !guruState.open[gh.dataset.guru]; render(); return; }
+    const gv = e.target.closest("[data-gview]");
+    if (gv) { guruState.view = gv.dataset.gview; render(); window.scrollTo(0, 0); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
     const trade = e.target.closest("[data-trade]");

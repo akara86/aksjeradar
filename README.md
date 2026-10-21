@@ -126,7 +126,8 @@ en **Autotrader-fane** (virtuell portefølje som følger anbefalingene automatis
 serveren, målt mot et likevektet marked – reglene står i `config.yaml` under `autotrader:`),
 en **Intradag-fane** (kortsiktige setups på 15-minutters kurser, oppdatert hvert kvarter i børstiden av
 `.github/workflows/intraday.yml`, med stop/mål og etterprøving – regler under `intraday:` i `config.yaml`),
-en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
+en **Guruer-fane** (porteføljer og kvartalsbevegelser til kjente investorer fra SEC EDGAR 13F-rapporter,
+med konsensus på tvers – listen ligger under `gurus:` i `config.yaml`), en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
 krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr, varsel ved skifte, og en **attraktivitetsrangering** som
 veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med konkret råd for fondene du
 eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
@@ -225,6 +226,7 @@ aksjeradar/
 │   ├── autotrader.py   # virtuell portefølje som følger anbefalingene automatisk
 │   ├── intraday.py     # intradag-setups på 15m-kurser + etterprøving
 │   ├── funds.py        # aksjefond: gunstige innganger (proxy-ETF × valuta)
+│   ├── gurus.py        # kjente investorers 13F-porteføljer fra SEC EDGAR
 │   ├── universe.py     # setter sammen universet (config + S&P 500 fra Wikipedia)
 ├── docs/               # mobil-appen (index.html, app.js, app.css, sw.js, ikoner) + data.json, stocks/, autotrader.json
 ├── data/               # databasen havner her

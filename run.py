@@ -30,6 +30,7 @@ from aksjeradar.config import all_tickers, load_config
 from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
 from aksjeradar.funds import run_funds
+from aksjeradar.gurus import run_gurus
 from aksjeradar.notify import push_settings, send_email, send_push, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
 from aksjeradar.scoring import CATEGORIES, build_table, generate_ideas
@@ -166,6 +167,19 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001
             log.exception("Fondsmodulen feilet: %s", e)
 
+    # Guruer – kjente investorers porteføljer fra SEC (13F)
+    gurus_payload = {}
+    if cfg["gurus"].get("enabled", True) and cfg["gurus"].get("list"):
+        try:
+            names = {r["ticker"]: str(r["name"]) for r in table.to_dict(orient="records")}
+            verd = {r["ticker"]: {"verdict": r.get("verdict"), "score": r.get("score"), "price": r.get("price")} for r in table.to_dict(orient="records")}
+            gurus_payload = run_gurus(store, cfg, names, verdicts=verd, demo=args.demo)
+            gp = Path(cfg["_root"]) / "docs" / "gurus.json"
+            gp.write_text(json.dumps(gurus_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            log.info("Guruer: %d investorer, %d nye rapporter", len(gurus_payload.get("investors", [])), len(gurus_payload.get("alerts", [])))
+        except Exception as e:  # noqa: BLE001
+            log.exception("Guru-modulen feilet: %s", e)
+
     # Autotrader – virtuell portefølje som følger anbefalingene (egen fane i appen)
     auto = {}
     if cfg["autotrader"].get("enabled", True):
@@ -234,6 +248,9 @@ def main() -> int:
             for a in (funds_payload.get("alerts") or []):
                 send_push(cfg, "Fond: " + ("gunstig inngang" if a["kind"] == "inngang" else "ikke lenger gunstig"), a["text"],
                           tags=["moneybag" if a["kind"] == "inngang" else "white_check_mark"], priority=4 if a["kind"] == "inngang" else 3)
+        if pc.get("gurus", True):
+            for a in (gurus_payload.get("alerts") or []):
+                send_push(cfg, "Ny 13F: " + a["name"], a["text"], tags=["crown"])
         if pc.get("autotrader", True) and auto and auto.get("traded_today"):
             todays = [t for t in auto.get("trades", []) if t.get("date") == auto.get("price_date")]
             for t in todays[:8]:

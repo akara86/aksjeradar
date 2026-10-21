@@ -391,6 +391,102 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       role: satellitt
       sectors: [Utilities]
 
+gurus:                            # kjente investorer – porteføljer fra SEC EDGAR (13F), egen fane «Guruer»
+  enabled: true
+  refresh_days: 1                 # sjekk daglig om det er kommet ny 13F (selve rapportene kommer kvartalsvis)
+  # cik = SEC-ID for forvaltningsselskapet. Mangler eller feil cik slås opp via edgar_name automatisk.
+  list:
+    - id: buffett
+      name: "Warren Buffett"
+      firm: "Berkshire Hathaway"
+      cik: 1067983
+      style: "Verdi, kvalitet, evig eierhorisont"
+      bio: "Berkshires bokførte verdi per aksje har vokst rundt 20 % årlig siden 1965 – dobbelt så mye som S&P 500. Kjøper enkle, lønnsomme selskaper med varige konkurransefortrinn og holder dem i tiår."
+    - id: druckenmiller
+      name: "Stanley Druckenmiller"
+      firm: "Duquesne Family Office"
+      cik: 1536411
+      style: "Makro, konsentrert, rask på foten"
+      bio: "Rapportert ca. 30 % årlig avkastning i 30 år uten et eneste tapsår mens han drev Duquesne. Kjent for store, konsentrerte veddemål og for å snu raskt når han tar feil."
+    - id: burry
+      name: "Michael Burry"
+      firm: "Scion Asset Management"
+      cik: 1649339
+      style: "Dypverdi, contrarian"
+      bio: "Kjent fra «The Big Short» for å ha tjent stort på boligkrakket i 2008. Få, store posisjoner i upopulære aksjer – porteføljen snus ofte helt om fra kvartal til kvartal."
+    - id: ackman
+      name: "Bill Ackman"
+      firm: "Pershing Square Capital Management"
+      cik: 1336528
+      style: "Konsentrert kvalitet, aktivist"
+      bio: "8–12 store posisjoner i selskaper med sterke merkevarer og forutsigbar kontantstrøm. Pershing Square Holdings har gitt rundt 15 % årlig siden 2004, med store svingninger underveis."
+    - id: tepper
+      name: "David Tepper"
+      firm: "Appaloosa Management"
+      cik: 1656456
+      style: "Makro og «distressed», opportunistisk"
+      bio: "Blant de best betalte hedgefondforvalterne noensinne, med rapportert ca. 25 % årlig over flere tiår. Kjøper aggressivt når markedet er i panikk."
+    - id: klarman
+      name: "Seth Klarman"
+      firm: "The Baupost Group"
+      cik: 1061768
+      style: "Verdi med sikkerhetsmargin"
+      bio: "Forfatter av «Margin of Safety». Baupost har levert rundt 20 % årlig siden 1982 med lav risiko og mye kontanter når det er lite å kjøpe."
+    - id: lilu
+      name: "Li Lu"
+      firm: "Himalaya Capital Management"
+      cik: 1709323
+      style: "Verdi, svært konsentrert, lang horisont"
+      bio: "Charlie Mungers favorittforvalter og mannen bak Berkshires BYD-investering. Eier et fåtall selskaper i mange år."
+    - id: einhorn
+      name: "David Einhorn"
+      firm: "Greenlight Capital"
+      cik: 1079114
+      style: "Verdi, long/short"
+      bio: "Kjent for å ha avslørt Lehman Brothers før kollapsen i 2008. Greenlight ga ca. 20 % årlig det første tiåret; blandet senere."
+    - id: loeb
+      name: "Daniel Loeb"
+      firm: "Third Point"
+      cik: 1040273
+      style: "Hendelsesdrevet, aktivist"
+      bio: "Third Point har gitt rundt 15 % årlig siden 1995. Kjent for skarpe brev til ledelsen i selskaper han vil endre."
+    - id: coleman
+      name: "Chase Coleman"
+      firm: "Tiger Global Management"
+      cik: 1167483
+      style: "Vekst, teknologi"
+      bio: "«Tiger cub» etter Julian Robertson. Svært gode år innen teknologi og internett på 2010-tallet, et svært dårlig 2022."
+    - id: mandel
+      name: "Stephen Mandel"
+      firm: "Lone Pine Capital"
+      cik: 1061165
+      style: "Vekst til fornuftig pris"
+      bio: "En av de mest respekterte «Tiger cubs», rundt 20 % årlig i de første 15 årene. Langsiktig i kvalitetsvekst."
+    - id: akre
+      name: "Chuck Akre"
+      firm: "Akre Capital Management"
+      cik: 1112520
+      style: "Kvalitet, «tre bein»: forretning, ledelse, reinvestering"
+      bio: "Akre Focus Fund slo S&P 500 klart i over et tiår med en kort liste av selskaper med høy avkastning på kapitalen."
+    - id: marks
+      name: "Howard Marks"
+      firm: "Oaktree Capital Management"
+      cik: 949509
+      style: "Verdi, kreditt, syklusforståelse"
+      bio: "Forfatter av de kjente «memos» og boken «The Most Important Thing». Oaktree er spesialist på kriser og nødlidende gjeld."
+    - id: greenblatt
+      name: "Joel Greenblatt"
+      firm: "Gotham Asset Management"
+      cik: 1510387
+      style: "Systematisk verdi («den magiske formelen»)"
+      bio: "Gotham Capital ga rundt 40 % årlig i 1985–1994. Kjøper billige, lønnsomme selskaper etter en fast formel – svært mange posisjoner."
+    - id: soros
+      name: "George Soros"
+      firm: "Soros Fund Management"
+      cik: 1029160
+      style: "Makro"
+      bio: "Quantum Fund ga rundt 30 % årlig i tre tiår. Fondet forvaltes i dag av et team, men porteføljen er fortsatt interessant for makroveddemål."
+
 export:
   json_path: "docs/data.json"     # lett indeks som mobil-appen leser ved oppstart
   details_dir: "docs/stocks"      # én detaljfil per aksje (hentes når du åpner aksjen)
