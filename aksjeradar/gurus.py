@@ -154,6 +154,83 @@ def parse_info_table(xml: bytes) -> list[dict]:
 
 
 # --------------------------------------------------------------------------
+# 13f.info – åpen speiling av SECs 13F-data (brukes når SEC avviser serveren)
+#   /data/autocomplete?q=<navn>         -> {"managers":[{"name","url":"/manager/<cik>-<slug>"}]}
+#   /manager/<cik>-<slug>               -> HTML med lenker /13f/<innsendings-id>-<slug>-q2-2026
+#   /data/13f/<innsendings-id>          -> {"data":[[sym, navn, klasse, cusip, verdi($000), %, antall, prinsipal, opsjonstype], ...]}
+# --------------------------------------------------------------------------
+F13_BASE = "https://13f.info"
+F13_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; Aksjeradar personal research tool; +https://github.com/akara86/aksjeradar)", "Accept": "application/json, text/html"}
+
+
+def _f13_get(url: str):
+    time.sleep(0.6)
+    r = requests.get(url, headers=F13_HEADERS, timeout=30)
+    r.raise_for_status()
+    return r
+
+
+def f13_manager_path(cik: str | None, firm: str) -> str | None:
+    """Finner /manager/<cik>-<slug>-stien, via CIK hvis vi har den, ellers via søk på navn."""
+    try:
+        q = firm.split("(")[0].split(",")[0].strip()
+        res = _f13_get(f"{F13_BASE}/data/autocomplete?q={requests.utils.quote(q)}").json()
+        managers = res.get("managers") or []
+        if cik:
+            for m in managers:
+                if m.get("url", "").startswith(f"/manager/{cik.zfill(10)}-"):
+                    return m["url"]
+        if managers:
+            return managers[0]["url"]
+    except Exception as e:  # noqa: BLE001
+        log.info("13f.info-søk feilet for «%s»: %s", firm, e)
+    if cik:
+        return f"/manager/{cik.zfill(10)}"
+    return None
+
+
+def f13_filings(manager_path: str) -> list[dict]:
+    """Innsendinger (nyeste først) fra forvaltersiden: id, kvartal, rapportdato, innsendingsdato."""
+    html = _f13_get(F13_BASE + manager_path).text
+    out, seen = [], set()
+    for m in re.finditer(r'href="/13f/(\d{18})-[^"]*?-q([1-4])-(\d{4})"', html):
+        fid, q, y = m.group(1), int(m.group(2)), int(m.group(3))
+        if fid in seen:
+            continue
+        seen.add(fid)
+        month_end = {1: "03-31", 2: "06-30", 3: "09-30", 4: "12-31"}[q]
+        out.append({"accession": fid, "report_date": f"{y}-{month_end}", "quarter": f"Q{q} {y}", "filing_date": None})
+    # innsendingsdatoer står i tabellen på siden: finn "dd/mm/yyyy" etter hver lenke når mulig
+    for f in out:
+        m = re.search(r'href="/13f/' + f["accession"] + r'[^"]*"[^<]*</a>.*?(\d{1,2}/\d{1,2}/\d{4})', html, re.S)
+        if m:
+            mm, dd, yy = m.group(1).split("/")
+            f["filing_date"] = f"{yy}-{int(mm):02d}-{int(dd):02d}"
+    out.sort(key=lambda f: f["report_date"], reverse=True)
+    return out
+
+
+def f13_holdings(filing_id: str) -> list[dict]:
+    data = _f13_get(f"{F13_BASE}/data/13f/{filing_id}").json().get("data") or []
+    rows = []
+    for row in data:
+        try:
+            sym, name, cls, cusip, value, pct, shares, principal, opt = (list(row) + [None] * 9)[:9]
+        except Exception:  # noqa: BLE001
+            continue
+        if opt or not cusip:
+            continue  # opsjoner holdes utenfor
+        rows.append({"name": str(name or ""), "class": str(cls or ""), "cusip": str(cusip).upper(),
+                     "value": float(value or 0) * 1000.0, "shares": float(shares or 0), "ticker_hint": (str(sym).replace(".", "-").upper() if sym else None)})
+    merged: dict[str, dict] = {}
+    for r in rows:
+        m = merged.setdefault(r["cusip"], {**r, "value": 0.0, "shares": 0.0})
+        m["value"] += r["value"]
+        m["shares"] += r["shares"]
+    return list(merged.values())
+
+
+# --------------------------------------------------------------------------
 # CUSIP -> ticker
 # --------------------------------------------------------------------------
 def map_cusips(cusips: list[str], store: Storage, max_new: int = 400) -> dict[str, dict]:
@@ -237,49 +314,14 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
         SEC_HEADERS["User-Agent"] = f"Aksjeradar personal research tool {gcfg['contact']}"
     out_investors, alerts = [], []
     errors: list[dict] = []
+    sec_ok = False
     if not demo:
-        import subprocess
-        probes = [
-            ("curl data.sec.gov", ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-A", SEC_HEADERS["User-Agent"], "-H", "Accept-Encoding: gzip, deflate", "https://data.sec.gov/submissions/CIK0001067983.json"]),
-            ("curl www.sec.gov", ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-A", SEC_HEADERS["User-Agent"], "https://www.sec.gov/Archives/edgar/data/1067983/index.json"]),
-            ("curl efts", ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-A", SEC_HEADERS["User-Agent"], "https://efts.sec.gov/LATEST/search-index?q=berkshire&forms=13F-HR"]),
-            ("curl 13f.info", ["curl", "-sS", "-o", "/tmp/13f.html", "-w", "%{http_code}", "-A", "Mozilla/5.0 (aksjeradar research)", "https://13f.info/manager/0001067983-berkshire-hathaway-inc"]),
-        ]
-        for label, cmd in probes:
-            try:
-                out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-                entry = {"check": label, "status": out.stdout.strip(), "err": out.stderr[:200]}
-                if "13f.info" in label:
-                    try:
-                        html = open("/tmp/13f.html", encoding="utf-8", errors="ignore").read()
-                        links = re.findall(r'href="(/13f/[^"]+)"', html)[:6]
-                        entry["links"] = links
-                        entry["text"] = " ".join(re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>|<style.*?</style>", " ", html, flags=re.S | re.I)).split())[:500]
-                    except Exception as e:  # noqa: BLE001
-                        entry["parse"] = repr(e)
-                errors.append(entry)
-            except Exception as e:  # noqa: BLE001
-                errors.append({"check": label, "error": repr(e)[:300]})
-        # requests med eksplisitt Host-header (SEC sin dokumenterte variant)
-        for host, url in (("data.sec.gov", "https://data.sec.gov/submissions/CIK0001067983.json"), ("www.sec.gov", "https://www.sec.gov/Archives/edgar/data/1067983/index.json")):
-            try:
-                rr = requests.get(url, headers={**SEC_HEADERS, "Host": host}, timeout=30)
-                errors.append({"check": f"requests+Host {host}", "status": rr.status_code})
-            except Exception as e:  # noqa: BLE001
-                errors.append({"check": f"requests+Host {host}", "error": repr(e)[:200]})
-        for url in ("https://data.sec.gov/submissions/CIK0001067983.json", "https://www.sec.gov/Archives/edgar/data/1067983/index.json", "https://api.openfigi.com/v3/mapping"):
-            try:
-                time.sleep(SEC_PAUSE)
-                rr = requests.get(url, headers=SEC_HEADERS, timeout=30) if "openfigi" not in url else requests.post(url, json=[{"idType": "ID_CUSIP", "idValue": "037833100"}], headers={"Content-Type": "application/json"}, timeout=30)
-                body = re.sub(r"<script.*?</script>|<style.*?</style>", " ", rr.text, flags=re.S | re.I)
-                body = " ".join(re.sub(r"<[^>]+>", " ", body).split())
-                errors.append({"check": url, "status": rr.status_code, "len": len(rr.content), "text": body[:700],
-                               "ua": SEC_HEADERS["User-Agent"], "resp_headers": {k: v for k, v in rr.headers.items() if k.lower() in ("server", "x-cache", "via", "content-type", "x-amz-cf-pop")}})
-            except Exception as e:  # noqa: BLE001
-                errors.append({"check": url, "error": repr(e)[:300]})
-    prev_state, _ = store.load_snapshot("gurus", "state")
-    prev_state = prev_state or {}
-    new_state = {}
+        try:
+            time.sleep(SEC_PAUSE)
+            sec_ok = requests.get("https://data.sec.gov/submissions/CIK0001067983.json", headers=SEC_HEADERS, timeout=20).status_code == 200
+        except Exception:  # noqa: BLE001
+            sec_ok = False
+        log.info("SEC EDGAR %s – %s", "tilgjengelig" if sec_ok else "avviser serveren", "bruker SEC" if sec_ok else "bruker 13f.info")
     cusip_map: dict[str, dict] = {}
     all_latest: list[tuple[str, dict]] = []
 
@@ -290,20 +332,22 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
             out_investors.append(inv)
             continue
         cik = str(g.get("cik") or "").zfill(10) if g.get("cik") else None
-        sub = fetch_submissions(cik) if cik else None
-        if not sub or not latest_13f(sub):
-            cik2 = find_cik(g.get("edgar_name") or g["firm"])
-            if cik2 and cik2 != cik:
-                sub = fetch_submissions(cik2)
-                cik = cik2
-        if not sub:
-            log.warning("Guru «%s»: fant ingen innsendinger", g["name"])
-            errors.append({"investor": g["name"], "cik": cik, "error": "ingen submissions"})
-            continue
-        filings = latest_13f(sub, 2)
+        source = "sec"
+        sub = fetch_submissions(cik) if (cik and sec_ok) else None
+        filings = latest_13f(sub, 2) if sub else []
+        if not filings:
+            # SEC avviser serveren (eller fant ingenting) – bruk 13f.info
+            source = "13f.info"
+            try:
+                mp = f13_manager_path(cik, g.get("edgar_name") or g["firm"])
+                filings = f13_filings(mp)[:2] if mp else []
+            except Exception as e:  # noqa: BLE001
+                log.warning("Guru «%s»: 13f.info feilet: %s", g["name"], e)
+                errors.append({"investor": g["name"], "cik": cik, "error": f"13f.info: {e!r}"[:300]})
+                continue
         if not filings:
             log.warning("Guru «%s»: ingen 13F-HR", g["name"])
-            errors.append({"investor": g["name"], "cik": cik, "error": "ingen 13F-HR", "forms": list(dict.fromkeys((sub.get("filings", {}).get("recent", {}).get("form") or [])[:40]))})
+            errors.append({"investor": g["name"], "cik": cik, "error": "ingen 13F-HR"})
             continue
         latest_f = filings[0]
         cached = None
@@ -313,8 +357,16 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
             cached = payload
         else:
             try:
-                rows_l = fetch_info_table(cik, latest_f["accession"])
-                rows_p = fetch_info_table(cik, filings[1]["accession"]) if len(filings) > 1 else []
+                if source == "sec":
+                    rows_l = fetch_info_table(cik, latest_f["accession"])
+                    rows_p = fetch_info_table(cik, filings[1]["accession"]) if len(filings) > 1 else []
+                    for rows, f in ((rows_l, latest_f), (rows_p, filings[1] if len(filings) > 1 else None)):
+                        if f and f["report_date"] < "2023-01-01":  # verdier før 2023 ble rapportert i tusen dollar
+                            for r in rows:
+                                r["value"] *= 1000
+                else:
+                    rows_l = f13_holdings(latest_f["accession"])
+                    rows_p = f13_holdings(filings[1]["accession"]) if len(filings) > 1 else []
             except Exception as e:  # noqa: BLE001
                 log.warning("Guru «%s»: henting feilet: %s", g["name"], e)
                 errors.append({"investor": g["name"], "cik": cik, "accession": latest_f["accession"], "error": repr(e)[:300]})
@@ -323,13 +375,8 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
                 log.warning("Guru «%s»: tom beholdning i %s", g["name"], latest_f["accession"])
                 errors.append({"investor": g["name"], "cik": cik, "accession": latest_f["accession"], "error": "tom informasjonstabell"})
                 continue
-            # Verdier før 2023 ble rapportert i tusen dollar
-            for rows, f in ((rows_l, latest_f), (rows_p, filings[1] if len(filings) > 1 else None)):
-                if f and f["report_date"] < "2023-01-01":
-                    for r in rows:
-                        r["value"] *= 1000
             cached = {"latest": rows_l, "prev": rows_p, "filing": latest_f, "prev_filing": filings[1] if len(filings) > 1 else None, "cik": cik,
-                      "entity": sub.get("name")}
+                      "entity": (sub or {}).get("name"), "source": source}
             store.save_snapshot("gurus", cache_key, cached)
         inv = _build_investor(g, gid, cached, universe_names, store, cusip_map, prices, verdicts)
         out_investors.append(inv)
@@ -352,6 +399,7 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
         "consensus": consensus,
         "alerts": alerts,
         "errors": (errors + [{"error": x} for x in _LAST_ERR])[:60],
+        "source": "SEC EDGAR" if sec_ok else "13f.info (speiling av SEC EDGAR)",
         "note": "Kilde: SEC EDGAR, skjema 13F-HR. Dekker amerikanske aksjer (long), rapportert inntil 45 dager etter kvartalsslutt.",
     })
 
@@ -359,15 +407,16 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
 def _build_investor(g: dict, gid: str, cached: dict, universe_names: dict[str, str], store: Storage, cusip_map: dict,
                     prices: dict | None, verdicts: dict | None) -> dict:
     rows_l, rows_p = cached["latest"], cached.get("prev") or []
-    cusips = [r["cusip"] for r in rows_l] + [r["cusip"] for r in rows_p]
-    fresh = map_cusips(cusips, store)
+    cusips = [r["cusip"] for r in rows_l + rows_p if not r.get("ticker_hint")]
+    fresh = map_cusips(cusips, store) if cusips else {}
     cusip_map.update(fresh)
 
     def tick(r: dict) -> str | None:
+        hint = r.get("ticker_hint")
+        if hint:
+            return hint
         m = cusip_map.get(r["cusip"]) or {}
         t = m.get("ticker")
-        if t and (t in universe_names):
-            return t
         if t:
             return t
         return match_by_name(r["name"], universe_names)
