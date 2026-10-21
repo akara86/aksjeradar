@@ -238,6 +238,35 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
     out_investors, alerts = [], []
     errors: list[dict] = []
     if not demo:
+        import subprocess
+        probes = [
+            ("curl data.sec.gov", ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-A", SEC_HEADERS["User-Agent"], "-H", "Accept-Encoding: gzip, deflate", "https://data.sec.gov/submissions/CIK0001067983.json"]),
+            ("curl www.sec.gov", ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-A", SEC_HEADERS["User-Agent"], "https://www.sec.gov/Archives/edgar/data/1067983/index.json"]),
+            ("curl efts", ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", "-A", SEC_HEADERS["User-Agent"], "https://efts.sec.gov/LATEST/search-index?q=berkshire&forms=13F-HR"]),
+            ("curl 13f.info", ["curl", "-sS", "-o", "/tmp/13f.html", "-w", "%{http_code}", "-A", "Mozilla/5.0 (aksjeradar research)", "https://13f.info/manager/0001067983-berkshire-hathaway-inc"]),
+        ]
+        for label, cmd in probes:
+            try:
+                out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                entry = {"check": label, "status": out.stdout.strip(), "err": out.stderr[:200]}
+                if "13f.info" in label:
+                    try:
+                        html = open("/tmp/13f.html", encoding="utf-8", errors="ignore").read()
+                        links = re.findall(r'href="(/13f/[^"]+)"', html)[:6]
+                        entry["links"] = links
+                        entry["text"] = " ".join(re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>|<style.*?</style>", " ", html, flags=re.S | re.I)).split())[:500]
+                    except Exception as e:  # noqa: BLE001
+                        entry["parse"] = repr(e)
+                errors.append(entry)
+            except Exception as e:  # noqa: BLE001
+                errors.append({"check": label, "error": repr(e)[:300]})
+        # requests med eksplisitt Host-header (SEC sin dokumenterte variant)
+        for host, url in (("data.sec.gov", "https://data.sec.gov/submissions/CIK0001067983.json"), ("www.sec.gov", "https://www.sec.gov/Archives/edgar/data/1067983/index.json")):
+            try:
+                rr = requests.get(url, headers={**SEC_HEADERS, "Host": host}, timeout=30)
+                errors.append({"check": f"requests+Host {host}", "status": rr.status_code})
+            except Exception as e:  # noqa: BLE001
+                errors.append({"check": f"requests+Host {host}", "error": repr(e)[:200]})
         for url in ("https://data.sec.gov/submissions/CIK0001067983.json", "https://www.sec.gov/Archives/edgar/data/1067983/index.json", "https://api.openfigi.com/v3/mapping"):
             try:
                 time.sleep(SEC_PAUSE)
