@@ -71,7 +71,11 @@ def fetch_submissions(cik: str) -> dict | None:
         return _get(f"https://data.sec.gov/submissions/CIK{cik.zfill(10)}.json").json()
     except Exception as e:  # noqa: BLE001
         log.warning("Submissions feilet for CIK %s: %s", cik, e)
+        _LAST_ERR.append(f"submissions CIK{cik}: {e!r}"[:300])
         return None
+
+
+_LAST_ERR: list[str] = []
 
 
 def latest_13f(sub: dict, n: int = 2) -> list[dict]:
@@ -224,6 +228,15 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
               verdicts: dict | None = None, demo: bool = False) -> dict:
     gcfg = cfg["gurus"]
     out_investors, alerts = [], []
+    errors: list[dict] = []
+    if not demo:
+        for url in ("https://data.sec.gov/submissions/CIK0001067983.json", "https://www.sec.gov/Archives/edgar/data/1067983/index.json", "https://api.openfigi.com/v3/mapping"):
+            try:
+                time.sleep(SEC_PAUSE)
+                rr = requests.get(url, headers=SEC_HEADERS, timeout=30) if "openfigi" not in url else requests.post(url, json=[{"idType": "ID_CUSIP", "idValue": "037833100"}], headers={"Content-Type": "application/json"}, timeout=30)
+                errors.append({"check": url, "status": rr.status_code, "len": len(rr.content), "head": rr.text[:160]})
+            except Exception as e:  # noqa: BLE001
+                errors.append({"check": url, "error": repr(e)[:300]})
     prev_state, _ = store.load_snapshot("gurus", "state")
     prev_state = prev_state or {}
     new_state = {}
@@ -245,10 +258,12 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
                 cik = cik2
         if not sub:
             log.warning("Guru «%s»: fant ingen innsendinger", g["name"])
+            errors.append({"investor": g["name"], "cik": cik, "error": "ingen submissions"})
             continue
         filings = latest_13f(sub, 2)
         if not filings:
             log.warning("Guru «%s»: ingen 13F-HR", g["name"])
+            errors.append({"investor": g["name"], "cik": cik, "error": "ingen 13F-HR", "forms": list(dict.fromkeys((sub.get("filings", {}).get("recent", {}).get("form") or [])[:40]))})
             continue
         latest_f = filings[0]
         cached = None
@@ -262,9 +277,11 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
                 rows_p = fetch_info_table(cik, filings[1]["accession"]) if len(filings) > 1 else []
             except Exception as e:  # noqa: BLE001
                 log.warning("Guru «%s»: henting feilet: %s", g["name"], e)
+                errors.append({"investor": g["name"], "cik": cik, "accession": latest_f["accession"], "error": repr(e)[:300]})
                 continue
             if not rows_l:
                 log.warning("Guru «%s»: tom beholdning i %s", g["name"], latest_f["accession"])
+                errors.append({"investor": g["name"], "cik": cik, "accession": latest_f["accession"], "error": "tom informasjonstabell"})
                 continue
             # Verdier før 2023 ble rapportert i tusen dollar
             for rows, f in ((rows_l, latest_f), (rows_p, filings[1] if len(filings) > 1 else None)):
@@ -294,6 +311,7 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
         "investors": out_investors,
         "consensus": consensus,
         "alerts": alerts,
+        "errors": (errors + [{"error": x} for x in _LAST_ERR])[:60],
         "note": "Kilde: SEC EDGAR, skjema 13F-HR. Dekker amerikanske aksjer (long), rapportert inntil 45 dager etter kvartalsslutt.",
     })
 
