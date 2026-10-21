@@ -242,7 +242,10 @@ def run_gurus(store: Storage, cfg: dict, universe_names: dict[str, str], prices:
             try:
                 time.sleep(SEC_PAUSE)
                 rr = requests.get(url, headers=SEC_HEADERS, timeout=30) if "openfigi" not in url else requests.post(url, json=[{"idType": "ID_CUSIP", "idValue": "037833100"}], headers={"Content-Type": "application/json"}, timeout=30)
-                errors.append({"check": url, "status": rr.status_code, "len": len(rr.content), "head": rr.text[:160]})
+                body = re.sub(r"<script.*?</script>|<style.*?</style>", " ", rr.text, flags=re.S | re.I)
+                body = " ".join(re.sub(r"<[^>]+>", " ", body).split())
+                errors.append({"check": url, "status": rr.status_code, "len": len(rr.content), "text": body[:700],
+                               "ua": SEC_HEADERS["User-Agent"], "resp_headers": {k: v for k, v in rr.headers.items() if k.lower() in ("server", "x-cache", "via", "content-type", "x-amz-cf-pop")}})
             except Exception as e:  # noqa: BLE001
                 errors.append({"check": url, "error": repr(e)[:300]})
     prev_state, _ = store.load_snapshot("gurus", "state")
