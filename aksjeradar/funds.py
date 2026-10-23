@@ -280,6 +280,210 @@ def advice_for(a: dict) -> str:
     return "Vurder å pause nye innskudd til trenden snur" if not good_entry else "Billig, men svak trend – små, spredte kjøp"
 
 
+# --------------------------------------------------------------------------
+# Innskuddsråd: bør du sette inn ekstra penger i fondet nå?
+# --------------------------------------------------------------------------
+ACTIONS = {
+    "boost": "Ekstrainnskudd anbefales",
+    "consider": "Vurder ekstrainnskudd",
+    "regular": "Fortsett vanlig sparing",
+    "wait": "Avvent ekstrainnskudd",
+}
+
+
+def _pct(x, nd=0, sign=True):
+    if x is None:
+        return "–"
+    return (f"{x * 100:+.{nd}f} %" if sign else f"{abs(x) * 100:.{nd}f} %").replace("-", "−").replace(".", ",")
+
+
+def _kr(x):
+    return "–" if x is None else f"{x:,.0f} kr".replace(",", " ")
+
+
+def deposit_advice(a: dict, th: dict) -> dict:
+    """Konkret råd om ekstrainnskudd ut fra inngang (hvor «på salg» fondet er) og attraktivitet (trend, sektor, risiko)."""
+    level, attr = a["level"], a.get("attr_verdict") or "Nøytral"
+    good = level in ("Gunstig", "Svært gunstig")
+    strong = level == "Svært gunstig"
+    dd = a.get("dd_52w") or 0.0
+    reasons, cautions = [], []
+
+    if good:
+        reasons.append(f"fondet er {_pct(dd, 0, False)} under 52-ukers topp i NOK" if dd < -0.005 else "inngangsscoren er høy")
+    if a.get("fx_relevant") and a.get("fx_vs_sma200") is not None:
+        if a["fx_vs_sma200"] <= -0.02:
+            reasons.append(f"kronen er {_pct(-a['fx_vs_sma200'], 1, False)} sterkere enn snittet – du får mer for pengene")
+        elif a["fx_vs_sma200"] >= 0.03:
+            cautions.append(f"kronen er {_pct(a['fx_vs_sma200'], 1, False)} svakere enn snittet – valutaen er dyr")
+    if a.get("vs_sma200") is not None:
+        (reasons if a["vs_sma200"] > 0 else cautions).append(
+            "i opptrend (over 200-dagers snitt)" if a["vs_sma200"] > 0 else f"under 200-dagers snitt ({_pct(a['vs_sma200'], 1)}) – trenden er svak")
+    mv = a.get("market_view")
+    if mv:
+        if mv["breadth"] >= 0.6:
+            reasons.append(f"{mv['breadth'] * 100:.0f} % av aksjene i sektoren/markedet er i opptrend")
+        elif mv["breadth"] <= 0.4:
+            cautions.append(f"bare {mv['breadth'] * 100:.0f} % av aksjene i sektoren/markedet er i opptrend")
+    if a.get("ret_1m") is not None and a["ret_1m"] <= -0.08:
+        cautions.append(f"fallet er bratt ({_pct(a['ret_1m'], 0)} siste måned) – det kan fortsette")
+    if a.get("rsi") is not None and a["rsi"] < 32:
+        reasons.append(f"RSI {a['rsi']:.0f} – oversolgt på kort sikt")
+    if a.get("vol_1y") is not None and a["vol_1y"] > 0.28:
+        cautions.append(f"høye svingninger ({a['vol_1y'] * 100:.0f} % årlig) – hold posisjonen som satellitt")
+
+    if strong and attr != "Lite attraktiv":
+        code, size = "boost", "f.eks. 2–3 ganger det du sparer månedlig, gjerne delt i to kjøp med noen ukers mellomrom"
+    elif strong:
+        code, size = "consider", "et mindre beløp delt i flere kjøp – billig, men trenden er svak"
+    elif good and attr == "Attraktiv":
+        code, size = "boost", "f.eks. 1–2 ganger det du sparer månedlig"
+    elif good and attr == "Nøytral":
+        code, size = "consider", "f.eks. én ekstra månedssparing – eller vent på et dypere fall"
+    elif good:
+        code, size = "consider", "små, spredte kjøp – prisen er grei, men trenden og sektoren er svak"
+    elif level == "Dyr":
+        code, size = "wait", None
+        cautions.insert(0, "fondet er nær toppen, langt over 200-dagers snitt" + (" og kronen er svak" if a.get("fx_relevant") else ""))
+    else:
+        code, size = "regular", None
+        if attr == "Lite attraktiv":
+            cautions.insert(0, "ikke på salg, og trend/sektor er svak, så ingen grunn til å forsere")
+        else:
+            reasons.insert(0, "ikke spesielt billig nå, spareavtalen gjør jobben")
+
+    summary = ACTIONS[code]
+    key = (cautions or reasons) if code == "wait" else (reasons or cautions)
+    if key:
+        summary += " – " + key[0]
+    return {"code": code, "action": ACTIONS[code], "size": size, "reasons": reasons[:4], "cautions": cautions[:3], "summary": summary}
+
+
+def fund_narrative(a: dict, dep: dict, th: dict) -> dict:
+    """Daglig tekstanalyse per fond: status, indeks/krone, trend, sektor, risiko, konklusjon og hva som ville endret rådet."""
+    secs = []
+    cur = a.get("currency", "USD")
+    name = a["name"]
+    last = a.get("price_nok")
+    good_dd = float(th.get("good_drawdown", -0.08))
+    strong_dd = float(th.get("strong_drawdown", -0.15))
+    high52 = a.get("high_52w")
+
+    # Status
+    t = f"{name} står i {_kr(last)} per andel (ETF-en {a['proxy']} omregnet til NOK), {_pct(a.get('change_1d'), 1)} siste dag. "
+    t += f"Siste måned {_pct(a.get('ret_1m'), 1)}, tre måneder {_pct(a.get('ret_3m'), 1)} og ett år {_pct(a.get('ret_1y'), 1)} i NOK. "
+    dd = a.get("dd_52w")
+    if dd is not None:
+        t += (f"Fondet er {_pct(dd, 1, False)} under toppen fra siste 52 uker" if dd < -0.005 else "Fondet er på eller nær toppen fra siste 52 uker")
+        t += f" og {_pct(a.get('vs_sma200'), 1)} mot 200-dagers snitt." if a.get("vs_sma200") is not None else "."
+    secs.append({"h": "Status", "t": t})
+
+    # Indeks og krone
+    if a.get("hedged"):
+        t = f"Fondet er valutasikret, så kronekursen påvirker ikke avkastningen – bare indeksen teller. Indeksen er {_pct(a.get('idx_ret_1m'), 1)} siste måned."
+    elif not a.get("fx_relevant"):
+        t = f"Fondet eier norske aksjer, så valutaen spiller ingen rolle for deg. Indeksen er {_pct(a.get('idx_ret_1m'), 1)} siste måned og {_pct(a.get('idx_ret_1y'), 1)} siste år."
+    else:
+        fxm = a.get("fx_ret_1m")
+        t = f"Indeksen i {cur} er {_pct(a.get('idx_ret_1m'), 1)} siste måned"
+        if fxm is not None:
+            t += f", mens kronen er {_pct(fxm, 1, False)} {'sterkere' if fxm < 0 else 'svakere'} mot {cur} – til sammen {_pct(a.get('ret_1m'), 1)} i NOK"
+        t += ". "
+        fx = a.get("fx_vs_sma200")
+        if fx is not None:
+            if fx <= -0.02:
+                t += f"Kronen er {_pct(-fx, 1, False)} sterkere enn sitt 200-dagers snitt mot {cur}. En sterk krone betyr at du får flere {cur} for hver krone du setter inn – det er en fordel for nye kjøp i utenlandske fond, og en medvind for avkastningen hvis kronen senere svekker seg igjen."
+            elif fx >= 0.03:
+                t += f"Kronen er {_pct(fx, 1, False)} svakere enn sitt 200-dagers snitt mot {cur}. Da betaler du dyrt for valutaen, og en senere kronestyrking vil trekke ned avkastningen målt i NOK."
+            else:
+                t += f"Kronen ligger nær sitt 200-dagers snitt mot {cur} – valutaen gir verken med- eller motvind akkurat nå."
+        rk = a.get("fx_rank_1y")
+        if rk is not None:
+            t += f" I løpet av siste år har kronen vært {'nær sitt sterkeste' if rk <= 0.2 else 'nær sitt svakeste' if rk >= 0.8 else 'midt i intervallet'} mot {cur}."
+    secs.append({"h": "Indeks og krone", "t": t})
+
+    # Trend
+    v200, v50 = a.get("vs_sma200"), a.get("vs_sma50")
+    if v200 is not None:
+        t = ("Fondet er i opptrend: kursen ligger over 200-dagers snittet" if v200 > 0 else "Trenden er svak: kursen ligger under 200-dagers snittet")
+        if v50 is not None:
+            t += (", og 50-dagers snittet peker " + ("samme vei. " if (v50 > 0) == (v200 > 0) else "motsatt vei – trenden kan være i ferd med å snu. "))
+        else:
+            t += ". "
+        r3 = a.get("ret_3m")
+        if r3 is not None:
+            t += f"Siste tre måneder er fondet {_pct(r3, 1)}. "
+        rsi = a.get("rsi")
+        if rsi is not None:
+            t += f"RSI på {rsi:.0f} " + ("tyder på at fondet er oversolgt på kort sikt." if rsi < 32 else "tyder på at fondet er overkjøpt på kort sikt." if rsi > 70 else "er nøytralt.")
+        secs.append({"h": "Trend", "t": t})
+
+    # Sektor og marked
+    mv = a.get("market_view")
+    if mv:
+        t = f"Blant de {mv['n']} aksjene i Aksjeradars univers som dekker dette markedet/sektoren er {mv['breadth'] * 100:.0f} % i opptrend og {mv['buy_share'] * 100:.0f} % har kjøpsanbefaling"
+        if mv.get("avg_score") is not None:
+            t += f" (snittscore {mv['avg_score']:.0f})"
+        t += ". "
+        if mv.get("median_upside") is not None:
+            t += f"Analytikernes kursmål ligger i snitt {_pct(mv['median_upside'], 0)} over dagens kurser. "
+        if mv.get("median_fwd_pe") and mv.get("universe_fwd_pe"):
+            rel = mv["median_fwd_pe"] / mv["universe_fwd_pe"]
+            t += f"Prisingen (forventet P/E {mv['median_fwd_pe']:.0f}) er {'høyere' if rel > 1.1 else 'lavere' if rel < 0.9 else 'omtrent som'} {'enn ' if rel > 1.1 or rel < 0.9 else ''}resten av universet ({mv['universe_fwd_pe']:.0f})."
+        secs.append({"h": "Sektor og marked", "t": t})
+    else:
+        secs.append({"h": "Sektor og marked", "t": "Aksjeuniverset dekker ikke dette markedet, så sektordelen holdes nøytral i vurderingen."})
+
+    # Risiko og rolle
+    vol = a.get("vol_1y")
+    t = ""
+    if vol is not None:
+        t += f"Fondet svinger {vol * 100:.0f} % årlig – " + ("høy risiko, egnet som en mindre satellitt. " if vol > 0.28 else "lav risiko. " if vol < 0.14 else "moderat risiko. ")
+    role = a.get("role") or "satellitt"
+    t += ("Som kjernefond bør det stå for brorparten av sparingen uansett timing." if role == "kjerne" else "Som satellitt bør det utgjøre en mindre del av fondsporteføljen, slik at et vedvarende fall ikke velter totalen.")
+    secs.append({"h": "Risiko og rolle", "t": t})
+
+    # Konklusjon
+    t = f"{dep['action']}. "
+    if dep["reasons"]:
+        t += "For: " + "; ".join(dep["reasons"]) + ". "
+    if dep["cautions"]:
+        t += "Mot: " + "; ".join(dep["cautions"]) + ". "
+    if dep["size"]:
+        t += f"Størrelse: {dep['size']}. "
+    if dep["code"] in ("boost", "consider"):
+        t += "Et ekstrainnskudd er ikke en garanti for at bunnen er nådd – del gjerne opp beløpet, og hold deg til spareavtalen i tillegg."
+    elif dep["code"] == "wait":
+        t += "Spareavtalen fortsetter som normalt – det er ekstra penger som bør vente på et bedre tidspunkt."
+    else:
+        t += "Fast månedlig sparing fanger opp fallene automatisk; ekstra innskudd er først interessant når fondet er tydelig på salg."
+    secs.append({"h": "Konklusjon", "t": t})
+
+    # Hva som ville endret vurderingen (konkrete nivåer)
+    triggers = []
+    if high52 and last:
+        lv_good = high52 * (1 + good_dd)
+        lv_strong = high52 * (1 + strong_dd)
+        if a["level"] not in ("Gunstig", "Svært gunstig"):
+            triggers.append(f"Gunstig inngang ved ca. {_kr(lv_good)} ({_pct(lv_good / last - 1, 1)} fra i dag)")
+        if a["level"] != "Svært gunstig":
+            triggers.append(f"Svært gunstig ved ca. {_kr(lv_strong)} ({_pct(lv_strong / last - 1, 1)})")
+        if a["level"] in ("Gunstig", "Svært gunstig"):
+            triggers.append(f"Ikke lenger gunstig hvis kursen stiger over ca. {_kr(lv_good)} ({_pct(lv_good / last - 1, 1)})")
+    if v200 is not None and last:
+        sma = last / (1 + v200)
+        triggers.append((f"Trenden regnes som svak hvis kursen faller under 200-dagers snittet på ca. {_kr(sma)}" if v200 > 0
+                         else f"Trenden snur til positiv hvis kursen stiger over 200-dagers snittet på ca. {_kr(sma)}"))
+    if a.get("fx_relevant") and a.get("fx_last") and a.get("fx_vs_sma200") is not None:
+        sma_fx = a["fx_last"] / (1 + a["fx_vs_sma200"])
+        triggers.append(f"Kronen regnes som sterk under {sma_fx * 0.98:.2f} {cur}NOK og svak over {sma_fx * 1.03:.2f} (nå {a['fx_last']:.2f})".replace(".", ","))
+    if not a.get("hedged") and a.get("fx_relevant") and a.get("fx_vs_sma200") is not None and a["fx_vs_sma200"] >= 0.03:
+        triggers.append("En sterkere krone ville gjort inngangen bedre")
+    secs.append({"h": "Hva som ville endret vurderingen", "t": " · ".join(triggers) if triggers else "Nivåene oppdateres daglig."})
+
+    return {"date": a.get("last_date"), "sections": secs, "triggers": triggers}
+
+
 def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], fx_frames: dict[str, pd.DataFrame],
               table: pd.DataFrame | None = None) -> dict:
     fcfg = cfg["funds"]
@@ -333,14 +537,55 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
         a.update(attractiveness(a, mv, global_ret_1y, nok))
         a["owned"] = bool(f.get("owned"))
         a["role"] = f.get("role") or ("kjerne" if f.get("core") else "satellitt")
-        a["advice"] = advice_for(a) if a["owned"] else None
+        a["deposit"] = deposit_advice(a, th)
+        a["advice"] = a["deposit"]["action"] if a["owned"] else None
+        a["analysis"] = fund_narrative(a, a["deposit"], th)
     funds.sort(key=lambda x: -x["attr_score"])
     for i, a in enumerate(funds, start=1):
         a["rank"] = i
+
+    # Dagbok: ett innslag per kursdato, så appen kan vise hvordan rådene har utviklet seg – og varsle når rådet endres
+    journal, _ = store.load_snapshot("funds", "journal")
+    journal = dict(journal or {})
+    day = max((a["last_date"] for a in funds), default=None)
+    if day:
+        prev_days = sorted(d for d in journal if d < day)
+        prev_entry = journal[prev_days[-1]] if prev_days else {}
+        entry = {}
+        for a in funds:
+            pe = prev_entry.get(a["id"]) or {}
+            a["deposit"]["prev_code"] = pe.get("code")
+            a["deposit"]["changed"] = bool(pe.get("code")) and pe["code"] != a["deposit"]["code"]
+            entry[a["id"]] = {"code": a["deposit"]["code"], "level": a["level"], "attr": a["attr_verdict"], "price_nok": a["price_nok"],
+                              "change_1d": a.get("change_1d"), "dd_52w": a.get("dd_52w"), "owned": a["owned"], "name": a["name"]}
+            if a["owned"] and a["deposit"]["changed"]:
+                up = a["deposit"]["code"] in ("boost", "consider")
+                alerts.append({"id": a["id"], "name": a["name"], "kind": "innskudd" if up else "innskudd_slutt", "level": a["level"],
+                               "code": a["deposit"]["code"], "prev_code": pe["code"],
+                               "text": f"{a['name']}: {a['deposit']['summary']}" + (f" (var: {ACTIONS.get(pe['code'], pe['code']).lower()})")})
+        journal[day] = entry
+        keep = sorted(journal)[-45:]
+        journal = {d: journal[d] for d in keep}
+        store.save_snapshot("funds", "journal", journal)
+    journal_out = []
+    for d in sorted(journal, reverse=True)[:30]:
+        rows = []
+        days_before = sorted(x for x in journal if x < d)
+        before = journal[days_before[-1]] if days_before else {}
+        for fid, e in journal[d].items():
+            if not e.get("owned"):
+                continue
+            pc = (before.get(fid) or {}).get("code")
+            rows.append({"id": fid, "name": e.get("name"), "code": e["code"], "action": ACTIONS.get(e["code"], e["code"]), "level": e["level"],
+                         "price_nok": e.get("price_nok"), "change_1d": e.get("change_1d"), "dd_52w": e.get("dd_52w"), "changed": bool(pc) and pc != e["code"]})
+        if rows:
+            journal_out.append({"date": d, "funds": rows})
     return clean_for_json({
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "base": fcfg.get("base_currency", "NOK"),
         "funds": funds,
         "alerts": alerts,
+        "journal": journal_out,
+        "actions": ACTIONS,
         "thresholds": th,
     })

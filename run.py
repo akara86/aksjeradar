@@ -238,9 +238,14 @@ def main() -> int:
             good = [f for f in (funds_payload.get("funds") or []) if f["level"] in ("Gunstig", "Svært gunstig")]
             if good:
                 lines.append("Fond gunstig: " + ", ".join(f"{f['name']} ({f['dd_52w'] * 100:+.0f} %)" for f in good[:3]))
-            topf = [f for f in (funds_payload.get("funds") or []) if f.get("rank")][:3]
-            if topf:
-                lines.append("Fond topp 3: " + ", ".join(f"{f['name'][:22]} ({f['attr_score']:.0f})" for f in topf))
+            mine = [f for f in (funds_payload.get("funds") or []) if f.get("owned") and f.get("deposit")]
+            if mine:
+                short = {"boost": "ekstrainnskudd anbefales", "consider": "vurder ekstrainnskudd", "regular": "vanlig sparing", "wait": "avvent"}
+                lines.append("Dine fond: " + " · ".join(f"{f['name'][:20]} – {short.get(f['deposit']['code'], f['deposit']['code'])}" for f in mine[:5]))
+            else:
+                topf = [f for f in (funds_payload.get("funds") or []) if f.get("rank")][:3]
+                if topf:
+                    lines.append("Fond topp 3: " + ", ".join(f"{f['name'][:22]} ({f['attr_score']:.0f})" for f in topf))
             if auto and auto.get("traded_today"):
                 todays = [t for t in auto.get("trades", []) if t.get("date") == auto.get("price_date")]
                 if todays:
@@ -250,8 +255,14 @@ def main() -> int:
             send_push(cfg, f"Aksjeradar {run_date}", "\n".join(lines), tags=["satellite"])
         if pc.get("funds", True):
             for a in (funds_payload.get("alerts") or []):
-                send_push(cfg, "Fond: " + ("gunstig inngang" if a["kind"] == "inngang" else "ikke lenger gunstig"), a["text"],
-                          tags=["moneybag" if a["kind"] == "inngang" else "white_check_mark"], priority=4 if a["kind"] == "inngang" else 3)
+                if a["kind"] == "innskudd":
+                    send_push(cfg, "Fond: nytt råd – " + a.get("code", "").replace("boost", "ekstrainnskudd anbefales").replace("consider", "vurder ekstrainnskudd"),
+                              a["text"] + "\nÅpne appen → Mer → Fond for hele analysen.", tags=["moneybag"], priority=4)
+                elif a["kind"] == "innskudd_slutt":
+                    send_push(cfg, "Fond: rådet er endret", a["text"], tags=["white_check_mark"], priority=3)
+                else:
+                    send_push(cfg, "Fond: " + ("gunstig inngang" if a["kind"] == "inngang" else "ikke lenger gunstig"), a["text"],
+                              tags=["moneybag" if a["kind"] == "inngang" else "white_check_mark"], priority=4 if a["kind"] == "inngang" else 3)
         if pc.get("gurus", True):
             for a in (gurus_payload.get("alerts") or []):
                 send_push(cfg, "Ny 13F: " + a["name"], a["text"], tags=["crown"])

@@ -207,9 +207,15 @@
       ? `<div class="hero">${cands.map(heroCard).join("")}</div>`
       : `<div class="empty">Ingen aksjer oppfyller kjøpskravene i dette markedet i dag.</div>`;
     html += `</div>`;
-    const gf = goodFunds();
+    const mine = ownedFunds();
+    if (mine.length) {
+      const act = mine.filter(f => f.deposit && (f.deposit.code === "boost" || f.deposit.code === "consider"));
+      html += `<div class="section">${sectionHead("Dine fond i dag", mine.length)}<p class="hint">${act.length ? `${act.map(f => esc(f.name)).join(" og ")}: ${act.length === 1 ? "gunstig inngang for ekstrainnskudd" : "gunstig inngang for ekstrainnskudd"}.` : "Ingen ekstrainnskudd anbefales i dag – fortsett spareavtalen."}</p>${mine.map(f => fundReportCard(f, true)).join("")}
+        <button class="more" data-sub="fond">Se alle fond og loggen</button></div>`;
+    }
+    const gf = goodFunds().filter(f => !f.owned);
     if (gf.length) {
-      html += `<div class="section">${sectionHead("Fond – gunstig inngang nå", gf.length)}${gf.slice(0, 4).map(f => fundCard(f, true)).join("")}
+      html += `<div class="section">${sectionHead("Andre fond – gunstig inngang nå", gf.length)}${gf.slice(0, 4).map(f => fundCard(f, true)).join("")}
         <button class="more" data-sub="fond">Se alle fond</button></div>`;
     }
     for (const [key, title] of CATEGORIES) {
@@ -694,7 +700,7 @@
           <p>En virtuell portefølje som følger anbefalingene helt automatisk, hver handelsdag, på serveren – uavhengig av om du åpner appen. Den kjøper dagens beste kjøpskandidater med like store posisjoner og selger ved Avvent/Unngå, trendbrudd eller stop-loss, med kurtasje og slippage trukket fra. Avkastningen måles mot et likevektet gjennomsnitt av hele universet, så du ser om reglene faktisk slår markedet over tid.</p>
         </div>
         <div class="card"><h3>Fond</h3>
-          <p>Aksjefond følges via en indeks-ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. For hvert fond ser du fall fra 52-ukers topp i kroner, hvor mye som skyldes indeksen og hvor mye kronekursen, og et nivå (Svært gunstig / Gunstig / Nøytral / Dyr). Varsel når nivået skifter. Fondene du eier kan legges til i config.yaml under <span class="mono">funds.list</span>.</p>
+          <p>Aksjefond følges via en indeks-ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. For hvert fond ser du fall fra 52-ukers topp i kroner, hvor mye som skyldes indeksen og hvor mye kronekursen, og et nivå (Svært gunstig / Gunstig / Nøytral / Dyr). Hver morgen skrives en analyse per fond med et innskuddsråd – <b>Ekstrainnskudd anbefales</b>, <b>Vurder ekstrainnskudd</b>, <b>Fortsett vanlig sparing</b> eller <b>Avvent</b> – med konkrete nivåer for når rådet ville endret seg, og en logg over tidligere råd. Varsel når rådet eller nivået skifter. Fondene du eier kan legges til i config.yaml under <span class="mono">funds.list</span>.</p>
         </div>
         <div class="card"><h3>Begrensninger</h3>
           <p>Data fra Yahoo Finance er ca. 15 minutter forsinket, og analytikerdekningen på mindre nordiske selskaper er tynn. Reglene er ikke backtestet. Bruk listene som et utgangspunkt for egen vurdering – dette er ikke investeringsråd.</p>
@@ -719,6 +725,7 @@
     else if (e.state && e.state.pushinfo) openPush(false);
     else if (e.state && e.state.sub) openSubview(e.state.sub, false);
     else if (e.state && e.state.fundform !== undefined) openFundForm(e.state.fundform || null, false);
+    else if (e.state && e.state.fundinfo) openFundAnalysis(e.state.fundinfo, false);
     else { currentTicker = null; currentSubview = null; closeSheet(); }
   });
 
@@ -957,7 +964,7 @@
         </div>
         <div class="card"><h3>Dette varsles</h3><ul class="reasons" style="margin:0;padding-left:18px">
           <li><b>Hver morgen</b> ca. 08:40–09:00: dagens kjøpskandidater, antall per anbefaling, fond med gunstig inngang og autotraderens status.</li>
-          <li><b>Fond</b>: når et fond skifter til eller fra gunstig inngang.</li>
+          <li><b>Fond</b>: når rådet om ekstrainnskudd endres for et av fondene dine, og når et fond skifter til eller fra gunstig inngang. Morgenvarselet viser dagens råd for alle fondene dine.</li>
           <li><b>Autotrader</b>: hver gang den kjøper eller selger.</li>
         </ul><p class="muted" style="font-size:13px">Hva som sendes styres i config.yaml under <span class="mono">notify.push</span>.</p></div>`
         : `<div class="card"><h3>Push er ikke satt opp</h3><p>Slå på <span class="mono">notify.push</span> i config.yaml og legg inn et ntfy-emne, så vises oppskriften her.</p></div>`}
@@ -1126,7 +1133,7 @@
     const parts = f.attr_parts || {};
     const partRow = (l, v) => `<span class="lbl">${l}</span><span class="bar"><i style="width:${isNum(v) ? Math.max(2, v) : 0}%;${isNum(v) ? "" : "opacity:.3"}"></i></span><span class="val">${isNum(v) ? sc(v) : "–"}</span>`;
     return `<div class="fund ${AV[f.attr_verdict] || LEVEL_CLASS[f.level] || ""}" data-fund="${esc(f.id)}">
-      <div class="su-top"><span class="rank-no mono">#${f.rank || "–"}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">${esc(f.attr_verdict)}</span>` : ""}${vbadge(f.level)}${f.owned ? `<span class="vb own">Ditt</span>` : ""}<span class="su-mkt mono" style="margin-left:auto;margin-right:0">${esc(f.proxy)}${f.hedged ? " · sikret" : ""}</span><span class="pill ${scClass(f.attr_score)}" title="Attraktivitet">${sc(f.attr_score)}</span></div>
+      <div class="su-top"><span class="rank-no mono">#${f.rank || "–"}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">${esc(f.attr_verdict)}</span>` : ""}<span class="vb ${LEVEL_CLASS[f.level] || ""}">Inngang · ${esc(f.level)}</span>${f.owned ? `<span class="vb own">Ditt</span>` : ""}<span class="su-mkt mono" style="margin-left:auto;margin-right:0">${esc(f.proxy)}${f.hedged ? " · sikret" : ""}</span><span class="pill ${scClass(f.attr_score)}" title="Attraktivitet">${sc(f.attr_score)}</span></div>
       <div class="fund-name">${esc(f.name)}</div>
       ${f.advice ? `<div class="advice">→ ${esc(f.advice)}</div>` : ""}
       ${f.examples ? `<div class="fund-ex">${esc(f.examples)}</div>` : ""}
@@ -1143,15 +1150,75 @@
       <div class="su-meta">Sist ${fmtDate(f.last_date)} · 1 år ${pct(f.ret_1y)} i NOK (indeks ${pct(f.idx_ret_1y)}) · RSI ${num(f.rsi, 0)}${f.prev_level && f.prev_level !== f.level ? ` · var ${esc(f.prev_level)} i går` : ""}</div>`}
     </div>`;
   }
+  // ---------- daglig fondsrapport: innskuddsråd per fond du eier, med tekstanalyse og logg ----------
+  const DEP_CLASS = { boost: "v-strong", consider: "v-buy", regular: "v-hold", wait: "v-wait" };
+  const depBadge = (d, big) => d ? `<span class="vb ${DEP_CLASS[d.code] || ""} ${big ? "big" : ""}">${esc(d.action)}</span>` : "";
+  const ownedFunds = () => fundsData().filter(f => f.owned).slice().sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  const fundJournal = () => (state.data && state.data.funds && state.data.funds.journal) || [];
+  function fundReportCard(f, compact) {
+    const d = f.deposit || {};
+    const prev = d.changed && state.data.funds.actions ? state.data.funds.actions[d.prev_code] : null;
+    const key = (d.reasons || [])[0] || (d.cautions || [])[0] || "";
+    return `<button class="fund fr ${DEP_CLASS[d.code] || ""}" data-fundinfo="${esc(f.id)}">
+      <span class="su-top">${depBadge(d)}${d.changed ? `<span class="chip on">Nytt råd i dag</span>` : ""}<span class="mono muted" style="margin-left:auto;font-size:12px">${fmtDate(f.last_date)}</span></span>
+      <span class="fund-name" style="margin-top:6px">${esc(f.name)}</span>
+      ${key ? `<span class="fr-key">${esc(key.charAt(0).toUpperCase() + key.slice(1))}${prev ? ` · var «${esc(prev)}»` : ""}</span>` : ""}
+      <span class="levels" style="margin-top:8px">
+        <span><i>I dag</i><b class="mono ${sign(f.change_1d)}">${pct(f.change_1d)}</b></span>
+        <span><i>Fra topp</i><b class="mono ${sign(f.dd_52w)}">${pct(f.dd_52w)}</b></span>
+        <span><i>Inngang</i><b style="font-size:12.5px">${esc(f.level === "Svært gunstig" ? "Sv. gunstig" : f.level)}</b></span>
+        <span><i>Trend</i><b style="font-size:12.5px">${isNum(f.vs_sma200) ? (f.vs_sma200 > 0 ? "opp" : "svak") : "–"}</b></span>
+      </span>
+      <span class="fr-more">Les dagens analyse ›</span>
+    </button>`;
+  }
+  function fundJournalList(limitDays, onlyId) {
+    const days = fundJournal().slice(0, limitDays || 14);
+    if (!days.length) return `<div class="empty">Loggen bygges opp fra og med neste daglige kjøring.</div>`;
+    return `<div class="card" style="margin-top:0"><div class="lines jl">${days.map(day => {
+      const rows = day.funds.filter(r => !onlyId || r.id === onlyId);
+      if (!rows.length) return "";
+      return rows.map((r, i) => `<div class="ln"><span class="d">${i === 0 ? fmtDate(day.date) : ""}</span><span class="t">${onlyId ? "" : `<b>${esc(r.name)}</b>`}<span class="jl-act"><span class="${DEP_CLASS[r.code] ? "vb " + DEP_CLASS[r.code] : ""}">${esc(r.action)}</span>${r.changed ? `<span class="chip on">endret</span>` : ""}</span></span><span class="v mono ${sign(r.change_1d)}">${pct(r.change_1d)}<small class="muted">${pct(r.dd_52w)} fra topp</small></span></div>`).join("");
+    }).join("")}</div></div>`;
+  }
+  function openFundAnalysis(id, push) {
+    const f = fundById(id);
+    if (!f) return;
+    const d = f.deposit || {}, an = f.analysis || {};
+    const AV = { "Attraktiv": "v-strong", "Nøytral": "v-hold", "Lite attraktiv": "v-wait" };
+    showSheet(`
+      ${sheetTop(esc(f.name), `Dagens analyse · ${fmtDate(f.last_date)}`)}
+      <div class="gutter sheet-body">
+        <div class="badges" style="margin-top:4px">${depBadge(d, true)}${f.owned ? `<span class="vb own">Ditt</span>` : ""}</div>
+        <div class="badges" style="margin-top:8px"><span class="vb ${LEVEL_CLASS[f.level] || ""}">Inngang · ${esc(f.level)}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">Attraktivitet · ${esc(f.attr_verdict)}</span>` : ""}</div>
+        ${d.changed ? `<div class="alert" style="margin-top:10px">Rådet er endret i dag${state.data.funds.actions && d.prev_code ? ` – var «${esc(state.data.funds.actions[d.prev_code])}»` : ""}.</div>` : ""}
+        <div class="levels" style="margin-top:12px">
+          <span><i>Kurs (NOK)</i><b class="mono">${num(f.price_nok, 0)}</b><small class="${sign(f.change_1d)}">${pct(f.change_1d)} i dag</small></span>
+          <span><i>Fra topp</i><b class="mono ${sign(f.dd_52w)}">${pct(f.dd_52w)}</b><small>52 uker</small></span>
+          <span><i>1 mnd</i><b class="mono ${sign(f.ret_1m)}">${pct(f.ret_1m)}</b></span>
+          <span><i>1 år</i><b class="mono ${sign(f.ret_1y)}">${pct(f.ret_1y)}</b></span>
+        </div>
+        <div class="analysis" style="margin-top:14px">${(an.sections || []).map(sx => sx.h === "Hva som ville endret vurderingen" && (an.triggers || []).length
+          ? `<h3>${esc(sx.h)}</h3><ul class="reasons" style="margin:0;padding-left:18px">${an.triggers.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`
+          : `<h3>${esc(sx.h)}</h3><p>${esc(sx.t)}</p>`).join("")}</div>
+        ${d.size ? `<div class="card"><h3>Hvor mye?</h3><p style="margin:0">${esc(d.size.charAt(0).toUpperCase() + d.size.slice(1))}. Rådene gjelder <i>nye</i> penger – fast sparing fortsetter uansett.</p></div>` : ""}
+        <div class="chart" style="margin-top:12px">${fundChart(f.history)}<div class="legend"><span><i style="background:var(--accent)"></i>Fondet i NOK</span><span><i style="background:var(--muted)"></i>Indeksen i ${esc(f.currency)}</span></div></div>
+        <div class="section">${sectionHead("Tidligere vurderinger", fundJournal().filter(dd => dd.funds.some(r => r.id === id)).length)}${fundJournalList(14, id)}</div>
+        <p class="note">Analysen skrives automatisk hver morgen ut fra tallene (ETF som følger samme indeks × valutakurs, trend, aksjeuniverset for sektoren/markedet, svingninger). Den vet ikke hva som skjer i morgen, og et fall kan fortsette – derfor sier rådene aldri «alt på én gang». Ikke investeringsråd.</p>
+      </div>`, push, { fundinfo: id });
+  }
+
   function viewFond() {
     const fs = fundsData();
     if (!fs.length) return `<div class="empty-card" style="margin-top:16px"><b>Ingen fond er satt opp.</b><p>Fond kobles til en indeks-ETF i config.yaml under <span class="mono">funds.list</span>.</p></div>`;
     const alerts = (state.data.funds.alerts || []);
     let html = `<p class="hint" style="margin-top:12px">Hvert fond følges via en ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. Nivået sier om fondet er «på salg» målt mot egen historikk – ikke om fallet er over.</p>`;
     if (alerts.length) html += `<div class="alert">💱 <b>Nytt siden sist:</b> ${alerts.map(a => esc(a.text)).join(" · ")}</div>`;
-    const owned = fs.filter(f => f.owned);
+    const owned = ownedFunds();
     if (owned.length) {
-      html += `<div class="section">${sectionHead("Dine fond", owned.length)}<div class="list">${owned.map(f => `<div class="row" style="cursor:default"><span class="l"><span class="l1"><span class="rank-no mono">#${f.rank}</span><span class="tick" style="font-family:var(--font-ui);font-size:13.5px">${esc(f.name)}</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">${esc(f.advice || "")}</span></span></span><span class="mid"></span><span class="r"><span class="vb ${({ "Attraktiv": "v-strong", "Nøytral": "v-hold", "Lite attraktiv": "v-wait" })[f.attr_verdict] || ""}">${esc(f.attr_verdict || "")}</span></span></div>`).join("")}</div></div>`;
+      const boost = owned.filter(f => f.deposit && (f.deposit.code === "boost" || f.deposit.code === "consider"));
+      html += `<div class="section">${sectionHead("Dagens fondsrapport – dine fond", owned.length)}<p class="hint">${boost.length ? `${boost.length === 1 ? "Ett fond" : boost.length + " fond"} har gunstig inngang for ekstrainnskudd nå.` : "Ingen av fondene dine er spesielt på salg i dag – spareavtalen gjør jobben."} Trykk på et fond for hele analysen.</p>${owned.map(f => fundReportCard(f)).join("")}</div>`;
+      html += `<div class="section">${sectionHead("Logg – slik har rådene utviklet seg", fundJournal().length)}${fundJournalList(10)}</div>`;
     }
     const sorted = fs.slice().sort((a, b) => (a.rank || 99) - (b.rank || 99));
     html += `<div class="section">${sectionHead("Rangering etter attraktivitet", sorted.length)}<p class="hint">Hvor attraktivt det er å sette nye penger i fondet nå – relativt til de andre fondene i listen. Trykk på et kort for detaljer.</p>${sorted.map(f => fundCard(f, false)).join("")}</div>`;
@@ -1223,6 +1290,7 @@
             <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.market_open ? e.est.age_min + " min gammel" : "stengt"}` : "sluttkurs " + fmtDate(e.nf.to)}</small></span>
           </div>
           ${e.useIntra && e.est.fx ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Indeks ${pct(e.est.proxy_change)} i ${esc(e.est.proxy_currency)} · valuta ${esc(e.est.fx.pair)} ${pct(e.est.fx.change)} → ${pct(e.today)} i NOK</p>` : ""}
+          ${e.f.deposit ? `<button class="linkbtn" data-fundinfo="${esc(e.f.id)}" style="margin-top:8px;padding:0;text-align:left">Dagens råd: ${depBadge(e.f.deposit)} <span class="muted">analyse ›</span></button>` : ""}
           ${e.nf.note ? `<p class="muted" style="margin:6px 0 0;font-size:12.5px">${esc(e.nf.note)}</p>` : ""}
         </div>`).join("")}</div>
         <div class="btn-row"><button class="btn" data-fundadd="1">Legg til fond</button></div>`;
@@ -1327,6 +1395,8 @@
     if (row) { if (!row.dataset.nodetail) openStock(row.dataset.ticker); return; }
     const sub = e.target.closest("[data-sub]");
     if (sub) { openSubview(sub.dataset.sub); return; }
+    const fi = e.target.closest("[data-fundinfo]");
+    if (fi) { openFundAnalysis(fi.dataset.fundinfo); return; }
     const fc = e.target.closest("[data-fund]");
     if (fc && !currentSubview) { openSubview("fond"); return; }
     if (e.target.closest("#info-menu")) { openInfo(); return; }

@@ -126,7 +126,7 @@ valutakurs (du registrerer verdien fra banken og datoen; estimatet leses fra den
 `docs/funds_now.json` som intradag-kjøringen skriver hvert kvarter), og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
 en **Autotrader-fane** (virtuell portefølje som følger anbefalingene automatisk hver handelsdag på
 serveren, målt mot et likevektet marked – reglene står i `config.yaml` under `autotrader:`),
-en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
+en **Fond-visning** under «Mer» med **daglig fondsrapport** for fondene du eier (innskuddsråd – Ekstrainnskudd anbefales / Vurder ekstrainnskudd / Fortsett vanlig sparing / Avvent – med automatisk skrevet analyse, konkrete nivåer for når rådet endres, og en logg over tidligere råd; push-varsel når rådet endres), rangering av alle fond (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
 krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr, varsel ved skifte, og en **attraktivitetsrangering** som
 veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med konkret råd for fondene du
 eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med

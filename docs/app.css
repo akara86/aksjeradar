@@ -275,8 +275,9 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .hit .muted { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ta { width: 100%; min-height: 110px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); font: 12px/1.4 var(--font-mono); resize: vertical; }
 
-/* ---------- nivåbokser (fond) ----------
+/* ---------- nivåbokser (fond) ---------- */
 .su-top { display: flex; align-items: center; gap: 8px; }
+.su-mkt { font-size: 12px; color: var(--muted); }
 .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
 .levels > span { display: flex; flex-direction: column; gap: 1px; padding: 7px 8px; background: var(--surface-2); border-radius: 9px; min-width: 0; }
 .levels i { font-style: normal; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -310,6 +311,24 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .rank-no { font-size: 12px; font-weight: 700; color: var(--muted); }
 .vb.own { background: var(--accent); color: var(--accent-ink); }
 .advice { margin-top: 6px; font-size: 13.5px; font-weight: 600; color: var(--accent); }
+/* daglig fondsrapport */
+.badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fund.fr { display: flex; flex-direction: column; width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.fund.fr:active { background: var(--surface-2); }
+.fund.fr .fund-name { font-size: 15.5px; }
+.fr-key { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.fr-more { display: block; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent); }
+.jl .ln { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.jl .d { width: auto; }
+.jl .t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.jl .t b { font-size: 13px; }
+.jl-act { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.jl-act .vb { font-size: 10px; padding: 2px 6px; white-space: normal; }
+.jl-act .chip { font-size: 10.5px; padding: 2px 6px; }
+.jl .v { margin-left: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.jl .v small { font-size: 10.5px; }
+.analysis h3 { margin: 14px 0 4px; font-size: 13.5px; font-weight: 700; }
+.analysis h3:first-child { margin-top: 0; }
 .fund-scores { margin-top: 10px; }
 .fund-scores .lbl { font-size: 12px; color: var(--muted); }
 .fund-scores .val { font-size: 12px; }
