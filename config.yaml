@@ -313,6 +313,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       owned: true
       role: kjerne
       markets: [alle]
+      intraday_proxies: [{ticker: EUNL.DE, currency: EUR}]   # iShares Core MSCI World (Xetra) – dekker europeisk åpningstid
     - id: storebrand_solutions
       name: "Storebrand Global Solutions"
       examples: "Ditt fond · aktivt forvaltet, referanseindeks MSCI ACWI – ETF-en er en tilnærming"
@@ -321,6 +322,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       owned: true
       role: satellitt
       markets: [alle]
+      intraday_proxies: [{ticker: IUSQ.DE, currency: EUR}]   # iShares MSCI ACWI (Xetra)
     - id: gambak
       name: "Alfred Berg Gambak"
       examples: "Ditt fond · aktivt forvaltet norsk fond – følges via Oslo Børs-ETF (tilnærming)"
@@ -330,6 +332,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       owned: true
       role: satellitt
       markets: [Oslo]
+      intraday_proxies: [{ticker: OSEBX.OL, currency: NOK}]  # Oslo Børs hovedindeks
     - id: klp_em
       name: "KLP AksjeFremvoksende Markeder Indeks"
       examples: "Ditt fond · følger MSCI Emerging Markets"
@@ -337,6 +340,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       currency: USD
       owned: true
       role: satellitt
+      intraday_proxies: [{ticker: IS3N.DE, currency: EUR}]   # iShares Core MSCI EM IMI (Xetra)
     - id: dnb_teknologi
       name: "DNB Teknologi"
       examples: "Ditt fond · aktivt forvaltet teknologi/telekom/media – følges via Nasdaq-100 (tilnærming)"
@@ -345,6 +349,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       owned: true
       role: satellitt
       sectors: [Technology, Communication Services]
+      intraday_proxies: [{ticker: EQQQ.DE, currency: EUR}]   # Invesco Nasdaq-100 (Xetra)
     # ---- Andre fondstyper (til sammenligning og ideer) ----
     - id: usa
       name: "USA – S&P 500"
@@ -353,6 +358,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       currency: USD
       role: kjerne
       markets: [USA]
+      intraday_proxies: [{ticker: SXR8.DE, currency: EUR}]   # iShares Core S&P 500 (Xetra)
     - id: global_hedged
       name: "Globalt indeksfond, valutasikret til NOK"
       examples: "KLP AksjeGlobal Indeks Valutasikret, DNB Global Indeks Valutasikret"
@@ -361,6 +367,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       hedged: true
       role: kjerne
       markets: [alle]
+      intraday_proxies: [{ticker: EUNL.DE, currency: EUR}]
     - id: norge
       name: "Norge – indeksfond"
       examples: "KLP AksjeNorge Indeks, DNB Norge Indeks, Nordnet Indeksfond Norge"
@@ -369,6 +376,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       fx_relevant: false
       role: kjerne
       markets: [Oslo]
+      intraday_proxies: [{ticker: OSEBX.OL, currency: NOK}]
     - id: europa
       name: "Europa"
       examples: "KLP AksjeEuropa Indeks, DNB Europa Indeks"
@@ -376,6 +384,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       currency: USD
       role: kjerne
       markets: [Stockholm, København, Helsinki]
+      intraday_proxies: [{ticker: EXSA.DE, currency: EUR}]   # iShares STOXX Europe 600 (Xetra)
     - id: helse
       name: "Helse (global)"
       examples: "DNB Health Care (nær)"
@@ -383,6 +392,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       currency: USD
       role: satellitt
       sectors: [Healthcare]
+      intraday_proxies: [{ticker: QDVG.DE, currency: EUR}]   # iShares S&P 500 Health Care (Xetra)
     - id: fornybar
       name: "Fornybar energi"
       examples: "DNB Miljøinvest, Storebrand Fornybar Energi (nær)"
@@ -390,6 +400,7 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       currency: USD
       role: satellitt
       sectors: [Utilities]
+      intraday_proxies: [{ticker: IQQH.DE, currency: EUR}]   # iShares Global Clean Energy (Xetra)
 
 gurus:                            # kjente investorer – porteføljer fra SEC EDGAR (13F), egen fane «Guruer»
   enabled: true

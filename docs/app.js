@@ -690,7 +690,8 @@
         <div class="card"><h3>Portefølje og lekepenger</h3>
           <p><b>Mine aksjer</b> er det du faktisk eier: legg inn antall og kjøpskurs, så får du verdi, avkastning og et varsel når en av aksjene får Avvent/Unngå eller viser trendbrudd.</p>
           <p><b>Lekepenger</b> er en virtuell portefølje med fiktiv startkapital. Kjøp og salg skjer til siste sluttkurs i appen, og avkastningskurven bygges dag for dag. Bruk den til å prøve ut anbefalingene en stund før du handler med ekte penger.</p>
-          <p>Begge lagres bare på denne enheten. Bruk «Sikkerhetskopi» nederst i Portefølje-fanen for å flytte dem til en annen telefon.</p>
+          <p><b>Fond</b> (i Portefølje-fanen) viser et estimat av fondsverdiene dine akkurat nå: du registrerer verdien fra banken og datoen, og appen regner videre med indeksen fondet følger (ETF med 15-minutters kurser) og valutakursen, oppdatert hvert kvarter i børstiden.</p>
+          <p>Alt lagres bare på denne enheten. Bruk «Sikkerhetskopi» nederst i Portefølje-fanen for å flytte dem til en annen telefon.</p>
         </div>
         <div class="card"><h3>Autotrader</h3>
           <p>En virtuell portefølje som følger anbefalingene helt automatisk, hver handelsdag, på serveren – uavhengig av om du åpner appen. Den kjøper dagens beste kjøpskandidater med like store posisjoner og selger ved Avvent/Unngå, trendbrudd eller stop-loss, med kurtasje og slippage trukket fra. Avkastningen måles mot et likevektet gjennomsnitt av hele universet, så du ser om reglene faktisk slår markedet over tid.</p>
@@ -726,6 +727,7 @@
     else if (e.state && e.state.backup) openBackup(false);
     else if (e.state && e.state.pushinfo) openPush(false);
     else if (e.state && e.state.sub) openSubview(e.state.sub, false);
+    else if (e.state && e.state.fundform !== undefined) openFundForm(e.state.fundform || null, false);
     else { currentTicker = null; currentSubview = null; closeSheet(); }
   });
 
@@ -788,8 +790,9 @@
 
   function viewPortefolje() {
     const mode = pf.mode;
-    const seg = `<div class="seg" style="margin-top:12px"><button data-pfmode="real" aria-pressed="${mode === "real"}">Mine aksjer</button><button data-pfmode="paper" aria-pressed="${mode === "paper"}">Lekepenger</button></div>`;
+    const seg = `<div class="seg" style="margin-top:12px"><button data-pfmode="real" aria-pressed="${mode === "real"}">Mine aksjer</button><button data-pfmode="funds" aria-pressed="${mode === "funds"}">Fond</button><button data-pfmode="paper" aria-pressed="${mode === "paper"}">Lekepenger</button></div>`;
     const base = `<div class="pf-tools"><label>Vis i <select id="pf-base">${BASES.map(b => `<option ${b === pf.base ? "selected" : ""}>${b}</option>`).join("")}</select></label><button class="linkbtn" id="pf-backup">Sikkerhetskopi</button></div>`;
+    if (mode === "funds") { if (!intra && !intraLoading) loadIntra(false); return seg + viewFondverdi() + base; }
     return seg + (mode === "real" ? viewReal() : viewPaper()) + base +
       `<p class="note">Porteføljene lagres bare på denne enheten. Kurser er siste sluttkurs fra morgenens kjøring; valuta omregnes med dagens kurser. Ikke investeringsråd.</p>`;
   }
@@ -1100,7 +1103,7 @@
       intra = await r.json();
     } catch (e) { intraError = e; }
     intraLoading = false;
-    if (state.tab === "intradag") render();
+    if (state.tab === "intradag" || (state.tab === "portefolje" && pf.mode === "funds")) render();
   }
   function fmtClock(iso) {
     if (!iso) return "–";
@@ -1193,7 +1196,7 @@
   function scheduleIntraRefresh() {
     if (intraTimer) clearInterval(intraTimer);
     intraTimer = setInterval(() => {
-      if (state.tab === "intradag" && document.visibilityState === "visible") loadIntra(true);
+      if ((state.tab === "intradag" || (state.tab === "portefolje" && pf.mode === "funds")) && document.visibilityState === "visible") loadIntra(true);
     }, 5 * 60 * 1000);
   }
 
@@ -1336,6 +1339,85 @@
     return html;
   }
 
+  // ---------- fondsverdi nå: dine fondsbeholdninger × estimert utvikling (daglig NAV-proxy + intradag) ----------
+  function fundHoldings() { if (!pf.funds) pf.funds = []; return pf.funds; }
+  function fundById(id) { return fundsData().find(f => f.id === id); }
+  function navFactor(f, fromDate) {
+    // Faktor fra registrert dato til siste daglige kurs, fra fondets NOK-kurve i data.json
+    const h = f && f.history;
+    if (!h || !h.dates || !h.nok || !h.nok.length) return { factor: 1, from: null, to: null, note: "ingen historikk" };
+    let i = h.dates.findIndex(d => d >= fromDate);
+    if (i < 0) return { factor: 1, from: h.dates[h.dates.length - 1], to: h.dates[h.dates.length - 1], note: "registrert etter siste kurs" };
+    const note = h.dates[0] > fromDate ? `historikken starter ${fmtDate(h.dates[0])}` : null;
+    return { factor: h.nok[h.nok.length - 1] / h.nok[i], from: h.dates[i], to: h.dates[h.dates.length - 1], note };
+  }
+  function fundEstimate(hold) {
+    const f = fundById(hold.id);
+    if (!f) return null;
+    const nf = navFactor(f, hold.date);
+    const est = intra && intra.funds ? intra.funds[hold.id] : null;
+    // Intradag-estimatet gjelder i forhold til forrige børsdag (ref_date). Unngå dobbelttelling hvis daglig kurve allerede dekker dagen.
+    let today = 0, useIntra = false;
+    if (est && isNum(est.est_change_today) && est.session && nf.to && est.session > nf.to) { today = est.est_change_today; useIntra = true; }
+    const base = hold.value * nf.factor;
+    const now = base * (1 + today);
+    return { f, nf, est, useIntra, base, now, today, todayKr: now - base, sinceKr: now - hold.value, sincePct: hold.value ? now / hold.value - 1 : null };
+  }
+  function viewFondverdi() {
+    const hs = fundHoldings();
+    const avail = fundsData();
+    if (!avail.length) return `<div class="empty-card"><b>Ingen fond er satt opp i appen.</b></div>`;
+    const ests = hs.map(h => ({ h, e: fundEstimate(h) })).filter(x => x.e);
+    let html = "";
+    if (!ests.length) {
+      html += `<div class="empty-card"><b>Registrer fondene dine.</b><p>Skriv inn verdien du ser i banken/plattformen og datoen den gjelder. Appen regner deretter ut et estimat av verdien akkurat nå – oppdatert hvert kvarter i børstiden – ut fra indeksen fondet følger og valutakursen.</p><button class="btn" data-fundadd="1">Legg til fond</button></div>`;
+    } else {
+      const totNow = sum(ests.map(x => x.e), "now"), totBase = sum(ests.map(x => x.e), "base"), totStart = hs.reduce((a, h) => a + (h.value || 0), 0);
+      const todayKr = totNow - totBase, since = totNow - totStart;
+      const fresh = ests.some(x => x.e.useIntra && x.e.est.fresh);
+      const asOf = ests.map(x => x.e.est && x.e.useIntra ? x.e.est.as_of : null).filter(Boolean).sort().pop();
+      html += summaryCard([
+        ["Estimert verdi nå", money(totNow, "NOK")],
+        ["I dag", (todayKr >= 0 ? "+" : "") + money(todayKr, "NOK") + ` (${pct(totBase ? todayKr / totBase : null)})`, sign(todayKr)],
+        ["Siden registrert", (since >= 0 ? "+" : "") + money(since, "NOK") + ` (${pct(totStart ? since / totStart : null)})`, sign(since)],
+        ["Oppdatert", asOf ? fmtClock(asOf) + (fresh ? "" : " (gammel)") : "siste sluttkurs", ""],
+      ]);
+      html += `<p class="hint" style="margin-top:8px">${asOf ? `Intradag-kurser ca. 15 min forsinket. ` : `Børsene er stengt eller intradag-data mangler – viser siste sluttkurs. `}Estimatet bruker indeksen fondet følger, ikke fondets egen kurs.</p>`;
+      html += `<div class="section">${sectionHead("Dine fond", ests.length)}${ests.map(({ h, e }) => `
+        <div class="fund v-hold" style="border-left-color:var(--accent)">
+          <div class="su-top"><span class="fund-name" style="margin:0;font-size:15px">${esc(e.f.name)}</span><button class="linkbtn" data-fundedit="${esc(h.id)}" style="margin-left:auto">Endre</button></div>
+          <div class="levels" style="margin-top:8px">
+            <span><i>Nå (est.)</i><b class="mono">${money(e.now, "NOK")}</b><small>reg. ${money(h.value, "NOK")}</small></span>
+            <span><i>I dag</i><b class="mono ${sign(e.todayKr)}">${pct(e.today)}</b><small class="mono ${sign(e.todayKr)}">${(e.todayKr >= 0 ? "+" : "") + money(e.todayKr, "NOK")}</small></span>
+            <span><i>Siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${(e.sinceKr >= 0 ? "+" : "") + money(e.sinceKr, "NOK")}</small></span>
+            <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.age_min + " min"}` : "sluttkurs " + fmtDate(e.nf.to)}</small></span>
+          </div>
+          ${e.useIntra && e.est.fx ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Indeks ${pct(e.est.proxy_change)} i ${esc(e.est.proxy_currency)} · valuta ${esc(e.est.fx.pair)} ${pct(e.est.fx.change)} → ${pct(e.today)} i NOK</p>` : ""}
+          ${e.nf.note ? `<p class="muted" style="margin:6px 0 0;font-size:12.5px">${esc(e.nf.note)}</p>` : ""}
+        </div>`).join("")}</div>
+        <div class="btn-row"><button class="btn" data-fundadd="1">Legg til fond</button></div>`;
+    }
+    html += `<p class="note">Fondskursen settes offisielt én gang per dag av fondsselskapet. Tallene her er et estimat basert på en ETF som følger samme indeks (15-minutters kurser) og dagens valutakurs. Aktive fond (Gambak, Global Solutions, DNB Teknologi) avviker fra indeksen. Verdiene du registrerer lagres bare på denne enheten.</p>`;
+    return html;
+  }
+  function openFundForm(id, push) {
+    const avail = fundsData();
+    const existing = id ? fundHoldings().find(h => h.id === id) : null;
+    const options = avail.map(f => `<option value="${esc(f.id)}" ${existing && existing.id === f.id ? "selected" : (!existing && f.owned ? "" : "")}>${esc(f.name)}${f.owned ? " (ditt)" : ""}</option>`).join("");
+    showSheet(`
+      ${sheetTop(existing ? "Endre fond" : "Legg til fond", "Verdi slik banken viser den, og datoen den gjelder")}
+      <div class="gutter sheet-body">
+        <div class="form">
+          <label class="field"><span>Fond</span><select id="ff-id" class="search-input" ${existing ? "disabled" : ""}>${options}</select></label>
+          <label class="field"><span>Verdi (NOK)</span><input id="ff-value" type="number" inputmode="decimal" min="0" step="1" value="${existing ? existing.value : ""}" placeholder="f.eks. 367437"></label>
+          <label class="field"><span>Verdien gjelder dato</span><input id="ff-date" type="date" value="${existing ? existing.date : today()}"></label>
+          <p id="ff-msg" class="neg" style="margin:0"></p>
+          <div class="btn-row"><button class="btn" id="ff-ok" data-id="${esc(existing ? existing.id : "")}">${existing ? "Lagre" : "Legg til"}</button>${existing ? `<button class="btn danger" id="ff-remove" data-id="${esc(existing.id)}">Fjern</button>` : ""}</div>
+          <p class="muted" style="font-size:13px;margin:0">Tips: registrer verdien på en dag fondet er kurssatt (en ukedag), så blir estimatet mest presist. Oppdater verdien av og til, f.eks. etter innskudd.</p>
+        </div>
+      </div>`, push, { fundform: id || "" });
+  }
+
   // ---------- «Mer»: screener, varsler, om ----------
   let currentSubview = null;
   function viewMer() {
@@ -1445,6 +1527,21 @@
     if (ok) { submitTrade(ok.dataset.kind, ok.dataset.tkr); return; }
     const rm = e.target.closest("#f-remove");
     if (rm) { pf.real.holdings = pf.real.holdings.filter(h => h.ticker !== rm.dataset.tkr); pfSave(); render(); history.back(); return; }
+    if (e.target.closest("[data-fundadd]")) { openFundForm(null); return; }
+    const fe = e.target.closest("[data-fundedit]");
+    if (fe) { openFundForm(fe.dataset.fundedit); return; }
+    const ffo = e.target.closest("#ff-ok");
+    if (ffo) {
+      const id = ffo.dataset.id || $("#ff-id").value, value = parseFloat($("#ff-value").value), date = $("#ff-date").value || today();
+      if (!id) { $("#ff-msg").textContent = "Velg et fond."; return; }
+      if (!(value > 0)) { $("#ff-msg").textContent = "Skriv inn verdien i kroner."; return; }
+      const hs = fundHoldings(); const ex = hs.find(h => h.id === id);
+      if (ex) { ex.value = value; ex.date = date; } else hs.push({ id, value, date });
+      pf.mode = "funds"; pfSave(); state.tab = "portefolje"; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ }
+      render(); history.back(); return;
+    }
+    const ffr = e.target.closest("#ff-remove");
+    if (ffr) { pf.funds = fundHoldings().filter(h => h.id !== ffr.dataset.id); pfSave(); render(); history.back(); return; }
     const pm = e.target.closest("[data-pfmode]");
     if (pm) { pf.mode = pm.dataset.pfmode; pfSave(); render(); return; }
     if (e.target.closest("#pf-backup")) { openBackup(); return; }
@@ -1509,6 +1606,6 @@
   $("#search").innerHTML = I.search;
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
   scheduleIntraRefresh();
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && state.tab === "intradag") loadIntra(true); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (state.tab === "intradag" || (state.tab === "portefolje" && pf.mode === "funds"))) loadIntra(true); });
   load(false);
 })();

@@ -54,6 +54,18 @@ def _num(x):
         return None
 
 
+EXTRA_TZ = {".DE": "Europe/Berlin", ".AS": "Europe/Amsterdam", ".PA": "Europe/Paris", ".L": "Europe/London",
+            ".MI": "Europe/Rome", ".SW": "Europe/Zurich", "=X": "Europe/Oslo"}
+
+
+def tz_for(ticker: str) -> str:
+    t = ticker.upper()
+    for suf, tz in EXTRA_TZ.items():
+        if t.endswith(suf):
+            return tz
+    return MARKETS[market_of(t)]["tz"]
+
+
 # --------------------------------------------------------------------------
 # Marked: åpent/stengt
 # --------------------------------------------------------------------------
@@ -98,7 +110,7 @@ def fetch_intraday(tickers: list[str], interval: str = "15m", period: str = "5d"
                 df = df[["Open", "High", "Low", "Close", "Volume"]].dropna(subset=["Close"]).copy()
                 if df.index.tz is None:
                     df.index = df.index.tz_localize("UTC")
-                df.index = df.index.tz_convert(ZoneInfo(MARKETS[market_of(t)]["tz"]))
+                df.index = df.index.tz_convert(ZoneInfo(tz_for(t)))
                 if len(df) >= 20:
                     out[t] = df.sort_index()
             except Exception as e:  # noqa: BLE001
@@ -391,6 +403,62 @@ def run_intraday(store: Storage, tickers: list[str], cfg: dict, frames: dict[str
     log.info("Intradag: %d aksjer, %d setups, %d utfall avgjort nå", len(frames), len(setups), decided)
     out = clean_for_json(payload)
     out["_frames"] = frames  # til per-aksje intradag-filer (fjernes før skriving)
+    return out
+
+
+def session_change(df: pd.DataFrame, now_utc: datetime) -> dict | None:
+    """Endring i siste økt mot forrige økts sluttkurs, pluss tidspunkt for siste bar."""
+    if df is None or df.empty:
+        return None
+    days = sorted(set(df.index.date))
+    if len(days) < 2:
+        return None
+    today, prev = days[-1], days[-2]
+    cur = df[df.index.date == today]
+    prv = df[df.index.date == prev]
+    if cur.empty or prv.empty:
+        return None
+    last, prev_close = float(cur["Close"].iloc[-1]), float(prv["Close"].iloc[-1])
+    as_of = cur.index[-1]
+    age_min = (now_utc - as_of.tz_convert("UTC").to_pydatetime()).total_seconds() / 60
+    return {"change": last / prev_close - 1, "last": last, "prev_close": prev_close, "session": today.strftime("%Y-%m-%d"),
+            "prev_session": prev.strftime("%Y-%m-%d"), "as_of": as_of.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "as_of_local": as_of.strftime("%H:%M"), "age_min": round(age_min), "fresh": age_min <= 45}
+
+
+def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_utc: datetime) -> dict:
+    """Estimert endring i dag per fond: beste (ferskeste) intradag-proxy × valutaendring."""
+    out = {}
+    for f in funds_cfg or []:
+        fid = f.get("id")
+        if not fid:
+            continue
+        proxies = list(f.get("intraday_proxies") or []) + [{"ticker": f["proxy"], "currency": f.get("currency", "USD")}]
+        best = None
+        for p in proxies:
+            sc = session_change(frames.get(p["ticker"]), now_utc)
+            if not sc:
+                continue
+            cand = {**sc, "proxy": p["ticker"], "currency": p.get("currency", "USD")}
+            if best is None or cand["as_of"] > best["as_of"]:
+                best = cand
+        if not best:
+            continue
+        fx_chg, fx_info = 0.0, None
+        cur = best["currency"]
+        if cur != "NOK" and not f.get("hedged") and f.get("fx_relevant", True):
+            fx = session_change(frames.get(f"{cur}NOK=X"), now_utc)
+            if fx:
+                fx_chg, fx_info = fx["change"], {"pair": f"{cur}NOK", "change": fx["change"], "as_of": fx["as_of"]}
+        elif cur != "NOK" and not f.get("fx_relevant", True) and not f.get("hedged"):
+            # fondet er i NOK-aksjer, men proxyen handles i utenlandsk valuta: nøytraliser valutaen
+            fx = session_change(frames.get(f"{cur}NOK=X"), now_utc)
+            if fx:
+                fx_chg = fx["change"]
+        est = (1 + best["change"]) * (1 + fx_chg) - 1
+        out[fid] = {"est_change_today": round(est, 5), "proxy": best["proxy"], "proxy_change": round(best["change"], 5),
+                    "proxy_currency": cur, "fx": fx_info, "as_of": best["as_of"], "as_of_local": best["as_of_local"],
+                    "age_min": best["age_min"], "fresh": best["fresh"], "session": best["session"], "ref_date": best["prev_session"]}
     return out
 
 

@@ -121,7 +121,8 @@ crontab -e
 Mappen `docs/` er en komplett mobil-app (web-app) som leser `docs/data.json` (lett indeks) og
 `docs/stocks/<TICKER>.json` (detaljer) – filene `run.py` lager ved hver kjøring. Den har dagens
 kjøpskandidater og ideer, en Kjøp-fane med anbefalinger, en **Portefølje-fane** («Mine aksjer» for det
-du eier, og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
+du eier, «Fond» – estimert verdi av fondene dine akkurat nå ut fra indeks-ETF med 15-minutters kurser og
+valutakurs, og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
 en **Autotrader-fane** (virtuell portefølje som følger anbefalingene automatisk hver handelsdag på
 serveren, målt mot et likevektet marked – reglene står i `config.yaml` under `autotrader:`),
 en **Intradag-fane** (kortsiktige setups på 15-minutters kurser, oppdatert hvert kvarter i børstiden av

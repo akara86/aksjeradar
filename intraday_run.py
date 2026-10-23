@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from aksjeradar.config import load_config, market_of
-from aksjeradar.intraday import MARKETS, run_intraday, setup_id, write_intraday_bars
+from aksjeradar.intraday import MARKETS, fund_estimates, run_intraday, setup_id, tz_for, write_intraday_bars
 from aksjeradar.notify import push_settings, send_push
 from aksjeradar.storage import Storage
 
@@ -59,7 +59,21 @@ def intraday_universe(cfg: dict, site: Path) -> tuple[list[str], dict[str, str]]
         if t and t not in seen:
             seen.add(t)
             out.append(t)
-    return out[: int(icfg.get("max_tickers", 120))], names
+    out = out[: int(icfg.get("max_tickers", 120))]
+    # Fondsproxyer og valutakryss (til estimert fondsverdi) kommer i tillegg til taket
+    extra = []
+    for f in (cfg.get("funds") or {}).get("list") or []:
+        for p in (f.get("intraday_proxies") or []) + [{"ticker": f.get("proxy"), "currency": f.get("currency", "USD")}]:
+            if p.get("ticker"):
+                extra.append(p["ticker"])
+            cur = p.get("currency", "USD")
+            if cur and cur != "NOK":
+                extra.append(f"{cur}NOK=X")
+    for t in extra:
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out, names
 
 
 def demo_frames(tickers: list[str], now_utc: datetime, seed: int = 3) -> dict[str, pd.DataFrame]:
@@ -67,8 +81,8 @@ def demo_frames(tickers: list[str], now_utc: datetime, seed: int = 3) -> dict[st
     rng = np.random.default_rng(seed)
     out = {}
     for i, t in enumerate(tickers):
-        m = MARKETS[market_of(t)]
-        tz = ZoneInfo(m["tz"])
+        m = MARKETS[market_of(t)] if not (t.endswith("=X") or t.endswith(".DE")) else MARKETS["Oslo"]
+        tz = ZoneInfo(tz_for(t))
         today = now_utc.astimezone(tz).date()
         days = []
         d = today
@@ -133,7 +147,8 @@ def main() -> int:
             days_back = (oslo.weekday() - 4) if oslo.weekday() >= 5 else 0
             oslo = (oslo - timedelta(days=days_back)).replace(hour=13, minute=0, second=0, microsecond=0)
             now = oslo.astimezone(timezone.utc)
-        tickers = tickers[:24]
+        fund_tickers = [t for t in tickers if t.endswith("=X") or t.endswith(".DE") or t in ("OSEBX.OL", "URTH", "ACWI", "IEMG", "QQQ", "NORW", "SPY", "VGK", "XLV", "ICLN")]
+        tickers = [t for t in tickers if t not in fund_tickers][:24] + fund_tickers
         payload = run_intraday(store, tickers, cfg, frames=demo_frames(tickers, now), now_utc=now, names=names)
         payload["demo"] = True
     else:
@@ -162,6 +177,13 @@ def main() -> int:
         store.save_snapshot("intraday", "log", {"setups": payload["log"]})
 
     frames = payload.pop("_frames", {})
+    try:
+        now_for_est = datetime.now(timezone.utc) if not args.demo else now
+        payload["funds"] = fund_estimates((cfg.get("funds") or {}).get("list") or [], frames, now_for_est)
+        log.info("Fondsestimat for %d fond", len(payload["funds"]))
+    except Exception as e:  # noqa: BLE001
+        log.warning("Fondsestimat feilet: %s", e)
+        payload["funds"] = {}
     nbars = write_intraday_bars(frames, site / "intraday", days=2)
     log.info("Skrev 15m-barer for %d aksjer til %s", nbars, site / "intraday")
     out = site / "intraday.json"
