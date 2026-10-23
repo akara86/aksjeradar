@@ -133,6 +133,7 @@
     if (btn) btn.classList.remove("spin");
     if (force && auto) loadAuto(true);
     if (force && intra) loadIntra(true);
+    if (force && fundsNow) loadFundsNow(true);
     if (force && gurus) loadGurus(true);
     render();
   }
@@ -792,7 +793,7 @@
     const mode = pf.mode;
     const seg = `<div class="seg" style="margin-top:12px"><button data-pfmode="real" aria-pressed="${mode === "real"}">Mine aksjer</button><button data-pfmode="funds" aria-pressed="${mode === "funds"}">Fond</button><button data-pfmode="paper" aria-pressed="${mode === "paper"}">Lekepenger</button></div>`;
     const base = `<div class="pf-tools"><label>Vis i <select id="pf-base">${BASES.map(b => `<option ${b === pf.base ? "selected" : ""}>${b}</option>`).join("")}</select></label><button class="linkbtn" id="pf-backup">Sikkerhetskopi</button></div>`;
-    if (mode === "funds") { if (!intra && !intraLoading) loadIntra(false); return seg + viewFondverdi() + base; }
+    if (mode === "funds") { if (!fundsNow && !fundsNowLoading) loadFundsNow(false); return seg + viewFondverdi() + base; }
     return seg + (mode === "real" ? viewReal() : viewPaper()) + base +
       `<p class="note">Porteføljene lagres bare på denne enheten. Kurser er siste sluttkurs fra morgenens kjøring; valuta omregnes med dagens kurser. Ikke investeringsråd.</p>`;
   }
@@ -1103,7 +1104,20 @@
       intra = await r.json();
     } catch (e) { intraError = e; }
     intraLoading = false;
-    if (state.tab === "intradag" || (state.tab === "portefolje" && pf.mode === "funds")) render();
+    if (state.tab === "intradag") render();
+  }
+  // Fondsestimat nå (liten fil, skrives av intradag-kjøringen hvert 15. min i børstiden)
+  let fundsNow = null, fundsNowLoading = false;
+  async function loadFundsNow(force) {
+    if (fundsNowLoading) return;
+    fundsNowLoading = true;
+    try {
+      const r = await fetch("funds_now.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
+      if (r.ok) fundsNow = await r.json();
+      else if (!fundsNow) fundsNow = { funds: {} };
+    } catch (e) { if (!fundsNow) fundsNow = { funds: {} }; }
+    fundsNowLoading = false;
+    if (state.tab === "portefolje" && pf.mode === "funds") render();
   }
   function fmtClock(iso) {
     if (!iso) return "–";
@@ -1196,7 +1210,9 @@
   function scheduleIntraRefresh() {
     if (intraTimer) clearInterval(intraTimer);
     intraTimer = setInterval(() => {
-      if ((state.tab === "intradag" || (state.tab === "portefolje" && pf.mode === "funds")) && document.visibilityState === "visible") loadIntra(true);
+      if (document.visibilityState !== "visible") return;
+      if (state.tab === "intradag") loadIntra(true);
+      if (state.tab === "portefolje" && pf.mode === "funds") loadFundsNow(true);
     }, 5 * 60 * 1000);
   }
 
@@ -1355,7 +1371,8 @@
     const f = fundById(hold.id);
     if (!f) return null;
     const nf = navFactor(f, hold.date);
-    const est = intra && intra.funds ? intra.funds[hold.id] : null;
+    const src = fundsNow && fundsNow.funds ? fundsNow.funds : (intra && intra.funds ? intra.funds : null);
+    const est = src ? src[hold.id] : null;
     // Intradag-estimatet gjelder i forhold til forrige børsdag (ref_date). Unngå dobbelttelling hvis daglig kurve allerede dekker dagen.
     let today = 0, useIntra = false;
     if (est && isNum(est.est_change_today) && est.session && nf.to && est.session > nf.to) { today = est.est_change_today; useIntra = true; }
@@ -1606,6 +1623,10 @@
   $("#search").innerHTML = I.search;
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
   scheduleIntraRefresh();
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (state.tab === "intradag" || (state.tab === "portefolje" && pf.mode === "funds"))) loadIntra(true); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (state.tab === "intradag") loadIntra(true);
+    if (state.tab === "portefolje" && pf.mode === "funds") loadFundsNow(true);
+  });
   load(false);
 })();

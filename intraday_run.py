@@ -177,13 +177,20 @@ def main() -> int:
         store.save_snapshot("intraday", "log", {"setups": payload["log"]})
 
     frames = payload.pop("_frames", {})
+    funds_err = None
     try:
         now_for_est = datetime.now(timezone.utc) if not args.demo else now
         payload["funds"] = fund_estimates((cfg.get("funds") or {}).get("list") or [], frames, now_for_est)
         log.info("Fondsestimat for %d fond", len(payload["funds"]))
     except Exception as e:  # noqa: BLE001
         log.warning("Fondsestimat feilet: %s", e)
-        payload["funds"] = {}
+        payload["funds"], funds_err = {}, str(e)
+    # Egen liten fil med bare fondsestimatene – appen henter denne ofte (hvert 5. min i Fond-visningen)
+    fund_tickers = sorted({t for t in frames if t.endswith("=X") or any(t == f.get("proxy") or t in (f.get("intraday_proxies") or [])
+                                                                        for f in (cfg.get("funds") or {}).get("list") or [])})
+    funds_out = {"generated_at": payload["generated_at"], "funds": payload["funds"], "error": funds_err,
+                 "tickers": {t: {"bars": int(len(frames[t])), "last": frames[t].index[-1].isoformat() if len(frames[t]) else None} for t in fund_tickers}}
+    (site / "funds_now.json").write_text(json.dumps(funds_out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     nbars = write_intraday_bars(frames, site / "intraday", days=2)
     log.info("Skrev 15m-barer for %d aksjer til %s", nbars, site / "intraday")
     out = site / "intraday.json"
