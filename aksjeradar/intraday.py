@@ -66,6 +66,22 @@ def tz_for(ticker: str) -> str:
     return MARKETS[market_of(t)]["tz"]
 
 
+EXTRA_HOURS = {".DE": (time(9, 0), time(17, 30)), ".AS": (time(9, 0), time(17, 30)), ".PA": (time(9, 0), time(17, 30)),
+               ".L": (time(8, 0), time(16, 30)), ".MI": (time(9, 0), time(17, 30)), ".SW": (time(9, 0), time(17, 30))}
+
+
+def proxy_market_open(ticker: str, now_utc: datetime) -> bool | None:
+    """Er børsen tickeren handles på åpen nå? None for valutakryss."""
+    t = ticker.upper()
+    if t.endswith("=X"):
+        return None
+    for suf, (o, c) in EXTRA_HOURS.items():
+        if t.endswith(suf):
+            local = now_utc.astimezone(ZoneInfo(EXTRA_TZ[suf]))
+            return local.weekday() < 5 and o <= local.time() < c
+    return bool(market_status(market_of(t), now_utc)["open"])
+
+
 # --------------------------------------------------------------------------
 # Marked: åpent/stengt
 # --------------------------------------------------------------------------
@@ -116,6 +132,28 @@ def fetch_intraday(tickers: list[str], interval: str = "15m", period: str = "5d"
             except Exception as e:  # noqa: BLE001
                 log.debug("Kunne ikke tolke intradag-data for %s: %s", t, e)
     return out
+
+
+def fetch_intraday_single(ticker: str, interval: str = "15m", period: str = "5d") -> tuple[pd.DataFrame | None, str | None]:
+    """Henter én ticker alene (reserve når den falt ut av batch-nedlastingen). Returnerer (data, feilmelding)."""
+    import yfinance as yf
+
+    try:
+        df = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True, prepost=False)
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}"[:160]
+    if df is None or df.empty:
+        return None, "ingen data"
+    try:
+        df = df[["Open", "High", "Low", "Close", "Volume"]].dropna(subset=["Close"]).copy()
+        if df.index.tz is None:
+            df.index = df.index.tz_localize("UTC")
+        df.index = df.index.tz_convert(ZoneInfo(tz_for(ticker)))
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}"[:160]
+    if len(df) < 2:
+        return None, f"bare {len(df)} barer"
+    return df.sort_index(), None
 
 
 # --------------------------------------------------------------------------
@@ -458,7 +496,8 @@ def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_u
         est = (1 + best["change"]) * (1 + fx_chg) - 1
         out[fid] = {"est_change_today": round(est, 5), "proxy": best["proxy"], "proxy_change": round(best["change"], 5),
                     "proxy_currency": cur, "fx": fx_info, "as_of": best["as_of"], "as_of_local": best["as_of_local"],
-                    "age_min": best["age_min"], "fresh": best["fresh"], "session": best["session"], "ref_date": best["prev_session"]}
+                    "age_min": best["age_min"], "fresh": best["fresh"], "market_open": proxy_market_open(best["proxy"], now_utc),
+                    "session": best["session"], "ref_date": best["prev_session"]}
     return out
 
 

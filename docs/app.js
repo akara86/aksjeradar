@@ -1392,14 +1392,15 @@
       const totNow = sum(ests.map(x => x.e), "now"), totBase = sum(ests.map(x => x.e), "base"), totStart = hs.reduce((a, h) => a + (h.value || 0), 0);
       const todayKr = totNow - totBase, since = totNow - totStart;
       const fresh = ests.some(x => x.e.useIntra && x.e.est.fresh);
+      const anyOpen = ests.some(x => x.e.useIntra && x.e.est.market_open);
       const asOf = ests.map(x => x.e.est && x.e.useIntra ? x.e.est.as_of : null).filter(Boolean).sort().pop();
       html += summaryCard([
         ["Estimert verdi nå", money(totNow, "NOK")],
         ["I dag", (todayKr >= 0 ? "+" : "") + money(todayKr, "NOK") + ` (${pct(totBase ? todayKr / totBase : null)})`, sign(todayKr)],
         ["Siden registrert", (since >= 0 ? "+" : "") + money(since, "NOK") + ` (${pct(totStart ? since / totStart : null)})`, sign(since)],
-        ["Oppdatert", asOf ? fmtClock(asOf) + (fresh ? "" : " (gammel)") : "siste sluttkurs", ""],
+        ["Oppdatert", asOf ? fmtClock(asOf) + (fresh ? "" : anyOpen ? " (forsinket)" : " · børs stengt") : "siste sluttkurs", ""],
       ]);
-      html += `<p class="hint" style="margin-top:8px">${asOf ? `Intradag-kurser ca. 15 min forsinket. ` : `Børsene er stengt eller intradag-data mangler – viser siste sluttkurs. `}Estimatet bruker indeksen fondet følger, ikke fondets egen kurs.</p>`;
+      html += `<p class="hint" style="margin-top:8px">${asOf ? (anyOpen ? `Intradag-kurser ca. 15 min forsinket. ` : `Børsene er stengt – viser dagens sluttkurs. `) : `Intradag-data mangler – viser siste sluttkurs fra den daglige analysen. `}Estimatet bruker indeksen fondet følger, ikke fondets egen kurs.</p>`;
       html += `<div class="section">${sectionHead("Dine fond", ests.length)}${ests.map(({ h, e }) => `
         <div class="fund v-hold" style="border-left-color:var(--accent)">
           <div class="su-top"><span class="fund-name" style="margin:0;font-size:15px">${esc(e.f.name)}</span><button class="linkbtn" data-fundedit="${esc(h.id)}" style="margin-left:auto">Endre</button></div>
@@ -1407,7 +1408,7 @@
             <span><i>Nå (est.)</i><b class="mono">${money(e.now, "NOK")}</b><small>reg. ${money(h.value, "NOK")}</small></span>
             <span><i>I dag</i><b class="mono ${sign(e.todayKr)}">${pct(e.today)}</b><small class="mono ${sign(e.todayKr)}">${(e.todayKr >= 0 ? "+" : "") + money(e.todayKr, "NOK")}</small></span>
             <span><i>Siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${(e.sinceKr >= 0 ? "+" : "") + money(e.sinceKr, "NOK")}</small></span>
-            <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.age_min + " min"}` : "sluttkurs " + fmtDate(e.nf.to)}</small></span>
+            <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.market_open ? e.est.age_min + " min gammel" : "stengt"}` : "sluttkurs " + fmtDate(e.nf.to)}</small></span>
           </div>
           ${e.useIntra && e.est.fx ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Indeks ${pct(e.est.proxy_change)} i ${esc(e.est.proxy_currency)} · valuta ${esc(e.est.fx.pair)} ${pct(e.est.fx.change)} → ${pct(e.today)} i NOK</p>` : ""}
           ${e.nf.note ? `<p class="muted" style="margin:6px 0 0;font-size:12.5px">${esc(e.nf.note)}</p>` : ""}
