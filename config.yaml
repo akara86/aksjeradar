@@ -250,7 +250,7 @@ notify:
     morning: true                 # daglig oppsummering etter morgenkjøringen
     funds: true                   # når et fond skifter til/fra gunstig inngang
     autotrader: true              # når autotraderen handler
-    intraday: true                # nye intradag-setups i børstiden
+    intraday: false               # nye intradag-setups i børstiden (fanen er fjernet fra appen – slå på hvis du vil ha varslene likevel)
     max_intraday_per_day: 6       # tak på intradag-varsler per dag
 
 autotrader:                       # virtuell portefølje som følger anbefalingene automatisk (egen fane i appen)
@@ -266,7 +266,7 @@ autotrader:                       # virtuell portefølje som følger anbefalinge
   commission_pct: 0.0005          # kurtasje 0,05 % per handel
   slippage_pct: 0.002             # 0,2 % dårligere kurs enn sluttkursen, i disfavør
 
-intraday:                         # intradag-modul: setups på 15-minutters kurser (egen fane i appen)
+intraday:                         # intradag-kjøring hvert kvarter: 15-minutters kurser til 1D-grafen og fondsestimatet (setupene vises ikke lenger i appen)
   enabled: true
   interval: "15m"
   max_tickers: 120                # universet under + dagens kjøpskandidater + autotraderens beholdning
@@ -402,8 +402,8 @@ funds:                            # aksjefond: gunstige innganger ut fra fall i 
       sectors: [Utilities]
       intraday_proxies: [{ticker: IQQH.DE, currency: EUR}]   # iShares Global Clean Energy (Xetra)
 
-gurus:                            # kjente investorer – porteføljer fra SEC EDGAR (13F), egen fane «Guruer»
-  enabled: true
+gurus:                            # kjente investorer – porteføljer fra SEC EDGAR (13F). Fanen er fjernet fra appen; sett enabled: true for å hente igjen
+  enabled: false
   refresh_days: 1                 # sjekk daglig om det er kommet ny 13F (selve rapportene kommer kvartalsvis)
   # contact: "navn@epost.no"      # SEC krever kontaktadresse i forespørslene; standard er GitHub-kontoens noreply-adresse
   # cik = SEC-ID for forvaltningsselskapet. Mangler eller feil cik slås opp via edgar_name automatisk.

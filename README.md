@@ -87,8 +87,8 @@ Slå av/på i `config.yaml` under `notify:`.
 1. Installer appen **ntfy** (gratis, App Store / Google Play).
 2. Trykk **+** i ntfy og abonner på emnet som står i `config.yaml` under `notify.push.ntfy_topic`
    (står også i appen under Mer → Push-varsler, med kopier-knapp).
-3. Tillat varsler. Du får morgenoppsummering, fondsvarsler, autotrader-handler og nye intradag-setups
-   (maks `max_intraday_per_day` per dag). Varslene åpner appen når du trykker på dem.
+3. Tillat varsler. Du får morgenoppsummering, fondsvarsler og autotrader-handler. Varslene åpner appen
+   når du trykker på dem. (Intradag-setups kan slås på med `notify.push.intraday: true`.)
 
 Vil du holde emnet hemmelig (repoet er offentlig), legg det i stedet inn som GitHub-hemmelighet
 `NTFY_TOPIC` (Settings → Secrets and variables → Actions) – den overstyrer `config.yaml`.
@@ -126,10 +126,7 @@ valutakurs (du registrerer verdien fra banken og datoen; estimatet leses fra den
 `docs/funds_now.json` som intradag-kjøringen skriver hvert kvarter), og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
 en **Autotrader-fane** (virtuell portefølje som følger anbefalingene automatisk hver handelsdag på
 serveren, målt mot et likevektet marked – reglene står i `config.yaml` under `autotrader:`),
-en **Intradag-fane** (kortsiktige setups på 15-minutters kurser, oppdatert hvert kvarter i børstiden av
-`.github/workflows/intraday.yml`, med stop/mål og etterprøving – regler under `intraday:` i `config.yaml`),
-en **Guruer-fane** (porteføljer og kvartalsbevegelser til kjente investorer fra SEC EDGAR 13F-rapporter,
-med konsensus på tvers – listen ligger under `gurus:` i `config.yaml`), en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
+en **Fond-visning** under «Mer» (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
 krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr, varsel ved skifte, og en **attraktivitetsrangering** som
 veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med konkret råd for fondene du
 eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
@@ -211,7 +208,7 @@ Reglene for hver kategori står i fanen «Om scoringen» i dashboardet og i `aks
 ```
 aksjeradar/
 ├── run.py              # daglig kjøring (pipeline)
-├── intraday_run.py     # intradag-kjøring (hvert 15. min i børstiden)
+├── intraday_run.py     # kjøring hvert 15. min i børstiden: 15m-kurser til 1D-grafen og fondsestimatet
 ├── dashboard.py        # Streamlit-dashboard
 ├── config.yaml         # aksjer, terskler, vekter
 ├── .env.example        # mal for Telegram/e-post-hemmeligheter
@@ -226,9 +223,9 @@ aksjeradar/
 │   ├── notify.py       # Telegram og e-post
 │   └── storage.py      # SQLite-database
 │   ├── autotrader.py   # virtuell portefølje som følger anbefalingene automatisk
-│   ├── intraday.py     # intradag-setups på 15m-kurser + etterprøving
+│   ├── intraday.py     # 15m-kurser, fondsestimat (og intradag-setups – ikke vist i appen lenger)
 │   ├── funds.py        # aksjefond: gunstige innganger (proxy-ETF × valuta)
-│   ├── gurus.py        # kjente investorers 13F-porteføljer fra SEC EDGAR
+│   ├── gurus.py        # kjente investorers 13F-porteføljer (slått av i config.yaml, kan slås på igjen)
 │   ├── universe.py     # setter sammen universet (config + S&P 500 fra Wikipedia)
 ├── docs/               # mobil-appen (index.html, app.js, app.css, sw.js, ikoner) + data.json, stocks/, autotrader.json
 ├── data/               # databasen havner her

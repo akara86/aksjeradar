@@ -45,7 +45,7 @@
     ["forwardPE", "Forventet P/E (lav først)", "num1", "asc"],
     ["dividendYield", "Direkteavkastning", "pctu"],
   ];
-  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["intradag", "Intradag"], ["guruer", "Guruer"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["mer", "Mer"]];
+  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["mer", "Mer"]];
 
   const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
   const detailCache = {};
@@ -109,8 +109,6 @@
     kjop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg>',
     portefolje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
     auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M8 4h8M9 14h.01M15 14h.01M9 17h6"/></svg>',
-    intradag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>',
-    guruer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M4 17 3 7l5 4 4-6 4 6 5-4-1 10z"/></svg>',
     mer: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
     screener: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
     varsler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
@@ -132,9 +130,7 @@
     }
     if (btn) btn.classList.remove("spin");
     if (force && auto) loadAuto(true);
-    if (force && intra) loadIntra(true);
     if (force && fundsNow) loadFundsNow(true);
-    if (force && gurus) loadGurus(true);
     render();
   }
 
@@ -296,7 +292,7 @@
     if (range === "1D") {
       const b = chartState.bars[s.ticker];
       if (b === undefined) { loadBars(s.ticker); return { loading: true }; }
-      if (!b || !b.c || b.c.length < 2) return { none: true, reason: "Ingen 15-minutters kurser for denne aksjen (intradag-universet dekker ~120 av aksjene)." };
+      if (!b || !b.c || b.c.length < 2) return { none: true, reason: "Ingen 15-minutters kurser for denne aksjen (dekker de mest likvide aksjene og kjøpskandidatene)." };
       const days = [...new Set(b.t.map(x => x.slice(0, 10)))];
       const last = days[days.length - 1];
       const idx = b.t.map((x, i) => i).filter(i => b.t[i].startsWith(last));
@@ -700,12 +696,6 @@
         <div class="card"><h3>Fond</h3>
           <p>Aksjefond følges via en indeks-ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. For hvert fond ser du fall fra 52-ukers topp i kroner, hvor mye som skyldes indeksen og hvor mye kronekursen, og et nivå (Svært gunstig / Gunstig / Nøytral / Dyr). Varsel når nivået skifter. Fondene du eier kan legges til i config.yaml under <span class="mono">funds.list</span>.</p>
         </div>
-        <div class="card"><h3>Guruer</h3>
-          <p>Porteføljene til kjente investorer (Buffett, Druckenmiller, Burry, Ackman, Tepper, Klarman, Li Lu m.fl.) hentes fra deres 13F-rapporter til SEC hvert kvartal. Fanen viser hva de eier, hva de kjøpte og solgte siste kvartal, og konsensus på tvers – hvilke aksjer flest eier og kjøper. Rapportene kommer inntil 45 dager etter kvartalsslutt og dekker bare amerikanske long-posisjoner.</p>
-        </div>
-        <div class="card"><h3>Intradag</h3>
-          <p>Kortsiktige setups på 15-minutters kurser for ~120 likvide aksjer, oppdatert hvert kvarter i børstiden: Gap-and-go, Åpningsbrudd, VWAP-reclaim og Trenddag, hver med inngang, stop og mål. Hvert setup etterprøves etter stenging, og treffprosent og snitt per setup vises i fanen. Kursene er ca. 15 minutter forsinket.</p>
-        </div>
         <div class="card"><h3>Begrensninger</h3>
           <p>Data fra Yahoo Finance er ca. 15 minutter forsinket, og analytikerdekningen på mindre nordiske selskaper er tynn. Reglene er ikke backtestet. Bruk listene som et utgangspunkt for egen vurdering – dette er ikke investeringsråd.</p>
         </div>
@@ -969,7 +959,6 @@
           <li><b>Hver morgen</b> ca. 08:40–09:00: dagens kjøpskandidater, antall per anbefaling, fond med gunstig inngang og autotraderens status.</li>
           <li><b>Fond</b>: når et fond skifter til eller fra gunstig inngang.</li>
           <li><b>Autotrader</b>: hver gang den kjøper eller selger.</li>
-          <li><b>Intradag</b>: nye setups i børstiden, maks 6 per dag.</li>
         </ul><p class="muted" style="font-size:13px">Hva som sendes styres i config.yaml under <span class="mono">notify.push</span>.</p></div>`
         : `<div class="card"><h3>Push er ikke satt opp</h3><p>Slå på <span class="mono">notify.push</span> i config.yaml og legg inn et ntfy-emne, så vises oppskriften her.</p></div>`}
       </div>`, push, { pushinfo: true });
@@ -1092,22 +1081,8 @@
     return html;
   }
 
-  // ---------- intradag (oppdateres hvert 15. min på serveren i børstiden) ----------
-  let intra = null, intraLoading = false, intraError = null, intraTimer = null;
-  const TYPE_CLASS = { gap: "t-gap", orb: "t-orb", vwap: "t-vwap", trend: "t-trend" };
-  async function loadIntra(force) {
-    if (intraLoading) return;
-    intraLoading = true; intraError = null;
-    try {
-      const r = await fetch("intraday.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      intra = await r.json();
-    } catch (e) { intraError = e; }
-    intraLoading = false;
-    if (state.tab === "intradag") render();
-  }
-  // Fondsestimat nå (liten fil, skrives av intradag-kjøringen hvert 15. min i børstiden)
-  let fundsNow = null, fundsNowLoading = false;
+  // ---------- fondsestimat nå (liten fil, skrives på serveren hvert 15. min i børstiden) ----------
+  let fundsNow = null, fundsNowLoading = false, fundsTimer = null;
   async function loadFundsNow(force) {
     if (fundsNowLoading) return;
     fundsNowLoading = true;
@@ -1124,95 +1099,10 @@
     const d = new Date(iso);
     return isNaN(d) ? "–" : d.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" });
   }
-  function ageMinutes(iso) {
-    const d = new Date(iso);
-    return isNaN(d) ? null : Math.round((Date.now() - d.getTime()) / 60000);
-  }
-  function setupCard(s) {
-    const idx = byTicker(s.ticker);
-    const exp = s.expires ? fmtClock(s.expires) : "stenging";
-    const why = (s.why || []).map(w => `<span class="chip on">${esc(w)}</span>`).join("");
-    return `<button class="setup ${TYPE_CLASS[s.type] || ""}" data-ticker="${esc(s.ticker)}" ${idx ? "" : 'data-nodetail="1"'}>
-      <span class="su-top"><span class="tb">${esc(s.type_label)}</span><span class="su-mkt">${esc(s.market)}</span><span class="pill ${scClass(s.score)}">${s.score}</span></span>
-      <span class="su-name"><span class="tick mono">${esc(s.ticker)}</span><span class="name">${esc(s.name || "")}</span>
-        <span class="mono ${sign(s.change_pct)}" style="margin-left:auto;font-size:13px">${pct(s.change_pct)} i dag</span></span>
-      <span class="levels">
-        <span><i>Inngang</i><b class="mono">${num(s.entry, 2)}</b></span>
-        <span><i>Stop</i><b class="mono neg">${num(s.stop, 2)}</b><small class="mono">${pct(s.stop_pct)}</small></span>
-        <span><i>Mål</i><b class="mono pos">${num(s.target, 2)}</b><small class="mono">${pct(s.target_pct)}</small></span>
-        <span><i>R:R</i><b class="mono">${num(s.rr, 1)}</b></span>
-      </span>
-      <span class="chips" style="margin-top:8px">${why}</span>
-      <span class="su-meta">Sett ${fmtClock(s.first_seen || s.seen_at)} · gyldig til ${exp} · siste bar ${esc(s.last_bar || "")}${s.vwap ? ` · VWAP ${num(s.vwap, 2)}` : ""}</span>
-    </button>`;
-  }
-  function viewIntradag() {
-    if (!intra && !intraError) { if (!intraLoading) loadIntra(false); return `<div class="skeleton"><span></span><span></span></div>`; }
-    if (!intra) return `<div class="empty-card" style="margin-top:16px"><b>Intradag-modulet har ikke kjørt ennå.</b><p>Det starter neste ukedag når Oslo Børs åpner (kl. 09:00) og oppdaterer seg hvert kvarter til USA stenger.</p></div>`;
-    const a = intra;
-    const age = ageMinutes(a.generated_at);
-    const mk = a.markets || {};
-    const openMarkets = Object.values(mk).filter(m => m.open);
-    let html = `<p class="hint" style="margin-top:12px">Oppdatert ${fmtClock(a.generated_at)}${isNum(age) ? ` (${age} min siden)` : ""} · kurser ca. ${a.data_delay_min || 15} min forsinket · ${a.universe} aksjer · ${a.interval || "15m"}-barer</p>`;
-    html += `<div class="mkts">${["Oslo", "Stockholm", "København", "Helsinki", "USA"].map(m => mk[m] ? `<span class="mkt ${mk[m].open ? "on" : ""}">${esc(m)}: ${mk[m].open ? `åpen til ${esc(mk[m].closes_at)}` : `stengt (${esc(mk[m].opens_at)}–${esc(mk[m].closes_at)})`}</span>` : "").join("")}</div>`;
-    if (a.demo) html += `<div class="banner demo" style="margin-top:10px"><span><b>Demo-data.</b> Setupene er laget av tilfeldige kurser.</span></div>`;
-
-    const setups = (a.setups || []).filter(s => inMarket({ market: s.market }));
-    html += `<div class="section">${sectionHead("Aktive setups", setups.length)}`;
-    if (!openMarkets.length) {
-      html += `<div class="empty-card"><b>Børsene er stengt.</b><p>Nye setups kommer når Oslo åpner kl. 09:00. Under ser du hvordan de siste setupene gikk.</p></div>`;
-    } else if (!setups.length) {
-      html += `<div class="empty">Ingen setups oppfyller reglene akkurat nå. Det er normalt – de fleste kvarter er stille.</div>`;
-    } else {
-      html += setups.map(setupCard).join("");
-    }
-    html += `</div>`;
-
-    const mv = (a.movers || []).filter(m => inMarket(m));
-    if (mv.length) {
-      html += `<div class="section">${sectionHead("Dagens bevegelser", mv.length)}<div class="list">${mv.slice(0, 12).map(m => {
-        const idx = byTicker(m.ticker);
-        return `<button class="row" data-ticker="${esc(m.ticker)}" ${idx ? "" : 'data-nodetail="1"'}>
-          <span class="l"><span class="l1"><span class="tick">${esc(m.ticker)}</span><span class="name">${esc(m.name || "")}</span></span>
-          <span class="l2"><span class="info mono">volum ${isNum(m.rel_volume) ? num(m.rel_volume, 1) + "×" : "–"} · ${isNum(m.vs_vwap_pct) ? pct(m.vs_vwap_pct) + " mot VWAP" : ""}${isNum(m.gap_pct) ? ` · gap ${pct(m.gap_pct)}` : ""}</span></span></span>
-          <span class="mid"></span><span class="r"><span class="metric mono ${sign(m.change_pct)}" style="min-width:64px;text-align:right">${pct(m.change_pct)}</span></span></button>`;
-      }).join("")}</div></div>`;
-    }
-
-    const st = (a.stats || {}).all || { n: 0 };
-    const bt = (a.stats || {}).by_type || {};
-    html += `<div class="card"><h3>Etterprøving</h3>
-      ${st.n ? `<dl class="kv" style="margin:0">
-        <div><dt>Setups evaluert</dt><dd>${st.n}</dd></div><div><dt>Venter på stenging</dt><dd>${(a.stats || {}).pending || 0}</dd></div>
-        <div><dt>Traff målet</dt><dd class="pos">${pct(st.hit_rate, false, 0)}</dd></div><div><dt>Traff stoppen</dt><dd class="neg">${pct(st.stop_rate, false, 0)}</dd></div>
-        <div><dt>Positive (inkl. stenging)</dt><dd>${pct(st.win_rate, false, 0)}</dd></div><div><dt>Snitt per setup</dt><dd class="${sign(st.avg_r)}">${isNum(st.avg_r) ? (st.avg_r >= 0 ? "+" : "") + num(st.avg_r, 2) + " R" : "–"}</dd></div>
-        <div><dt>Sum</dt><dd class="${sign(st.sum_r)}">${isNum(st.sum_r) ? (st.sum_r >= 0 ? "+" : "") + num(st.sum_r, 1) + " R" : "–"}</dd></div>
-      </dl>
-      <div class="lines" style="margin-top:12px">${Object.entries(bt).filter(([, v]) => v.n).map(([k, v]) => `<div class="ln"><span class="t"><span class="tb ${TYPE_CLASS[k]}" style="display:inline-block">${esc(({ gap: "Gap-and-go", orb: "Åpningsbrudd", vwap: "VWAP-reclaim", trend: "Trenddag" })[k])}</span></span><span class="v">${v.n} stk · mål ${pct(v.hit_rate, false, 0)} · snitt ${isNum(v.avg_r) ? (v.avg_r >= 0 ? "+" : "") + num(v.avg_r, 2) : "–"} R</span></div>`).join("")}</div>`
-      : `<p class="muted" style="margin:0">Ingen setups er evaluert ennå. Hvert setup sjekkes etter stenging: traff det målet (+${num((a.rules || {}).target_r || 2, 1)} R), stoppen (−1 R), eller endte det ved stenging? Etter noen uker ser du her om reglene har noe for seg.</p>`}
-    </div>`;
-    const rec = a.recent || [];
-    if (rec.length) {
-      html += `<div class="section">${sectionHead("Siste utfall", rec.length)}<div class="card" style="margin-top:0"><div class="lines">${rec.slice(0, 20).map(r =>
-        `<div class="ln"><span class="d">${fmtDate(r.session)}</span><span class="t"><span class="mono">${esc(r.ticker)}</span> · ${esc(r.type_label || r.type)}<br><span class="muted" style="font-size:12px">inngang ${num(r.entry, 2)} · ${esc(r.outcome)}</span></span><span class="v ${sign(r.r)}">${isNum(r.r) ? (r.r >= 0 ? "+" : "") + num(r.r, 1) + " R" : "–"}</span></div>`).join("")}</div></div></div>`;
-    }
-    const ru = a.rules || {};
-    html += `<div class="card"><h3>Slik lages setupene</h3><ul class="reasons" style="margin:0;padding-left:18px">
-      <li><b>Gap-and-go</b> – gap opp ≥ ${pct(ru.min_gap_pct, false, 0)}, holder gevinsten, over VWAP, volum ≥ 1,5× normalt.</li>
-      <li><b>Åpningsbrudd</b> – brudd over høyeste i de første 30 minuttene, over VWAP, volum ≥ ${num(ru.min_rel_volume, 1)}×, i første del av dagen.</li>
-      <li><b>VWAP-reclaim</b> – kursen krysser opp gjennom VWAP med volum, 15m-RSI 45–70.</li>
-      <li><b>Trenddag</b> – over VWAP hele dagen, ny dagshøyde, volum ≥ ${num(ru.min_rel_volume, 1)}×, opp ≥ 1,5 %.</li>
-      <li>Stop legges under VWAP/åpningsintervallet (${pct(ru.min_stop_pct, false, 1)}–${pct(ru.max_stop_pct, false, 0)} unna), mål = ${num(ru.target_r, 1)}× risikoen. Bare long. Gyldig til børsen stenger.</li>
-    </ul></div>
-    <p class="note">Kursene er ca. 15 minutter forsinket og oppdateres hvert kvarter – dette er ikke sanntid, og det er ikke investeringsråd. Daytrading er der flest småsparere taper penger; bruk setupene som struktur og etterprøvingen som dommer, på lekepenger, lenge før ekte penger.</p>`;
-    return html;
-  }
-  function scheduleIntraRefresh() {
-    if (intraTimer) clearInterval(intraTimer);
-    intraTimer = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      if (state.tab === "intradag") loadIntra(true);
-      if (state.tab === "portefolje" && pf.mode === "funds") loadFundsNow(true);
+  function scheduleFundsRefresh() {
+    if (fundsTimer) clearInterval(fundsTimer);
+    fundsTimer = setInterval(() => {
+      if (document.visibilityState === "visible" && state.tab === "portefolje" && pf.mode === "funds") loadFundsNow(true);
     }, 5 * 60 * 1000);
   }
 
@@ -1278,83 +1168,6 @@
     return html;
   }
 
-  // ---------- guruer: kjente investorers porteføljer (SEC 13F) ----------
-  let gurus = null, gurusLoading = false, gurusError = null;
-  const guruState = { open: {}, view: "konsensus" };
-  async function loadGurus(force) {
-    if (gurusLoading) return;
-    gurusLoading = true; gurusError = null;
-    try {
-      const r = await fetch("gurus.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      gurus = await r.json();
-    } catch (e) { gurusError = e; }
-    gurusLoading = false;
-    if (state.tab === "guruer") render();
-  }
-  const MOVE_CLASS = { "ny": "v-strong", "økt": "v-buy", "redusert": "v-wait", "solgt": "v-avoid" };
-  const MOVE_LABEL = { "ny": "Ny", "økt": "Økt", "redusert": "Redusert", "solgt": "Solgt" };
-  const bigMoney = v => (!isNum(v) ? "–" : v >= 1e9 ? num(v / 1e9, 1) + " mrd $" : v >= 1e6 ? num(v / 1e6, 0) + " mill $" : num(v, 0) + " $");
-
-  function holdingRowG(h, extra) {
-    const idx = h.ticker ? byTicker(h.ticker) : null;
-    const attrs = idx ? `data-ticker="${esc(h.ticker)}"` : `data-nodetail="1"`;
-    return `<button class="row" ${attrs}>
-      <span class="l"><span class="l1">${h.ticker ? `<span class="tick">${esc(h.ticker)}</span>` : ""}<span class="name">${esc(h.name)}</span></span>
-      <span class="l2">${h.verdict ? vbadge(h.verdict) : ""}<span class="info" style="font-family:var(--font-ui)">${extra}</span></span></span>
-      <span class="mid"></span><span class="r">${isNum(h.weight) && h.weight > 0 ? `<span class="pill mid">${pct(h.weight, false, 1)}</span>` : (idx ? `<span class="pill ${scClass(idx.score)}">${sc(idx.score)}</span>` : "")}</span>
-    </button>`;
-  }
-  function daysSince(iso) { const d = new Date(iso + "T00:00:00"); return isNaN(d) ? null : Math.round((Date.now() - d.getTime()) / 86400000); }
-  function investorCard(inv) {
-    const open_ = !!guruState.open[inv.id];
-    const age = daysSince(inv.report_date);
-    const stale = isNum(age) && age > 200;
-    const nm = inv.n_moves || {};
-    const movesHtml = (inv.moves || []).length ? `<div class="list" style="margin-top:8px">${inv.moves.slice(0, 20).map(m =>
-      `<button class="row" ${m.ticker && byTicker(m.ticker) ? `data-ticker="${esc(m.ticker)}"` : 'data-nodetail="1"'}>
-        <span class="l"><span class="l1"><span class="vb ${MOVE_CLASS[m.move]}">${MOVE_LABEL[m.move]}</span>${m.ticker ? `<span class="tick">${esc(m.ticker)}</span>` : ""}<span class="name">${esc(m.name)}</span></span>
-        <span class="l2">${m.verdict ? vbadge(m.verdict) : ""}<span class="info" style="font-family:var(--font-ui)">${m.move === "ny" ? `ny posisjon · ${pct(m.weight, false, 1)} av porteføljen` : m.move === "solgt" ? "hele posisjonen solgt" : `${pct(m.change_shares)} antall aksjer · nå ${pct(m.weight, false, 1)}`}</span></span></span>
-        <span class="mid"></span><span class="r"><span class="metric mono ${m.move === "ny" || m.move === "økt" ? "pos" : "neg"}" style="min-width:40px;text-align:right">${m.move === "ny" ? "+" : m.move === "solgt" ? "−" : (m.change_shares >= 0 ? "▲" : "▼")}</span></span>
-      </button>`).join("")}</div>` : `<div class="empty">Ingen bevegelser siden forrige kvartal.</div>`;
-    return `<div class="guru">
-      <button class="guru-head" data-guru="${esc(inv.id)}" aria-expanded="${open_}">
-        <span class="g-name">${esc(inv.name)}<small>${esc(inv.firm)}</small></span>
-        <span class="g-meta mono">${bigMoney(inv.total_value)}<small>${inv.n_positions} posisjoner · per ${fmtDate(inv.report_date)}</small></span>
-        <span class="chev">${open_ ? "▾" : "▸"}</span>
-      </button>
-      <div class="g-tags">${stale ? `<span class="chip on bad">Ingen ny rapport siden ${fmtDate(inv.report_date)}</span>` : ""}<span class="chip">${esc(inv.style)}</span><span class="chip">topp 10 = ${pct(inv.top10_weight, false, 0)}</span>${nm.ny ? `<span class="chip on">${nm.ny} nye</span>` : ""}${nm.solgt ? `<span class="chip on bad">${nm.solgt} solgt</span>` : ""}</div>
-      <div ${open_ ? "" : "hidden"}>
-        <p class="g-bio">${esc(inv.bio)}</p>
-        <div class="section-head" style="margin-top:10px"><h2>Bevegelser siste kvartal</h2><span class="count">${fmtDate(inv.prev_report_date)} → ${fmtDate(inv.report_date)}</span></div>
-        ${movesHtml}
-        <div class="section-head" style="margin-top:14px"><h2>Største posisjoner</h2><span class="count">${inv.holdings.length} av ${inv.n_positions}</span></div>
-        <div class="list">${inv.holdings.map(h => holdingRowG(h, `${bigMoney(h.value)}${h.in_universe ? "" : " · utenfor universet"}`)).join("")}</div>
-        <p class="note">Rapportert til SEC ${fmtDate(inv.filing_date)} for beholdning per ${fmtDate(inv.report_date)}. Bare amerikanske aksjer (long). Trykk på en aksje for Aksjeradars analyse.</p>
-      </div>
-    </div>`;
-  }
-  function viewGuruer() {
-    if (!gurus && !gurusError) { if (!gurusLoading) loadGurus(false); return `<div class="skeleton"><span></span><span></span></div>`; }
-    if (!gurus) return `<div class="empty-card" style="margin-top:16px"><b>Guru-porteføljene er ikke hentet ennå.</b><p>De hentes fra SEC i den daglige kjøringen.</p></div>`;
-    const g = gurus;
-    let html = `<p class="hint" style="margin-top:12px">Porteføljene til ${g.investors.length} kjente investorer, fra deres kvartalsvise 13F-rapporter til det amerikanske finanstilsynet (SEC). Rapportene kommer inntil 45 dager etter kvartalsslutt.${g.demo ? " <b>Demo-data.</b>" : ""}</p>`;
-    if ((g.alerts || []).length) html += `<div class="alert">👑 <b>Nye rapporter:</b> ${g.alerts.map(a => esc(a.text)).join(" · ")}</div>`;
-    html += `<div class="seg" style="margin-top:10px">${[["konsensus", "Konsensus"], ["investorer", "Investorer"]].map(([k, l]) => `<button data-gview="${k}" aria-pressed="${guruState.view === k}">${l}</button>`).join("")}</div>`;
-    const c = g.consensus || {};
-    if (guruState.view === "konsensus") {
-      const sec = (title, items, fmt) => `<div class="section">${sectionHead(title, (items || []).length)}${(items || []).length ? `<div class="list">${items.map(x => holdingRowG({ ...x, weight: null }, fmt(x))).join("")}</div>` : `<div class="empty">Ingen.</div>`}</div>`;
-      html += sec("Flest guruer eier", c.owned, x => `${x.n} av ${g.investors.length} · snittvekt ${pct(x.avg_weight, false, 1)} · ${esc(x.investors.slice(0, 4).join(", "))}${x.investors.length > 4 ? " …" : ""}`);
-      html += sec("Flest kjøpte siste kvartal", c.bought, x => `${x.n} kjøpte (${x.kinds.filter(k => k === "ny").length} nye) · ${esc(x.investors.slice(0, 4).join(", "))}${x.investors.length > 4 ? " …" : ""}`);
-      html += sec("Flest solgte siste kvartal", c.sold, x => `${x.n} solgte/reduserte · ${esc(x.investors.slice(0, 4).join(", "))}${x.investors.length > 4 ? " …" : ""}`);
-      html += `<p class="note">Konsensus teller hvor mange av investorene som eier, kjøpte eller solgte en aksje. Aksjer som også er i Aksjeradars univers viser anbefalingen vår og kan åpnes. Merk at 13F ikke viser short-posisjoner – en «guru» kan være netto short i noe som står oppført som eid.</p>`;
-    } else {
-      html += (g.investors || []).map(investorCard).join("");
-      html += `<p class="note">Investorene og beskrivelsene er satt opp i config.yaml under <span class="mono">gurus.list</span>. Historisk avkastning er hentet fra offentlige kilder og er ingen garanti for fremtiden – flere av dem har hatt store tapsår.</p>`;
-    }
-    return html;
-  }
-
   // ---------- fondsverdi nå: dine fondsbeholdninger × estimert utvikling (daglig NAV-proxy + intradag) ----------
   function fundHoldings() { if (!pf.funds) pf.funds = []; return pf.funds; }
   function fundById(id) { return fundsData().find(f => f.id === id); }
@@ -1371,8 +1184,7 @@
     const f = fundById(hold.id);
     if (!f) return null;
     const nf = navFactor(f, hold.date);
-    const src = fundsNow && fundsNow.funds ? fundsNow.funds : (intra && intra.funds ? intra.funds : null);
-    const est = src ? src[hold.id] : null;
+    const est = fundsNow && fundsNow.funds ? fundsNow.funds[hold.id] : null;
     // Intradag-estimatet gjelder i forhold til forrige børsdag (ref_date). Unngå dobbelttelling hvis daglig kurve allerede dekker dagen.
     let today = 0, useIntra = false;
     if (est && isNum(est.est_change_today) && est.session && nf.to && est.session > nf.to) { today = est.est_change_today; useIntra = true; }
@@ -1486,8 +1298,7 @@
     const warnCount = state.data ? ideaItems("warnings").length : 0;
     const buyCount = state.data ? buyCandidates().length : 0;
     $("#tabs").innerHTML = TABS.map(([k, label]) => {
-      const intraCount = intra && intra.setups ? intra.setups.filter(x => inMarket({ market: x.market })).length : 0;
-      const badge = k === "mer" && warnCount ? `<span class="badge">${warnCount}</span>` : k === "kjop" && buyCount ? `<span class="badge ok">${buyCount}</span>` : k === "intradag" && intraCount ? `<span class="badge ok">${intraCount}</span>` : "";
+      const badge = k === "mer" && warnCount ? `<span class="badge">${warnCount}</span>` : k === "kjop" && buyCount ? `<span class="badge ok">${buyCount}</span>` : "";
       return `<button data-tab="${k}" aria-current="${k === state.tab ? "page" : "false"}">${I[k]}${label}${badge}</button>`;
     }).join("");
   }
@@ -1499,7 +1310,7 @@
       main.innerHTML = `<div class="error"><p><b>Fant ingen data.</b></p><p>Kjør <code>python run.py</code> i prosjektmappen – da lages <code>docs/data.json</code>. Åpner du filen lokalt: start <code>python -m http.server 8000 -d docs</code> og gå til <code>http://localhost:8000</code>.</p>${state.error ? `<p class="muted">${esc(state.error.message || state.error)}</p>` : ""}</div>`;
       return;
     }
-    const views = { ideer: viewIdeer, kjop: viewKjop, intradag: viewIntradag, guruer: viewGuruer, portefolje: viewPortefolje, auto: viewAuto, mer: viewMer, screener: viewScreener, varsler: viewVarsler };
+    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, auto: viewAuto, mer: viewMer, screener: viewScreener, varsler: viewVarsler };
     main.innerHTML = views[state.tab]();
     if (state.tab === "screener") {
       const q = $("#q");
@@ -1533,10 +1344,6 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => {});
       return;
     }
-    const gh = e.target.closest("[data-guru]");
-    if (gh) { guruState.open[gh.dataset.guru] = !guruState.open[gh.dataset.guru]; render(); return; }
-    const gv = e.target.closest("[data-gview]");
-    if (gv) { guruState.view = gv.dataset.gview; render(); window.scrollTo(0, 0); return; }
     const pick = e.target.closest("[data-pick]");
     if (pick) { e.preventDefault(); pickStock(pick.dataset.pick); return; }
     const trade = e.target.closest("[data-trade]");
@@ -1623,11 +1430,9 @@
   $("#info").innerHTML = I.info;
   $("#search").innerHTML = I.search;
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
-  scheduleIntraRefresh();
+  scheduleFundsRefresh();
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") return;
-    if (state.tab === "intradag") loadIntra(true);
-    if (state.tab === "portefolje" && pf.mode === "funds") loadFundsNow(true);
+    if (document.visibilityState === "visible" && state.tab === "portefolje" && pf.mode === "funds") loadFundsNow(true);
   });
   load(false);
 })();
