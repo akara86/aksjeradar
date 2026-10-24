@@ -583,9 +583,9 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
     return clean_for_json({
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "base": fcfg.get("base_currency", "NOK"),
-        "funds": funds,
         "alerts": alerts,
         "journal": journal_out,
         "actions": ACTIONS,
         "thresholds": th,
+        "funds": funds,   # den store lista sist, så resten er lett å lese i fila
     })
