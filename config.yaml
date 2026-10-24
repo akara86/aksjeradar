@@ -249,12 +249,12 @@ notify:
     app_url: "https://akara86.github.io/aksjeradar/"   # varselet åpner appen
     morning: true                 # daglig oppsummering etter morgenkjøringen
     funds: true                   # når et fond skifter til/fra gunstig inngang
-    autotrader: true              # når autotraderen handler
+    autotrader: false             # når autotraderen handler (fanen er fjernet fra appen)
     intraday: false               # nye intradag-setups i børstiden (fanen er fjernet fra appen – slå på hvis du vil ha varslene likevel)
     max_intraday_per_day: 6       # tak på intradag-varsler per dag
 
-autotrader:                       # virtuell portefølje som følger anbefalingene automatisk (egen fane i appen)
-  enabled: true
+autotrader:                       # virtuell portefølje som følger anbefalingene automatisk. Fanen er fjernet fra appen; sett enabled: true for å kjøre den igjen
+  enabled: false
   start_cash: 100000              # startkapital i basisvaluta
   base_currency: "NOK"
   max_positions: 10               # like store posisjoner: total verdi / max_positions

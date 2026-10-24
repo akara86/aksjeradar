@@ -87,7 +87,7 @@ Slå av/på i `config.yaml` under `notify:`.
 1. Installer appen **ntfy** (gratis, App Store / Google Play).
 2. Trykk **+** i ntfy og abonner på emnet som står i `config.yaml` under `notify.push.ntfy_topic`
    (står også i appen under Mer → Push-varsler, med kopier-knapp).
-3. Tillat varsler. Du får morgenoppsummering, fondsvarsler og autotrader-handler. Varslene åpner appen
+3. Tillat varsler. Du får morgenoppsummering og fondsvarsler. Varslene åpner appen
    når du trykker på dem. (Intradag-setups kan slås på med `notify.push.intraday: true`.)
 
 Vil du holde emnet hemmelig (repoet er offentlig), legg det i stedet inn som GitHub-hemmelighet
@@ -124,12 +124,10 @@ kjøpskandidater og ideer, en Kjøp-fane med anbefalinger, en **Portefølje-fane
 du eier, «Fond» – estimert verdi av fondene dine akkurat nå ut fra indeks-ETF med 15-minutters kurser og
 valutakurs (du registrerer verdien fra banken og datoen; estimatet leses fra den lille fila
 `docs/funds_now.json` som intradag-kjøringen skriver hvert kvarter), og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
-en **Autotrader-fane** (virtuell portefølje som følger anbefalingene automatisk hver handelsdag på
-serveren, målt mot et likevektet marked – reglene står i `config.yaml` under `autotrader:`),
 en **Fond-visning** under «Mer» med **daglig fondsrapport** for fondene du eier (innskuddsråd – Ekstrainnskudd anbefales / Vurder ekstrainnskudd / Fortsett vanlig sparing / Avvent – med automatisk skrevet analyse, konkrete nivåer for når rådet endres, og en logg over tidligere råd; push-varsel når rådet endres), rangering av alle fond (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
 krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr, varsel ved skifte, og en **attraktivitetsrangering** som
 veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med konkret råd for fondene du
-eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`), screener og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
+eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`) og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
 kursgraf med tidsvelger (1D med 15-minutters kurser, 1U, 1M, 3M, 6M, 1Å, 2Å), avlesing ved å dra
 fingeren over grafen, periodestatistikk, volum og glidende snitt, pluss score, signaler, analytikere
 og innsidehandler, samt en **automatisk skrevet analyse** per aksje (selskapet, trend, prising mot
@@ -222,7 +220,7 @@ aksjeradar/
 │   ├── export.py       # skriver docs/data.json til mobil-appen
 │   ├── notify.py       # Telegram og e-post
 │   └── storage.py      # SQLite-database
-│   ├── autotrader.py   # virtuell portefølje som følger anbefalingene automatisk
+│   ├── autotrader.py   # virtuell portefølje som følger anbefalingene automatisk (slått av i config.yaml)
 │   ├── intraday.py     # 15m-kurser, fondsestimat (og intradag-setups – ikke vist i appen lenger)
 │   ├── funds.py        # aksjefond: gunstige innganger (proxy-ETF × valuta)
 │   ├── gurus.py        # kjente investorers 13F-porteføljer (slått av i config.yaml, kan slås på igjen)

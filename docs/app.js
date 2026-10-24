@@ -1,5 +1,5 @@
 /* Aksjeradar – mobil-app. Leser data.json (laget av run.py) og viser kjøpsanbefalinger, ideer,
-   screener, varsler og detaljer per aksje. Ingen rammeverk, ingen avhengigheter. */
+   fond, varsler og detaljer per aksje. Ingen rammeverk, ingen avhengigheter. */
 (function () {
   "use strict";
 
@@ -29,25 +29,9 @@
     "Avvent": "Svak score eller nylig trendbrudd – vent på bedre inngang.",
     "Unngå": "Svak score på tvers av teknisk, fundamentalt og analytikere.",
   };
-  const SORTS = [
-    ["score", "Samlet score", "score"],
-    ["score_technical", "Teknisk", "score"],
-    ["score_analyst", "Analytiker", "score"],
-    ["score_fundamental", "Fundamental", "score"],
-    ["score_insider", "Innsider", "score"],
-    ["change_1d", "Endring i dag", "pct"],
-    ["ret_1m", "1 måned", "pct"],
-    ["ret_3m", "3 måneder", "pct"],
-    ["ret_6m", "6 måneder", "pct"],
-    ["upside", "Kursmål-oppside", "pct"],
-    ["pct_from_52w_high", "Fra 52-ukers topp", "pct"],
-    ["rsi", "RSI", "num0"],
-    ["forwardPE", "Forventet P/E (lav først)", "num1", "asc"],
-    ["dividendYield", "Direkteavkastning", "pctu"],
-  ];
-  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["auto", "Autotrader"], ["mer", "Mer"]];
+  const TABS = [["ideer", "Ideer"], ["kjop", "Kjøp"], ["portefolje", "Portefølje"], ["mer", "Mer"]];
 
-  const state = { data: null, tab: "ideer", market: "alle", sort: "score", query: "", verdictFilter: null, error: null, limit: 80, expand: {} };
+  const state = { data: null, tab: "ideer", market: "alle", verdictFilter: null, error: null, limit: 80, expand: {} };
   const detailCache = {};
   let searchQuery = "";
   let currentTicker = null;
@@ -87,14 +71,6 @@
     const clock = gen ? " " + gen.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" }) : "";
     return `Oppdatert ${when}${clock} · ${d.universe} aksjer`;
   }
-  function fmtValue(key, kind, s) {
-    const v = s[key];
-    if (kind === "score") return sc(v);
-    if (kind === "pct") return pct(v);
-    if (kind === "pctu") return pct(v, false);
-    if (kind === "num0") return num(v, 0);
-    return num(v, 1);
-  }
   const vbadge = (v, big) => v ? `<span class="vb ${VCLASS[v] || ""} ${big ? "big" : ""}">${esc(v)}</span>` : "";
 
   // ---------- ikoner ----------
@@ -108,9 +84,7 @@
     ideer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.3 1-1.8A6 6 0 0 0 12 3z"/></svg>',
     kjop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.5 2.5L16 9.5"/></svg>',
     portefolje: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
-    auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 8V4M8 4h8M9 14h.01M15 14h.01M9 17h6"/></svg>',
     mer: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
-    screener: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
     varsler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 19.5h19L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
   };
 
@@ -129,7 +103,6 @@
       else state.error = e;
     }
     if (btn) btn.classList.remove("spin");
-    if (force && auto) loadAuto(true);
     if (force && fundsNow) loadFundsNow(true);
     render();
   }
@@ -243,28 +216,6 @@
     }
     html += `<p class="note">Reglene: score ≥ 75 gir Sterkt kjøp, ≥ 65 Kjøp, ≥ 50 Hold, ≥ 40 Avvent, ellers Unngå. Kjøp krever kurs over SMA200; death cross, sterkt overkjøpt RSI, negative analytikere eller kurs over kursmål trekker ned. Ikke investeringsråd.</p>`;
     return html;
-  }
-
-  function viewScreener() {
-    const sortDef = SORTS.find(x => x[0] === state.sort) || SORTS[0];
-    const [key, label, kind, dir] = sortDef;
-    const q = state.query.trim().toLowerCase();
-    let rows = filtered().filter(s => !q || s.ticker.toLowerCase().includes(q) || String(s.name).toLowerCase().includes(q));
-    rows.sort((a, b) => {
-      const av = isNum(a[key]) ? a[key] : (dir === "asc" ? Infinity : -Infinity);
-      const bv = isNum(b[key]) ? b[key] : (dir === "asc" ? Infinity : -Infinity);
-      return dir === "asc" ? av - bv : bv - av;
-    });
-    const options = SORTS.map(x => `<option value="${x[0]}" ${x[0] === state.sort ? "selected" : ""}>${esc(x[1])}</option>`).join("");
-    const html = rows.slice(0, state.limit).map(s => row(s, {
-      rank: s.rank,
-      info: `${esc(label)}: <b class="${kind === "pct" ? sign(s[key]) : ""}">${fmtValue(key, kind, s)}</b>`,
-    })).join("");
-    return `<div class="tools">
-        <input id="q" type="search" placeholder="Filtrer på ticker eller navn" value="${esc(state.query)}" autocomplete="off">
-        <select id="sort" aria-label="Sorter etter">${options}</select>
-      </div>
-      <div class="section">${sectionHead(label, rows.length)}${list(html)}${more(rows.length - state.limit, "screener")}</div>`;
   }
 
   function viewVarsler() {
@@ -696,9 +647,6 @@
           <p><b>Fond</b> (i Portefølje-fanen) viser et estimat av fondsverdiene dine akkurat nå: du registrerer verdien fra banken og datoen, og appen regner videre med indeksen fondet følger (ETF med 15-minutters kurser) og valutakursen, oppdatert hvert kvarter i børstiden.</p>
           <p>Alt lagres bare på denne enheten. Bruk «Sikkerhetskopi» nederst i Portefølje-fanen for å flytte dem til en annen telefon.</p>
         </div>
-        <div class="card"><h3>Autotrader</h3>
-          <p>En virtuell portefølje som følger anbefalingene helt automatisk, hver handelsdag, på serveren – uavhengig av om du åpner appen. Den kjøper dagens beste kjøpskandidater med like store posisjoner og selger ved Avvent/Unngå, trendbrudd eller stop-loss, med kurtasje og slippage trukket fra. Avkastningen måles mot et likevektet gjennomsnitt av hele universet, så du ser om reglene faktisk slår markedet over tid.</p>
-        </div>
         <div class="card"><h3>Fond</h3>
           <p>Aksjefond følges via en indeks-ETF som speiler samme indeks, omregnet til NOK med dagens valutakurs. For hvert fond ser du fall fra 52-ukers topp i kroner, hvor mye som skyldes indeksen og hvor mye kronekursen, og et nivå (Svært gunstig / Gunstig / Nøytral / Dyr). Hver morgen skrives en analyse per fond med et innskuddsråd – <b>Ekstrainnskudd anbefales</b>, <b>Vurder ekstrainnskudd</b>, <b>Fortsett vanlig sparing</b> eller <b>Avvent</b> – med konkrete nivåer for når rådet ville endret seg, og en logg over tidligere råd. Varsel når rådet eller nivået skifter. Fondene du eier kan legges til i config.yaml under <span class="mono">funds.list</span>.</p>
         </div>
@@ -963,9 +911,8 @@
           <p class="muted" style="font-size:13px">Server: ${esc(server)}. Emnet er en tilfeldig kode – del den ikke, så får ingen andre varslene dine.</p>
         </div>
         <div class="card"><h3>Dette varsles</h3><ul class="reasons" style="margin:0;padding-left:18px">
-          <li><b>Hver morgen</b> ca. 08:40–09:00: dagens kjøpskandidater, antall per anbefaling, fond med gunstig inngang og autotraderens status.</li>
+          <li><b>Hver morgen</b> ca. 08:40–09:00: dagens kjøpskandidater, antall per anbefaling, og dagens råd for fondene dine.</li>
           <li><b>Fond</b>: når rådet om ekstrainnskudd endres for et av fondene dine, og når et fond skifter til eller fra gunstig inngang. Morgenvarselet viser dagens råd for alle fondene dine.</li>
-          <li><b>Autotrader</b>: hver gang den kjøper eller selger.</li>
         </ul><p class="muted" style="font-size:13px">Hva som sendes styres i config.yaml under <span class="mono">notify.push</span>.</p></div>`
         : `<div class="card"><h3>Push er ikke satt opp</h3><p>Slå på <span class="mono">notify.push</span> i config.yaml og legg inn et ntfy-emne, så vises oppskriften her.</p></div>`}
       </div>`, push, { pushinfo: true });
@@ -1006,88 +953,6 @@
       </div></div>`;
   }
 
-  // ---------- autotrader (kjører på serveren hver handelsdag – appen viser resultatet) ----------
-  let auto = null, autoLoading = false, autoError = null;
-  async function loadAuto(force) {
-    autoLoading = true; autoError = null;
-    try {
-      const r = await fetch("autotrader.json" + (force ? "?t=" + Date.now() : ""), { cache: force ? "reload" : "default" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      auto = await r.json();
-    } catch (e) { autoError = e; }
-    autoLoading = false;
-    if (state.tab === "auto") render();
-  }
-
-  function lineChart(series, dates) {
-    // series: [{values, color, width, dash}] – samme skala for alle
-    const W = 360, H = 170, padL = 6, padR = 52, padT = 10, padB = 22;
-    const all = series.flatMap(s => s.values).filter(isNum);
-    if (all.length < 2) return "";
-    const n = Math.max.apply(null, series.map(s => s.values.length));
-    const lo = Math.min.apply(null, all), hi = Math.max.apply(null, all), span = hi - lo || 1;
-    const x = i => padL + (n === 1 ? 0 : (i / (n - 1)) * (W - padL - padR));
-    const y = v => padT + (1 - (v - lo) / span) * (H - padT - padB);
-    const path = arr => arr.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("");
-    const grid = [lo, lo + span / 2, hi].map(v => `<line x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)"/>
-      <text x="${W - padR + 6}" y="${(y(v) + 4).toFixed(1)}" font-size="10" fill="var(--muted)">${num(v / 1000, 1)}k</text>`).join("");
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verdiutvikling">${grid}
-      ${series.map(s => `<path d="${path(s.values)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
-      <text x="${padL}" y="${H - 6}" font-size="10" fill="var(--muted)">${fmtDate(dates[0])}</text>
-      <text x="${W - padR}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="end">${fmtDate(dates[dates.length - 1])}</text></svg>`;
-  }
-
-  function viewAuto() {
-    if (!auto && !autoError) { if (!autoLoading) loadAuto(false); return `<div class="skeleton"><span></span><span></span></div>`; }
-    if (!auto) return `<div class="empty-card" style="margin-top:16px"><b>Autotraderen har ikke kjørt ennå.</b><p>Den starter ved neste daglige analyse og vises her etterpå.</p></div>`;
-    const a = auto, base = a.base || "NOK";
-    const m = (v, d) => (isNum(v) ? num(v, d == null ? 0 : d) + nbsp + base : "–");
-    const ret = isNum(a.total) ? a.total - a.start_cash : null;
-    const diff = (isNum(a.return_pct) && isNum(a.bench_return_pct)) ? a.return_pct - a.bench_return_pct : null;
-    let html = summaryCard([
-      ["Total verdi", m(a.total)],
-      ["Avkastning", `${isNum(ret) ? (ret >= 0 ? "+" : "") + m(ret) : "–"} (${pct(a.return_pct)})`, sign(ret)],
-      ["Markedet (likevektet univers)", pct(a.bench_return_pct), sign(a.bench_return_pct)],
-      ["Mot markedet", pct(diff), sign(diff)],
-    ]);
-    html += `<p class="hint" style="margin-top:8px">Startet ${fmtDate(a.start_date)} med ${m(a.start_cash)} · sist handlet på sluttkurs ${fmtDate(a.price_date)} · kontanter ${m(a.cash)} · ${a.stats.days_running} dager</p>`;
-    const hist = a.history || [];
-    html += `<div class="chart">${hist.length >= 2
-      ? lineChart([{ values: hist.map(h => h.bench), color: "var(--muted)", width: 1.4, dash: "4 3" }, { values: hist.map(h => h.total), color: "var(--accent)", width: 2.2 }], hist.map(h => h.date))
-      : `<p class="muted" style="margin:6px 8px;font-size:13px">Kurven fylles dag for dag – første punkt er satt.</p>`}
-      <div class="legend"><span><i style="background:var(--accent)"></i>Autotrader</span><span><i style="background:var(--muted)"></i>Markedet (likevektet)</span></div></div>`;
-
-    const hs = a.holdings || [];
-    html += `<div class="section">${sectionHead("Beholdning", hs.length)}${hs.length ? list(hs.map(h => {
-      const idx = byTicker(h.ticker) || { ticker: h.ticker, name: h.name, market: h.market, verdict: h.verdict, score: h.score };
-      const info = `${num(h.shares, 0)} stk · ${m(h.value_base)} · <b class="${sign(h.pnl)}">${isNum(h.pnl) ? (h.pnl >= 0 ? "+" : "") + m(h.pnl) : "–"}</b> (${pct(h.pnl_pct)})`;
-      return row(idx, { info, sub: `Kjøpt ${fmtDate(h.bought)} med score ${num(h.buy_score, 0)} · ${h.days} dager · nå ${esc(h.verdict || "–")}` });
-    }).join("")) : `<div class="empty">Ingen posisjoner akkurat nå – venter på kjøpskandidater som oppfyller kravene.</div>`}</div>`;
-
-    const st = a.stats || {};
-    html += `<div class="card"><h3>Statistikk</h3><dl class="kv" style="margin:0">
-      <div><dt>Handler</dt><dd>${st.n_trades || 0}</dd></div><div><dt>Avsluttede</dt><dd>${st.n_closed || 0}</dd></div>
-      <div><dt>Treffprosent</dt><dd>${pct(st.win_rate, false, 0)}</dd></div><div><dt>Snitt per avsluttet</dt><dd class="${sign(st.avg_pnl_pct)}">${pct(st.avg_pnl_pct)}</dd></div>
-      <div><dt>Realisert</dt><dd class="${sign(st.realized_pnl)}">${isNum(st.realized_pnl) ? (st.realized_pnl >= 0 ? "+" : "") + m(st.realized_pnl) : "–"}</dd></div><div><dt>Største fall fra topp</dt><dd>${pct(st.max_drawdown_pct, false)}</dd></div>
-      ${st.best ? `<div><dt>Beste handel</dt><dd class="pos">${esc(st.best.ticker)} ${pct(st.best.pnl_pct)}</dd></div>` : ""}${st.worst ? `<div><dt>Svakeste handel</dt><dd class="neg">${esc(st.worst.ticker)} ${pct(st.worst.pnl_pct)}</dd></div>` : ""}
-    </dl></div>`;
-
-    const tr = a.trades || [];
-    if (tr.length) {
-      html += `<div class="section">${sectionHead("Handler", tr.length)}<div class="card" style="margin-top:0"><div class="lines">${tr.slice(0, 30).map(t =>
-        `<div class="ln"><span class="d">${fmtDate(t.date)}</span><span class="t"><b>${t.kind === "buy" ? "Kjøp" : "Salg"}</b> <span class="mono">${esc(t.ticker)}</span> · ${num(t.shares, 0)} stk à ${num(t.price, 2)} ${esc(t.currency || "")}<br><span class="muted" style="font-size:12px">${esc(t.reason || "")}${t.kind === "sell" && isNum(t.held_days) ? ` · ${t.held_days} dager` : ""}</span></span><span class="v ${t.kind === "buy" ? "" : sign(t.pnl)}">${t.kind === "buy" ? m(t.value_base) : (isNum(t.pnl) ? (t.pnl >= 0 ? "+" : "") + m(t.pnl) : "")}</span></div>`).join("")}</div></div></div>`;
-    }
-    const r = a.rules || {};
-    html += `<div class="card"><h3>Reglene</h3><ul class="reasons" style="margin:0;padding-left:18px">
-      <li><b>Kjøper</b> dagens kjøpskandidater (Sterkt kjøp/Kjøp) med score ≥ ${r.min_score} og minst delvis datagrunnlag, best score først, like store posisjoner (verdi delt på ${r.max_positions})${r.max_per_market ? `, maks ${r.max_per_market} per børs` : ""}.</li>
-      <li><b>Selger</b> når anbefalingen faller til Avvent/Unngå eller ved trendbrudd (tidligst etter ${r.min_hold_days} dager), og alltid ved ${pct(r.stop_loss_pct, false, 0)} stop-loss.</li>
-      <li>Kurtasje ${pct(r.commission_pct, false, 2)} per handel og ${pct(r.slippage_pct, false, 1)} slippage i disfavør. Solgte aksjer kjøpes ikke igjen før etter ${r.cooldown_days} dager.</li>
-      <li>Handler til sluttkursen i morgenens data – i praksis gårsdagens sluttkurs. Markedet = likevektet gjennomsnitt av hele universet.</li>
-    </ul></div>
-    <p class="note">Autotraderen kjører på serveren hver ukedag kl. 08:40 og handler bare med lekepenger. Den er en ærlig test av reglene, ikke investeringsråd. Reglene justeres i <span class="mono">config.yaml</span>.</p>`;
-    return html;
-  }
-
   // ---------- fondsestimat nå (liten fil, skrives på serveren hvert 15. min i børstiden) ----------
   let fundsNow = null, fundsNowLoading = false, fundsTimer = null;
   async function loadFundsNow(force) {
@@ -1117,6 +982,24 @@
   const LEVEL_CLASS = { "Svært gunstig": "v-strong", "Gunstig": "v-buy", "Nøytral": "v-hold", "Dyr": "v-wait" };
   const fundsData = () => (state.data && state.data.funds && state.data.funds.funds) || [];
   const goodFunds = () => fundsData().filter(f => f.level === "Gunstig" || f.level === "Svært gunstig");
+
+  function lineChart(series, dates) {
+    // series: [{values, color, width, dash}] – samme skala for alle
+    const W = 360, H = 170, padL = 6, padR = 52, padT = 10, padB = 22;
+    const all = series.flatMap(s => s.values).filter(isNum);
+    if (all.length < 2) return "";
+    const n = Math.max.apply(null, series.map(s => s.values.length));
+    const lo = Math.min.apply(null, all), hi = Math.max.apply(null, all), span = hi - lo || 1;
+    const x = i => padL + (n === 1 ? 0 : (i / (n - 1)) * (W - padL - padR));
+    const y = v => padT + (1 - (v - lo) / span) * (H - padT - padB);
+    const path = arr => arr.map((v, i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1)).join("");
+    const grid = [lo, lo + span / 2, hi].map(v => `<line x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)"/>
+      <text x="${W - padR + 6}" y="${(y(v) + 4).toFixed(1)}" font-size="10" fill="var(--muted)">${hi >= 2000 ? num(v / 1000, 1) + "k" : num(v, 0)}</text>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verdiutvikling">${grid}
+      ${series.map(s => `<path d="${path(s.values)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
+      <text x="${padL}" y="${H - 6}" font-size="10" fill="var(--muted)">${fmtDate(dates[0])}</text>
+      <text x="${W - padR}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="end">${fmtDate(dates[dates.length - 1])}</text></svg>`;
+  }
 
   function fundChart(h) {
     // to linjer, hver indeksert til 100 ved start: fondet i NOK og indeksen i egen valuta
@@ -1316,21 +1199,20 @@
       </div>`, push, { fundform: id || "" });
   }
 
-  // ---------- «Mer»: screener, varsler, om ----------
+  // ---------- «Mer»: fond, varsler, om ----------
   let currentSubview = null;
   function viewMer() {
     const warnCount = ideaItems("warnings").length;
     const good = goodFunds().length;
     return `<div class="section" style="margin-top:14px"><div class="list">
-      <button class="row menu" data-sub="fond"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Fond</span>${good ? `<span class="pill hi">${good}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Gunstige innganger i aksjefond – fall i NOK og valuta</span></span></span><span class="mid"></span><span class="r">›</span></button>
-      <button class="row menu" data-sub="screener"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Screener</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Sorter og filtrer alle ${stocks().length} aksjene</span></span></span><span class="mid"></span><span class="r">›</span></button>
+      <button class="row menu" data-sub="fond"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Fond</span>${good ? `<span class="pill hi">${good}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Dagens fondsrapport, innskuddsråd og rangering</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" data-sub="varsler"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Varsler</span>${warnCount ? `<span class="pill lo">${warnCount}</span>` : ""}</span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Aksjer i universet som viser svakhet</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" id="push-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Push-varsler</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Få varsler på låseskjermen – oppsett på to minutter</span></span></span><span class="mid"></span><span class="r">›</span></button>
-      <button class="row menu" id="info-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Om Aksjeradar</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Hvordan score, anbefalinger og autotrader regnes ut</span></span></span><span class="mid"></span><span class="r">›</span></button>
+      <button class="row menu" id="info-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Om Aksjeradar</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Hvordan score, anbefalinger og fondsråd regnes ut</span></span></span><span class="mid"></span><span class="r">›</span></button>
     </div></div>`;
   }
   function openSubview(key, push) {
-    const titles = { screener: ["Screener", "Sorter og filtrer"], varsler: ["Varsler", "Svakhetstegn i universet"], fond: ["Fond", "Gunstige innganger i aksjefond"] };
+    const titles = { varsler: ["Varsler", "Svakhetstegn i universet"], fond: ["Fond", "Dagens fondsrapport og rangering"] };
     currentSubview = key;
     showSheet(`${sheetTop(titles[key][0], titles[key][1])}<div class="gutter sheet-body" id="subview"></div>`, push, { sub: key });
     rerenderSubview();
@@ -1338,13 +1220,8 @@
   function rerenderSubview() {
     const box = $("#subview");
     if (!box || !currentSubview) return;
-    const views = { screener: viewScreener, varsler: viewVarsler, fond: viewFond };
+    const views = { varsler: viewVarsler, fond: viewFond };
     box.innerHTML = views[currentSubview]();
-    if (currentSubview === "screener") {
-      const q = $("#q");
-      q.addEventListener("input", () => { state.query = q.value; state.limit = 80; const pos = q.selectionStart; rerenderSubview(); const q2 = $("#q"); q2.focus(); q2.setSelectionRange(pos, pos); });
-      $("#sort").addEventListener("change", e => { state.sort = e.target.value; rerenderSubview(); });
-    }
   }
 
   // ---------- rammen ----------
@@ -1378,13 +1255,8 @@
       main.innerHTML = `<div class="error"><p><b>Fant ingen data.</b></p><p>Kjør <code>python run.py</code> i prosjektmappen – da lages <code>docs/data.json</code>. Åpner du filen lokalt: start <code>python -m http.server 8000 -d docs</code> og gå til <code>http://localhost:8000</code>.</p>${state.error ? `<p class="muted">${esc(state.error.message || state.error)}</p>` : ""}</div>`;
       return;
     }
-    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, auto: viewAuto, mer: viewMer, screener: viewScreener, varsler: viewVarsler };
+    const views = { ideer: viewIdeer, kjop: viewKjop, portefolje: viewPortefolje, mer: viewMer, varsler: viewVarsler };
     main.innerHTML = views[state.tab]();
-    if (state.tab === "screener") {
-      const q = $("#q");
-      q.addEventListener("input", () => { state.query = q.value; state.limit = 80; const pos = q.selectionStart; render(); const q2 = $("#q"); q2.focus(); q2.setSelectionRange(pos, pos); });
-      $("#sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
-    }
   }
 
   document.addEventListener("click", e => {
@@ -1470,7 +1342,7 @@
     const mb = e.target.closest("[data-more]");
     if (mb) {
       const k = mb.dataset.more;
-      if (k === "screener") state.limit += 100; else if (k.startsWith("verdict:")) state.expand[k.slice(8)] = true;
+      if (k.startsWith("verdict:")) state.expand[k.slice(8)] = true; else state.limit += 100;
       if (currentSubview && !$("#sheet").hidden) rerenderSubview(); else render();
       return;
     }
