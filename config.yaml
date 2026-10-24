@@ -247,7 +247,8 @@ notify:
     ntfy_server: "https://ntfy.sh"
     ntfy_topic: "aksjeradar-fvrmjamfiy12"         # abonner på dette emnet i ntfy-appen. Kan overstyres med hemmeligheten NTFY_TOPIC.
     app_url: "https://akara86.github.io/aksjeradar/"   # varselet åpner appen
-    morning: true                 # daglig oppsummering etter morgenkjøringen
+    morning: true                 # morgenoppsummering (dagens råd for fondene dine)
+    stocks: false                 # ta med aksjelinjer (kjøpskandidater, antall per anbefaling) i morgenvarselet
     funds: true                   # når et fond skifter til/fra gunstig inngang
     autotrader: false             # når autotraderen handler (fanen er fjernet fra appen)
     intraday: false               # nye intradag-setups i børstiden (fanen er fjernet fra appen – slå på hvis du vil ha varslene likevel)
@@ -266,12 +267,14 @@ autotrader:                       # virtuell portefølje som følger anbefalinge
   commission_pct: 0.0005          # kurtasje 0,05 % per handel
   slippage_pct: 0.002             # 0,2 % dårligere kurs enn sluttkursen, i disfavør
 
-intraday:                         # intradag-kjøring hvert kvarter: 15-minutters kurser til 1D-grafen og fondsestimatet (setupene vises ikke lenger i appen)
+intraday:                         # kjøring hvert kvarter i børstiden: 15-minutters kurser til fondsestimatet («Verdi» i appen)
   enabled: true
   interval: "15m"
-  max_tickers: 120                # universet under + dagens kjøpskandidater + autotraderens beholdning
-  include_buy_candidates: true
-  include_autotrader_holdings: true
+  # Appen er nå et rent fondsverktøy, så bare fondsproxyene og valutakryssene hentes (de kommer i tillegg til taket).
+  # Vil du ha intradag-setups for aksjer igjen: sett max_tickers: 120 og include_* til true.
+  max_tickers: 0
+  include_buy_candidates: false
+  include_autotrader_holdings: false
   universe:
     oslo: [EQNR.OL, DNB.OL, AKRBP.OL, NHY.OL, YAR.OL, MOWI.OL, SALM.OL, LSG.OL, TEL.OL, ORK.OL, KOG.OL, TOM.OL,
            STB.OL, GJF.OL, NOD.OL, AKSO.OL, SUBC.OL, VAR.OL, FRO.OL, HAFNI.OL, BWLPG.OL, MPCC.OL, AUTO.OL, KIT.OL,
@@ -291,7 +294,7 @@ intraday:                         # intradag-kjøring hvert kvarter: 15-minutter
     min_stop_pct: 0.004           # stop minst 0,4 % unna (ellers støy)
     max_stop_pct: 0.04            # stop maks 4 % unna
 
-funds:                            # aksjefond: gunstige innganger ut fra fall i NOK og valuta (under «Mer» i appen)
+funds:                            # aksjefond: daglig rapport med innskuddsråd, rangering og verdi nå (hele appen)
   enabled: true
   base_currency: "NOK"
   thresholds:

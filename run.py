@@ -230,19 +230,21 @@ def main() -> int:
     if not args.no_notify and push_settings(cfg):
         if pc.get("morning", True):
             lines = []
-            buys = [r for _, r in table.head(30).iterrows() if r.get("verdict") in ("Sterkt kjøp", "Kjøp")][:3]
-            if buys:
-                lines.append("Kjøp: " + ", ".join(f"{r['ticker']} ({r['score']:.0f})" for r in buys))
-            vc = {v: int((table["verdict"] == v).sum()) for v in ("Sterkt kjøp", "Kjøp", "Avvent", "Unngå")}
-            lines.append(f"{vc['Sterkt kjøp'] + vc['Kjøp']} kjøp · {vc['Avvent']} avvent · {vc['Unngå']} unngå · {len(ideas.get('warnings') or [])} varsler")
-            good = [f for f in (funds_payload.get("funds") or []) if f["level"] in ("Gunstig", "Svært gunstig")]
-            if good:
-                lines.append("Fond gunstig: " + ", ".join(f"{f['name']} ({f['dd_52w'] * 100:+.0f} %)" for f in good[:3]))
+            if pc.get("stocks", False):
+                buys = [r for _, r in table.head(30).iterrows() if r.get("verdict") in ("Sterkt kjøp", "Kjøp")][:3]
+                if buys:
+                    lines.append("Kjøp: " + ", ".join(f"{r['ticker']} ({r['score']:.0f})" for r in buys))
+                vc = {v: int((table["verdict"] == v).sum()) for v in ("Sterkt kjøp", "Kjøp", "Avvent", "Unngå")}
+                lines.append(f"{vc['Sterkt kjøp'] + vc['Kjøp']} kjøp · {vc['Avvent']} avvent · {vc['Unngå']} unngå · {len(ideas.get('warnings') or [])} varsler")
             mine = [f for f in (funds_payload.get("funds") or []) if f.get("owned") and f.get("deposit")]
-            if mine:
-                short = {"boost": "ekstrainnskudd anbefales", "consider": "vurder ekstrainnskudd", "regular": "vanlig sparing", "wait": "avvent"}
-                lines.append("Dine fond: " + " · ".join(f"{f['name'][:20]} – {short.get(f['deposit']['code'], f['deposit']['code'])}" for f in mine[:5]))
-            else:
+            short = {"boost": "ekstrainnskudd anbefales", "consider": "vurder ekstrainnskudd", "regular": "vanlig sparing", "wait": "avvent"}
+            for f in mine[:6]:
+                d = f["deposit"]
+                lines.append(f"{'★ ' if d['code'] in ('boost', 'consider') else ''}{f['name'][:26]}: {short.get(d['code'], d['code'])} ({f['dd_52w'] * 100:+.0f} % fra topp)")
+            good = [f for f in (funds_payload.get("funds") or []) if f["level"] in ("Gunstig", "Svært gunstig") and not f.get("owned")]
+            if good:
+                lines.append("Andre fond gunstig: " + ", ".join(f"{f['name'][:22]} ({f['dd_52w'] * 100:+.0f} %)" for f in good[:3]))
+            if not mine:
                 topf = [f for f in (funds_payload.get("funds") or []) if f.get("rank")][:3]
                 if topf:
                     lines.append("Fond topp 3: " + ", ".join(f"{f['name'][:22]} ({f['attr_score']:.0f})" for f in topf))
@@ -252,7 +254,9 @@ def main() -> int:
                     lines.append("Autotrader: " + ", ".join(f"{'kjøpte' if t['kind'] == 'buy' else 'solgte'} {t['ticker']}" for t in todays[:6]))
             if auto:
                 lines.append(f"Autotrader {auto['return_pct'] * 100:+.1f} % · marked {auto['bench_return_pct'] * 100:+.1f} %")
-            send_push(cfg, f"Aksjeradar {run_date}", "\n".join(lines), tags=["satellite"])
+            n_act = sum(1 for f in mine if f["deposit"]["code"] in ("boost", "consider"))
+            send_push(cfg, f"Fondene dine {run_date}" + (f" – {n_act} med gunstig inngang" if n_act else ""), "\n".join(lines),
+                      tags=["moneybag" if n_act else "satellite"], priority=4 if n_act else 3)
         if pc.get("funds", True):
             for a in (funds_payload.get("alerts") or []):
                 if a["kind"] == "innskudd":

@@ -1,7 +1,7 @@
 {
   "name": "Aksjeradar",
   "short_name": "Aksjeradar",
-  "description": "Daglige aksjeideer, analytikeranbefalinger og tekniske signaler for Norden og USA.",
+  "description": "Daglig fondsrapport med innskuddsråd, og estimert verdi av fondene dine akkurat nå.",
   "lang": "no",
   "start_url": "./",
   "scope": "./",

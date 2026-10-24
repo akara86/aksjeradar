@@ -4,9 +4,10 @@ Personlig verktøy som hver dag henter gratis markedsdata for aksjer i Norden og
 regner ut tekniske signaler, analytikerkonsensus, fundamentale nøkkeltall og innsidehandler,
 rangerer alt til én score per aksje – og gir deg:
 
-- **Mobil-app** for iPhone/Android (legges på Hjem-skjermen, se punkt 6)
-- **Daglig rapport** (Markdown + HTML) med topp-liste, idékategorier og varsler
-- **Telegram-melding** (eller e-post) med det viktigste
+- **Mobil-app** for iPhone/Android – nå et rent **fondsverktøy**: daglig fondsrapport med
+  innskuddsråd, estimert verdi av fondene dine akkurat nå, rangering av fond og logg (se punkt 6)
+- **Daglig rapport** (Markdown + HTML) med topp-liste, idékategorier og varsler for aksjer
+- **Telegram-melding** (eller e-post) med det viktigste, og **push-varsler** med dagens fondsråd
 - **Dashboard** på PC-en med screener og detaljer per aksje
 
 Datakilde: Yahoo Finance via biblioteket `yfinance` – gratis, ingen API-nøkkel.
@@ -87,8 +88,8 @@ Slå av/på i `config.yaml` under `notify:`.
 1. Installer appen **ntfy** (gratis, App Store / Google Play).
 2. Trykk **+** i ntfy og abonner på emnet som står i `config.yaml` under `notify.push.ntfy_topic`
    (står også i appen under Mer → Push-varsler, med kopier-knapp).
-3. Tillat varsler. Du får morgenoppsummering og fondsvarsler. Varslene åpner appen
-   når du trykker på dem. (Intradag-setups kan slås på med `notify.push.intraday: true`.)
+3. Tillat varsler. Du får dagens råd for fondene dine hver morgen, og varsel når rådet for et fond
+   endres eller et fond skifter til/fra gunstig inngang. Varslene åpner appen når du trykker på dem. (Intradag-setups kan slås på med `notify.push.intraday: true`.)
 
 Vil du holde emnet hemmelig (repoet er offentlig), legg det i stedet inn som GitHub-hemmelighet
 `NTFY_TOPIC` (Settings → Secrets and variables → Actions) – den overstyrer `config.yaml`.
@@ -116,26 +117,28 @@ crontab -e
 30 8 * * 1-5 cd /sti/til/aksjeradar && python3 run.py >> cron.log 2>&1
 ```
 
-## 6. Mobil-app på iPhone (og Android)
+## 6. Mobil-app på iPhone (og Android) – fondsappen
 
-Mappen `docs/` er en komplett mobil-app (web-app) som leser `docs/data.json` (lett indeks) og
-`docs/stocks/<TICKER>.json` (detaljer) – filene `run.py` lager ved hver kjøring. Den har dagens
-kjøpskandidater og ideer, en Kjøp-fane med anbefalinger, en **Portefølje-fane** («Mine aksjer» for det
-du eier, «Fond» – estimert verdi av fondene dine akkurat nå ut fra indeks-ETF med 15-minutters kurser og
-valutakurs (du registrerer verdien fra banken og datoen; estimatet leses fra den lille fila
-`docs/funds_now.json` som intradag-kjøringen skriver hvert kvarter), og «Lekepenger» – en virtuell portefølje med fiktiv startkapital for å prøve ut verktøyet),
-en **Fond-visning** under «Mer» med **daglig fondsrapport** for fondene du eier (innskuddsråd – Ekstrainnskudd anbefales / Vurder ekstrainnskudd / Fortsett vanlig sparing / Avvent – med automatisk skrevet analyse, konkrete nivåer for når rådet endres, og en logg over tidligere råd; push-varsel når rådet endres), rangering av alle fond (aksjefond fulgt via indeks-ETF × valutakurs: fall fra topp i NOK, indeks mot
-krone, nivå Gunstig/Svært gunstig/Nøytral/Dyr, varsel ved skifte, og en **attraktivitetsrangering** som
-veier inngang, trend, sektor/marked fra aksjeanalysen og risiko/prising, med konkret råd for fondene du
-eier – fondslisten med `owned`, `role`, `markets`/`sectors` ligger under `funds:` i `config.yaml`) og varsler (under «Mer»), **søk etter enkeltaksjer** (forstørrelsesglasset øverst) og detaljside per aksje med
-kursgraf med tidsvelger (1D med 15-minutters kurser, 1U, 1M, 3M, 6M, 1Å, 2Å), avlesing ved å dra
-fingeren over grafen, periodestatistikk, volum og glidende snitt, pluss score, signaler, analytikere
-og innsidehandler, samt en **automatisk skrevet analyse** per aksje (selskapet, trend, prising mot
-sektoren, analytikere, innsidere, risiko, argumenter for/imot kjøp, konklusjon og hva som ville endret
-vurderingen – laget av `aksjeradar/narrative.py` fra tallene). Porteføljene lagres lokalt på telefonen
-(ingen server) og kan kopieres ut som sikkerhetskopi. Valutakurser (USD/SEK/DKK/EUR mot NOK) hentes
-daglig, så porteføljen summeres riktig. Den fungerer uten
-nett (viser siste data) og følger mørk/lys modus på telefonen.
+Mappen `docs/` er en komplett mobil-app (web-app) som leser `docs/funds.json` (daglig fondsanalyse,
+laget av `run.py`) og `docs/funds_now.json` (estimat hvert kvarter i børstiden, laget av
+`intraday_run.py`). Appen er et rent **fondsverktøy** med fire faner:
+
+- **I dag** – dagens fondsrapport for fondene du eier (`owned: true` under `funds.list` i
+  `config.yaml`): ett kort per fond med innskuddsråd – **Ekstrainnskudd anbefales / Vurder
+  ekstrainnskudd / Fortsett vanlig sparing / Avvent** – hovedgrunn, dagens endring og avstand fra topp.
+  Trykk på kortet for den automatisk skrevne analysen (status, indeks og krone, trend, sektor/marked,
+  risiko, konklusjon med forslag til størrelse, og konkrete nivåer for når rådet ville endret seg).
+  Øverst vises summen av fondene dine akkurat nå, og nederst andre fond med gunstig inngang.
+- **Verdi** – estimert verdi av fondene dine akkurat nå: du registrerer verdien fra banken og datoen,
+  og appen regner videre med fondets kurve i NOK pluss dagens bevegelse i indeks-ETF-en × valutakurs,
+  oppdatert hvert kvarter i børstiden. Verdiene lagres bare på telefonen (sikkerhetskopi under «Mer»).
+- **Fond** – rangering av alle fondene i listen etter attraktivitet (inngang, trend, sektor/marked fra
+  aksjeanalysen, risiko/prising), med nivå Gunstig/Svært gunstig/Nøytral/Dyr, graf og forklaring.
+- **Mer** – logg over hvordan rådene har utviklet seg dag for dag, push-varsler, sikkerhetskopi og «Om».
+
+Aksjeanalysen (score, anbefalinger, ideer) kjører fortsatt på serveren – fondsrangeringen bruker den for
+sektor-/markedsbildet – og ligger i `docs/data.json` og dashboardet på PC-en, men vises ikke i appen.
+Appen fungerer uten nett (viser siste data) og følger mørk/lys modus på telefonen.
 
 **Publiser den (gratis, via GitHub Pages):**
 1. Gjør punkt 5A over (GitHub-repo + Actions).
@@ -154,7 +157,7 @@ python -m http.server 8000 -d docs
 ```
 Åpne `http://localhost:8000` på PC-en. På telefonen: finn PC-ens IP-adresse (Windows: `ipconfig`,
 Mac: `ifconfig`) og åpne `http://<ip>:8000`. (Å dobbeltklikke `docs/index.html` direkte fungerer ikke
-i alle nettlesere, fordi appen henter `data.json` med en nettverksforespørsel.)
+i alle nettlesere, fordi appen henter `funds.json` med en nettverksforespørsel.)
 
 ## 7. Tilpass
 
@@ -225,7 +228,7 @@ aksjeradar/
 │   ├── funds.py        # aksjefond: gunstige innganger (proxy-ETF × valuta)
 │   ├── gurus.py        # kjente investorers 13F-porteføljer (slått av i config.yaml, kan slås på igjen)
 │   ├── universe.py     # setter sammen universet (config + S&P 500 fra Wikipedia)
-├── docs/               # mobil-appen (index.html, app.js, app.css, sw.js, ikoner) + data.json, stocks/, autotrader.json
+├── docs/               # mobil-appen (index.html, app.js, app.css, sw.js, ikoner) + funds.json, funds_now.json (og data.json/stocks/ for dashboardet)
 ├── data/               # databasen havner her
 ├── reports/            # rapportene havner her
 └── .github/workflows/daily.yml   # automatisk kjøring på GitHub + oppdatering av appen

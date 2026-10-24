@@ -143,5 +143,10 @@ def export_json(store: Storage, table: pd.DataFrame, ideas: dict, run_date: str,
         "stocks": index,
     }
     index_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    log.info("Eksporterte %s (%.0f kB) og %d detaljfiler i %s", index_path, index_path.stat().st_size / 1024, len(written), details_dir)
+    # Liten fil med bare det fondsappen trenger (data.json beholdes for dashboardet og evt. aksjevisning)
+    funds_path = index_path.with_name("funds.json")
+    funds_payload = {k: payload[k] for k in ("app", "run_date", "prev_run_date", "generated_at", "demo", "universe", "fx", "funds", "push")}
+    funds_path.write_text(json.dumps(funds_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    log.info("Eksporterte %s (%.0f kB), %s (%.0f kB) og %d detaljfiler i %s", index_path, index_path.stat().st_size / 1024,
+             funds_path, funds_path.stat().st_size / 1024, len(written), details_dir)
     return index_path

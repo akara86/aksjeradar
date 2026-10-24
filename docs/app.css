@@ -242,6 +242,11 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .summary .s-l { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .summary .s-v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .summary div:first-child .s-v { font-size: 22px; }
+.summary small { font-size: 12px; color: var(--muted); }
+.summary small.pos { color: var(--up); } .summary small.neg { color: var(--down); }
+.summary.tap { width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.summary.tap:active { background: var(--surface-2); }
+.top-row { padding-block: 10px; }
 .alert { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 16%, var(--surface)); font-size: 13.5px; line-height: 1.4; }
 .empty-card { margin-top: 14px; background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 18px 16px; text-align: center; }
 .empty-card p { color: var(--muted); font-size: 14px; margin: 6px 0 14px; line-height: 1.45; }
@@ -280,6 +285,8 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .levels i { font-style: normal; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .levels b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .levels small { font-size: 11px; color: var(--muted); }
+.levels.two { grid-template-columns: 1fr 1fr; }
+.levels.two b { font-size: 16px; }
 .row.menu .r { color: var(--muted); font-size: 20px; }
 
 /* ---------- fond ---------- */
