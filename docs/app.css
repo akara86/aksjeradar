@@ -296,21 +296,23 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .fund-ex { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .fund .levels { margin-top: 10px; }
 
-/* ---------- stor kursgraf ---------- */
-.chart.big { padding: 10px 8px 8px; }
-.rng { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 9px; margin: 0 4px 10px; }
-.rng button { flex: 1; padding: 6px 0; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--muted); font-family: var(--font-mono); }
-.rng button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-.pstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 4px 8px; }
-.pstats > div { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; background: var(--surface-2); border-radius: 9px; min-width: 0; }
-.pstats i { font-style: normal; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pstats b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pstats small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bc-wrap { position: relative; touch-action: pan-y; }
-.bc-wrap svg { touch-action: none; }
-.xh-tip { position: absolute; top: 6px; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; font-size: 12px; line-height: 1.35; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-.xh-tip b { font-size: 14px; }
-.lg-toggle { font-size: 11.5px; font-weight: 700; color: var(--accent); margin-right: 4px; }
+/* ---------- stor fondsgraf ---------- */
+.chart-box { margin-top: 10px; }
+.chart.big { padding: 10px 8px 8px; margin-top: 8px; }
+.chart.big svg.bigchart { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.ranges { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border-radius: 9px; }
+.ranges button { flex: 1; padding: 7px 0; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--muted); font-family: var(--font-mono); }
+.ranges button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.chart-opts { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.seg.small { margin: 0; flex: 1; }
+.seg.small button { padding: 6px 0; font-size: 12.5px; }
+.chart-opts .chip { flex: none; font-weight: 600; }
+.xh-label { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 2px 6px 6px; min-height: 52px; align-content: flex-start; }
+.xh-label b { font-size: 20px; font-weight: 700; }
+.xh-label span { font-size: 13px; font-weight: 600; }
+.xh-label .muted { font-weight: 500; }
+.chart.big .levels { margin-top: 6px; }
+.barchart { margin-top: 4px; }
 
 .rank-no { font-size: 12px; font-weight: 700; color: var(--muted); }
 .vb.own { background: var(--accent); color: var(--accent-ink); }
@@ -321,6 +323,15 @@ main { padding-block: 4px calc(var(--nav-h) + 24px); }
 .fund.fr:active { background: var(--surface-2); }
 .fund.fr .fund-name { font-size: 15.5px; }
 .fr-key { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.4; }
+.fr-top { flex-wrap: nowrap; }
+.fr-top .chip { white-space: nowrap; font-size: 11px; padding: 3px 7px; flex: none; }
+.fr-top .vb { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-date { margin-left: auto; font-size: 12px; white-space: nowrap; flex: none; }
+.fr-head { display: flex; align-items: flex-end; gap: 10px; }
+.fr-head .fund-name { flex: 1; min-width: 0; }
+.fr-spark { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
+.fr-spark svg { width: 90px; height: 30px; display: block; }
+.fr-spark small { font-size: 11px; }
 .fr-more { display: block; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent); }
 .jl .ln { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .jl .d { width: auto; }

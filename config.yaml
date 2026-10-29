@@ -296,6 +296,7 @@ intraday:                         # kjøring hvert kvarter i børstiden: 15-minu
 
 funds:                            # aksjefond: daglig rapport med innskuddsråd, rangering og verdi nå (hele appen)
   enabled: true
+  history_days: 520               # kursdager i fondsgrafene i appen (520 ≈ 2 år)
   base_currency: "NOK"
   thresholds:
     good_drawdown: -0.08          # >= 8 % under 52-ukers topp (i NOK) = Gunstig

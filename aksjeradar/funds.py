@@ -142,6 +142,9 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
 
     hist = nok.tail(history_days)
     idx_hist = px.reindex(hist.index).ffill()
+    sma200_s = nok.rolling(200).mean().reindex(hist.index)
+    fx_hist = fxa.reindex(hist.index).ffill() if fxa is not None else None
+    r2 = lambda v: (None if pd.isna(v) else round(float(v), 2))  # noqa: E731
     return {
         "id": f["id"], "name": f["name"], "examples": f.get("examples", ""), "proxy": f["proxy"], "currency": f.get("currency", "USD"),
         "hedged": hedged, "fx_relevant": fx_relevant,
@@ -153,7 +156,9 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
         "fx_last": fx_last, "fx_vs_sma200": fx_vs_sma200, "fx_rank_1y": fx_rank, "fx_ret_1m": fx_ret_1m,
         "score": score, "level": level, "why": why,
         "history": {"dates": [d.strftime("%Y-%m-%d") for d in hist.index],
-                    "nok": [round(float(v), 2) for v in hist], "idx": [round(float(v), 2) for v in idx_hist]},
+                    "nok": [round(float(v), 2) for v in hist], "idx": [round(float(v), 2) for v in idx_hist],
+                    "sma200": [r2(v) for v in sma200_s],
+                    "fx": [(None if pd.isna(v) else round(float(v), 3)) for v in fx_hist] if fx_hist is not None else None},
     }
 
 
@@ -500,7 +505,7 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
             log.warning("Fond «%s»: mangler kurser for %s", f["name"], f["proxy"])
             continue
         try:
-            a = analyze_fund(f, proxy, fx_series(fx_frames, f["currency"]), th, 130)  # fondskurven holdes på ~6 mnd (ligger i data.json)
+            a = analyze_fund(f, proxy, fx_series(fx_frames, f["currency"]), th, int(fcfg.get("history_days", 520)))  # kursdager i grafen
         except Exception as e:  # noqa: BLE001
             log.warning("Fond «%s» feilet: %s", f["name"], e)
             continue

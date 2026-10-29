@@ -157,11 +157,11 @@ def main() -> int:
             proxies = sorted({f["proxy"] for f in cfg["funds"]["list"]})
             currencies = sorted({f.get("currency", "USD") for f in cfg["funds"]["list"]} - {"NOK"})
             if args.demo:
-                proxy_frames = demo_prices(proxies, seed=5)
-                fx_frames = demo_fx_frames()
+                proxy_frames = demo_prices(proxies, days=760, seed=5)
+                fx_frames = demo_fx_frames(days=760)
             else:
-                proxy_frames = fetch_prices(proxies, "2y")
-                fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "2y")
+                proxy_frames = fetch_prices(proxies, "3y")   # 2 år i grafen + 200 dager til glidende snitt
+                fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "3y")
             funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table)
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
         except Exception as e:  # noqa: BLE001

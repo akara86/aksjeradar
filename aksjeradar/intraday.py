@@ -518,6 +518,7 @@ def write_intraday_bars(frames: dict[str, pd.DataFrame], out_dir, days: int = 2)
                 "ticker": t, "interval": "15m", "tz": str(part.index.tz),
                 "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "t": [ts.strftime("%Y-%m-%dT%H:%M") for ts in part.index],
+                "u": [int(ts.timestamp()) for ts in part.index],   # UTC-sekunder, så barer fra ulike børser/valuta kan kobles
                 "o": [round(float(x), 4) for x in part["Open"]], "h": [round(float(x), 4) for x in part["High"]],
                 "l": [round(float(x), 4) for x in part["Low"]], "c": [round(float(x), 4) for x in part["Close"]],
                 "v": [int(x) if not pd.isna(x) else 0 for x in part["Volume"]],

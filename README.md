@@ -129,9 +129,13 @@ laget av `run.py`) og `docs/funds_now.json` (estimat hvert kvarter i børstiden,
   Trykk på kortet for den automatisk skrevne analysen (status, indeks og krone, trend, sektor/marked,
   risiko, konklusjon med forslag til størrelse, og konkrete nivåer for når rådet ville endret seg).
   Øverst vises summen av fondene dine akkurat nå, og nederst andre fond med gunstig inngang.
+  Analysen har en stor kursgraf med tidsvelger (1D med 15-minutters kurser, 1U, 1M, 3M, 6M, 1Å, 2Å),
+  trådkors du drar fingeren over, kroner eller prosent mot indeksen, 200-dagers snitt, periodestatistikk
+  (herav indeks / herav valuta, høy/lav, beste og verste dag) og søyler for de siste 20 børsdagene.
 - **Verdi** – estimert verdi av fondene dine akkurat nå: du registrerer verdien fra banken og datoen,
   og appen regner videre med fondets kurve i NOK pluss dagens bevegelse i indeks-ETF-en × valutakurs,
-  oppdatert hvert kvarter i børstiden. Verdiene lagres bare på telefonen (sikkerhetskopi under «Mer»).
+  oppdatert hvert kvarter i børstiden, pluss en graf over hva dagens beholdning var verdt dag for dag.
+  Verdiene lagres bare på telefonen (sikkerhetskopi under «Mer»).
 - **Fond** – rangering av alle fondene i listen etter attraktivitet (inngang, trend, sektor/marked fra
   aksjeanalysen, risiko/prising), med nivå Gunstig/Svært gunstig/Nøytral/Dyr, graf og forklaring.
 - **Mer** – logg over hvordan rådene har utviklet seg dag for dag, push-varsler, sikkerhetskopi og «Om».
