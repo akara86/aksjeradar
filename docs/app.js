@@ -6,7 +6,7 @@
   const $ = (sel, el) => (el || document).querySelector(sel);
   const PREVIEW = !!window.__PREVIEW__;
 
-  const TABS = [["idag", "I dag"], ["verdi", "Verdi"], ["fond", "Fond"], ["mer", "Mer"]];
+  const TABS = [["idag", "I dag"], ["verdi", "Verdi"], ["utvalgt", "Utvalgt"], ["fond", "Fond"], ["mer", "Mer"]];
   const state = { data: null, tab: "idag", error: null };
   try { state.tab = localStorage.getItem("ar.tab") || state.tab; } catch (e) { /* lagring utilgjengelig – ignorer */ }
   if (!TABS.some(t => t[0] === state.tab)) state.tab = "idag";
@@ -58,6 +58,7 @@
     idag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     verdi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></svg>',
     fond: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    utvalgt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z"/></svg>',
     mer: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   };
 
@@ -83,7 +84,8 @@
   const goodFunds = () => fundsData().filter(f => f.level === "Gunstig" || f.level === "Svært gunstig");
   const fundJournal = () => (state.data && state.data.funds && state.data.funds.journal) || [];
   const fundActions = () => (state.data && state.data.funds && state.data.funds.actions) || {};
-  const fundById = id => fundsData().find(f => f.id === id);
+  const picksData = () => (state.data && state.data.funds && state.data.funds.picks) || { list: [] };
+  const fundById = id => fundsData().find(f => f.id === id) || picksData().list.find(f => f.id === id);
 
   // Estimat nå (liten fil, skrives på serveren hvert 15. min i børstiden)
   let fundsNow = null, fundsNowLoading = false, fundsTimer = null;
@@ -641,6 +643,72 @@
     return html;
   }
 
+  // ---------- fane: Utvalgt (særlig interessante fond – kuratert liste med kilder, målt løpende) ----------
+  function pickCard(f) {
+    const d = f.deposit || {}, lg = f.long || {};
+    return `<button class="fund fr pick ${DEP_CLASS[d.code] || ""}" data-pickinfo="${esc(f.id)}">
+      <span class="su-top fr-top">${depBadge(d)}<span class="pill ${scClass(f.attr_score)}" title="Attraktivitet nå" style="margin-left:auto">${sc(f.attr_score)}</span></span>
+      <span class="fr-head"><span class="fund-name" style="margin-top:6px">${esc(f.name)}</span>${f.history && f.history.nok ? (() => { const h6 = f.history.nok.slice(-130); const c6 = h6[h6.length - 1] / h6[0] - 1; return `<span class="fr-spark">${sparkline(h6, 90, 30)}<small class="mono ${sign(c6)}">${pct(c6)} 6M</small></span>`; })() : ""}</span>
+      <span class="fr-key" style="font-size:12px;margin-top:2px">${esc(f.provider || "")}${f.manager && !/team|Management/.test(f.manager) ? " · " + esc(f.manager) : ""}</span>
+      ${f.headline ? `<span class="fr-key">${esc(f.headline)}</span>` : ""}
+      <span class="levels" style="margin-top:8px">
+        <span><i>Inngang</i><b style="font-size:12px;white-space:normal;line-height:1.25">${esc(f.level)}</b></span>
+        <span><i>Fra topp</i><b class="mono ${sign(f.dd_52w)}">${pct(f.dd_52w)}</b></span>
+        <span><i>Marked 5 år</i><b class="mono ${sign(lg.ann_5y)}">${pct(lg.ann_5y)}</b><small>årlig, NOK</small></span>
+        <span><i>Kostnad</i><b style="font-size:12.5px;white-space:normal;line-height:1.2">${esc(/^\d/.test(f.fee || "") ? f.fee.replace(/ per år.*/, "").replace(/–[\d,]+/, "") : "–")}</b><small>per år</small></span>
+      </span>
+      <span class="fr-more">Hvorfor dette fondet ›</span>
+    </button>`;
+  }
+  function viewUtvalgt() {
+    const pk = picksData();
+    if (!pk.list.length) return `<div class="empty-card" style="margin-top:14px"><b>Ingen utvalgte fond ennå.</b><p>Listen settes opp i config.yaml under <span class="mono">picks</span> og fylles ved neste daglige kjøring.</p></div>`;
+    let html = `<p class="hint" style="margin-top:12px">Fond som skiller seg ut med anerkjente forvaltere, sterk historikk eller eksponering mot sektorer og økonomier med høy forventet vekst. Fakta er hentet fra fondenes egne sider (sjekket ${fmtDate(pk.checked)}); tallene for <i>nå</i> regnes ut hver morgen. Sortert etter hvor attraktivt det er å kjøpe akkurat nå.</p>`;
+    const cats = pk.categories || {};
+    for (const [k, label] of Object.entries(cats)) {
+      const items = pk.list.filter(f => f.category === k);
+      if (!items.length) continue;
+      html += `<div class="section">${sectionHead(esc(label), items.length)}${items.map(pickCard).join("")}</div>`;
+    }
+    html += `<p class="note">Dette er en kuratert liste til inspirasjon, ikke en anbefaling om å kjøpe. Flere av forvalterne med best historikk har gjort det svakere enn indeksen de siste årene – det står under hvert fond. «Marked 5 år» er utviklingen i ETF-en fondet måles mot, ikke fondets egen avkastning. Ikke investeringsråd.</p>`;
+    return html;
+  }
+  function openPick(id, push) {
+    const f = fundById(id);
+    if (!f) return;
+    const d = f.deposit || {}, lg = f.long || {}, an = f.analysis || {};
+    const concl = (an.sections || []).find(x => x.h === "Konklusjon");
+    showSheet(`
+      ${sheetTop(esc(f.name), esc(f.category_label || "Utvalgt fond"))}
+      <div class="gutter sheet-body">
+        <div class="badges" style="margin-top:4px">${depBadge(d, true)}</div>
+        <div class="badges" style="margin-top:8px"><span class="vb ${LEVEL_CLASS[f.level] || ""}">Inngang · ${esc(f.level)}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">Attraktivitet · ${esc(f.attr_verdict)} ${sc(f.attr_score)}</span>` : ""}</div>
+        ${f.headline ? `<p style="margin:12px 0 0;font-size:15px;line-height:1.5">${esc(f.headline)}</p>` : ""}
+        <div class="card"><h3>Fakta</h3><dl class="kv one" style="margin:0">
+          <div><dt>Forvalter</dt><dd class="txt">${esc(f.manager || "–")}</dd></div>
+          <div><dt>Selskap</dt><dd class="txt">${esc(f.provider || "–")}</dd></div>
+          <div><dt>Kostnad</dt><dd class="txt">${esc(f.fee || "–")}</dd></div>
+          <div><dt>Historikk</dt><dd class="txt">${esc(f.track || "–")}</dd></div>
+        </dl></div>
+        ${(f.why || []).length ? `<div class="card"><h3>Hvorfor interessant</h3><ul class="reasons" style="margin:0;padding-left:18px">${f.why.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+        ${(f.risks || []).length ? `<div class="card"><h3>Verdt å vite</h3><ul class="reasons" style="margin:0;padding-left:18px">${f.risks.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+        <div class="section">${sectionHead("Markedet fondet måles mot – " + esc(f.proxy))}
+          <div class="levels">
+            <span><i>3 år</i><b class="mono ${sign(lg.ann_3y)}">${pct(lg.ann_3y)}</b><small>årlig, NOK</small></span>
+            <span><i>5 år</i><b class="mono ${sign(lg.ann_5y)}">${pct(lg.ann_5y)}</b><small>globalt ${pct(lg.global_ann_5y)}</small></span>
+            <span><i>10 år</i><b class="mono ${sign(lg.ann_10y)}">${pct(lg.ann_10y)}</b><small>årlig, NOK</small></span>
+            <span><i>Verste fall</i><b class="mono neg">${pct(lg.max_dd_5y)}</b><small>siste 5 år</small></span>
+          </div>
+          ${fundChartBlock(f)}
+        </div>
+        <div class="card"><h3>Kjøpe nå?</h3><p style="margin:0">${esc(concl ? concl.t : d.summary || "")}</p></div>
+        <button class="linkbtn" data-fundinfo="${esc(f.id)}" style="padding:0;margin-top:6px">Les hele dagens analyse ›</button>
+        ${(f.sources || []).length ? `<div class="card"><h3>Kilder</h3><ul class="reasons" style="margin:0;padding-left:18px">${f.sources.map(x => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></li>`).join("")}</ul><p class="muted" style="font-size:12.5px;margin:8px 0 0">Fakta sjekket ${fmtDate(picksData().checked)}. Fondets egen avkastning kan avvike fra markedet det måles mot.</p></div>` : ""}
+        <p class="note">Kuratert til inspirasjon – ikke en kjøpsanbefaling og ikke investeringsråd. Spre gjerne nye kjøp over tid.</p>
+      </div>`, push, { pickinfo: id });
+    bindCharts();
+  }
+
   // ---------- fane: Fond (rangering) ----------
   function viewFond() {
     const fs = fundsData();
@@ -702,6 +770,7 @@
     else if (e.state && e.state.pushinfo) openPush(false);
     else if (e.state && e.state.fundform !== undefined) openFundForm(e.state.fundform || null, false);
     else if (e.state && e.state.fundinfo) openFundAnalysis(e.state.fundinfo, false);
+    else if (e.state && e.state.pickinfo) openPick(e.state.pickinfo, false);
     else closeSheet();
   });
 
@@ -841,7 +910,7 @@
       return;
     }
     if (needsNow() && !fundsNow && !fundsNowLoading) loadFundsNow(false);
-    const views = { idag: viewIdag, verdi: viewVerdi, fond: viewFond, mer: viewMer };
+    const views = { idag: viewIdag, verdi: viewVerdi, utvalgt: viewUtvalgt, fond: viewFond, mer: viewMer };
     main.innerHTML = views[state.tab]();
     bindCharts();
   }
@@ -857,6 +926,8 @@
     const fm = e.target.closest("[data-fmode]");
     if (fm) { chartState.mode = fm.dataset.fmode; saveChart(); rerenderCharts(); return; }
     if (e.target.closest("[data-fsma]")) { chartState.sma = !chartState.sma; saveChart(); rerenderCharts(); return; }
+    const pi = e.target.closest("[data-pickinfo]");
+    if (pi) { openPick(pi.dataset.pickinfo); return; }
     const fi = e.target.closest("[data-fundinfo]");
     if (fi) { openFundAnalysis(fi.dataset.fundinfo); return; }
     const gt = e.target.closest("[data-gototab]");

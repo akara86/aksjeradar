@@ -136,6 +136,10 @@ laget av `run.py`) og `docs/funds_now.json` (estimat hvert kvarter i børstiden,
   og appen regner videre med fondets kurve i NOK pluss dagens bevegelse i indeks-ETF-en × valutakurs,
   oppdatert hvert kvarter i børstiden, pluss en graf over hva dagens beholdning var verdt dag for dag.
   Verdiene lagres bare på telefonen (sikkerhetskopi under «Mer»).
+- **Utvalgt** – en kuratert liste over særlig interessante fond (anerkjente forvaltere med lang historikk,
+  sektorer med vekst som teknologi og helse, og økonomier med høy vekst som India), med fakta og kilder
+  (`picks:` i `config.yaml`, datert i `checked`), langsiktige tall for markedet fondet måles mot (3/5/10 år
+  i NOK, verste fall) og dagens råd om inngang. Det er en inspirasjonsliste, ikke en kjøpsanbefaling.
 - **Fond** – rangering av alle fondene i listen etter attraktivitet (inngang, trend, sektor/marked fra
   aksjeanalysen, risiko/prising), med nivå Gunstig/Svært gunstig/Nøytral/Dyr, graf og forklaring.
 - **Mer** – logg over hvordan rådene har utviklet seg dag for dag, push-varsler, sikkerhetskopi og «Om».

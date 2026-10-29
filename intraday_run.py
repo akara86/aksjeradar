@@ -62,7 +62,8 @@ def intraday_universe(cfg: dict, site: Path) -> tuple[list[str], dict[str, str]]
     out = out[: int(icfg.get("max_tickers", 120))]
     # Fondsproxyer og valutakryss (til estimert fondsverdi) kommer i tillegg til taket
     extra = []
-    for f in (cfg.get("funds") or {}).get("list") or []:
+    picks = (cfg.get("picks") or {}).get("list") or [] if (cfg.get("picks") or {}).get("enabled", True) else []
+    for f in ((cfg.get("funds") or {}).get("list") or []) + picks:
         for p in (f.get("intraday_proxies") or []) + [{"ticker": f.get("proxy"), "currency": f.get("currency", "USD")}]:
             if p.get("ticker"):
                 extra.append(p["ticker"])

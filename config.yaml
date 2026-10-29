@@ -406,6 +406,159 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       sectors: [Utilities]
       intraday_proxies: [{ticker: IQQH.DE, currency: EUR}]   # iShares Global Clean Energy (Xetra)
 
+picks:                            # «Utvalgt»-fanen: særlig interessante fond (forvaltere, historikk, vekstsektorer/-økonomier)
+  enabled: true
+  # Fakta (forvalter, kostnad, historikk) er hentet fra kildene under og datert i `checked` – sjekk dem igjen av og til.
+  # Hvert fond måles løpende via en ETF med samme marked/stil (proxy), slik som fondene i `funds.list`.
+  checked: "2026-10-29"
+  list:
+    - id: fundsmith
+      name: "Fundsmith Equity"
+      provider: "Fundsmith (London)"
+      category: forvalter
+      manager: "Terry Smith"
+      fee: "0,95–1,09 % per år (I/T-klasse)"
+      proxy: QUAL
+      currency: USD
+      markets: [USA]
+      sectors: []
+      headline: "Konsentrert portefølje (28 selskaper) av kvalitetsselskaper med høy avkastning på kapitalen – «kjøp gode selskaper, ikke betal for mye, ikke gjør noe»."
+      why:
+        - "En av Europas mest kjente forvaltere, samme filosofi siden start i 2010"
+        - "Lav omsetning og få, robuste selskaper – passer som langsiktig kjerne ved siden av indeksfond"
+      risks:
+        - "Har ligget litt bak verdensindeksen siden start: +10,7 % årlig mot +11,4 % for MSCI World (USD, til 30.09.2026)"
+        - "Kvalitetsstilen har slitt de siste årene (2022: −21,9 %; 2024: +6,9 %; 2025: +7,9 %)"
+      track: "Siden start 2010: +10,7 % per år i USD mot +11,4 % for MSCI World (per 30.09.2026)."
+      sources:
+        - {title: "Fundsmith – faktaark (USD)", url: "https://www.fundsmith.eu/factsheet-usd"}
+    - id: skagen_global
+      name: "SKAGEN Global A"
+      provider: "SKAGEN (Stavanger)"
+      category: forvalter
+      manager: "Knut Gezelius (siden 2014) og Midhat Syed (siden 2025)"
+      fee: "1,00 % per år + 10 % variabelt honorar"
+      proxy: ACWI
+      currency: USD
+      markets: [alle]
+      sectors: []
+      headline: "Norsk klassiker fra 1997 med verdibasert, konsentrert global portefølje (31 selskaper)."
+      why:
+        - "Svært sterk historikk over tid: +13,2 % årlig siden 1997 mot +7,8 % for referanseindeksen (i NOK)"
+        - "Verdistil – gir en annen profil enn indeksfond tungt vektet mot amerikansk teknologi"
+      risks:
+        - "Klart svakere enn indeksen de siste årene: 5 år +4,3 % mot +12,5 % årlig; 10 år +10,0 % mot +13,9 % (per 31.08.2026)"
+        - "Variabelt honorar gjør fondet dyrere i gode år"
+      track: "Årlig i NOK per 31.08.2026: 1 år −7,3 % (indeks +13,9 %), 5 år +4,3 % (+12,5 %), 10 år +10,0 % (+13,9 %), siden start +13,2 % (+7,8 %)."
+      sources:
+        - {title: "SKAGEN Global A – månedsrapport august 2026", url: "https://www.skagenfondene.no/globalassets/pdfs/status-reports/norway/skagen-global-a/2026/20260904_skagen-global-a-august.pdf"}
+    - id: nordea_norge_verdi
+      name: "Nordea Norge Verdi"
+      provider: "Nordea"
+      category: forvalter
+      manager: "Robert Næss"
+      fee: "se fondets nettside"
+      proxy: NORW
+      currency: USD
+      fx_relevant: false
+      markets: [Oslo]
+      sectors: []
+      headline: "Norsk verdifond kåret til beste norske aksjefond av Morningstar (2024)."
+      why:
+        - "Lang og stabil historikk med samme forvalter"
+        - "10 år: +10,7 % årlig mot +8,4 % for Oslo Børs fondsindeks; 20 år: +11,3 % mot +9,3 % (per 29.02.2024)"
+      risks:
+        - "Kun norske aksjer – tungt i energi og finans, og overlapper med Alfred Berg Gambak som du allerede eier"
+        - "Tallene er fra 2024 – sjekk oppdatert avkastning før du kjøper"
+      track: "10 år +10,7 % årlig mot +8,4 % for indeksen, 20 år +11,3 % mot +9,3 % (per 29.02.2024)."
+      sources:
+        - {title: "Nordea – Norge Verdi kåret til beste norske aksjefond", url: "https://www.nordea.com/no/nyheter/nordea-norge-verdi-karet-til-beste-norske-aksjefond"}
+    - id: dnb_teknologi_pick
+      name: "DNB Teknologi A"
+      provider: "DNB Asset Management"
+      category: tema
+      manager: "DNB Asset Management (teknologiteamet)"
+      fee: "1,15 % per år"
+      proxy: QQQ
+      currency: USD
+      markets: [USA]
+      sectors: [Technology, Communication Services]
+      headline: "Global teknologi, media og telekom – Microsoft, Alphabet, NVIDIA, Amazon og Visa er største posisjoner."
+      why:
+        - "Et av Norges beste fond over tid: fra 100 til ca. 7 300 kroner på 25 år (DNB)"
+        - "+23,3 % årlig siste 5 år ifølge DNB; Morningstar 4 stjerner"
+        - "Tema med sterk vekst: kunstig intelligens, sky og digitalisering"
+      risks:
+        - "Du eier fondet allerede – mer her øker en allerede stor teknologieksponering"
+        - "Svinger mye i perioder med stigende renter eller når AI-forventningene kjøles ned"
+      track: "5 år +23,3 % årlig (DNB, kurs per 27.10.2026). Startet 2001."
+      sources:
+        - {title: "DNB – DNB Teknologi A", url: "https://www.dnb.no/sparing/fond/fond-liste/d/dnb-teknologi-a-NO0010337678"}
+        - {title: "DNB – fra 100 til 7 300 kroner på 25 år", url: "https://www.dnb.no/dnbnyheter/no/bors-og-marked/dnb-teknologi-fra-100-til-7300-kroner-paa-25aar"}
+    - id: dnb_health
+      name: "DNB Health Care A"
+      provider: "DNB Asset Management"
+      category: tema
+      manager: "DNB Asset Management (helseteamet)"
+      fee: "1,15 % per år"
+      proxy: XLV
+      currency: USD
+      markets: [USA]
+      sectors: [Healthcare]
+      headline: "Global helse – legemidler, medisinsk utstyr, bioteknologi og helsetjenester. Startet 2000."
+      why:
+        - "Langsiktig vekst fra aldrende befolkning og nye behandlinger"
+        - "Defensiv sektor som ofte holder seg bedre når markedet faller"
+        - "+8,8 % årlig siste 5 år ifølge DNB; Morningstar 4 stjerner"
+      risks:
+        - "Politisk risiko rundt legemiddelpriser i USA"
+        - "Har ligget bak brede globale indekser de siste årene"
+      track: "5 år +8,8 % årlig, 1 år +9,4 % (DNB, kurs per 20.10.2026)."
+      sources:
+        - {title: "DNB – DNB Health Care A", url: "https://www.dnb.no/sparing/fond/fond-liste/d/dnb-health-care-a-NO0010337579"}
+    - id: storebrand_renewable
+      name: "Storebrand Renewable Energy N"
+      provider: "Storebrand"
+      category: tema
+      manager: "Storebrand Asset Management"
+      fee: "1,05 % per år"
+      proxy: ICLN
+      currency: USD
+      markets: [alle]
+      sectors: [Utilities]
+      headline: "Fossilfritt fond i sol, vind, hydrogen, vannkraft og infrastruktur for fornybar energi."
+      why:
+        - "Det grønne skiftet og økt strømbehov (bl.a. fra datasentre) gir langsiktig etterspørsel"
+        - "Sektoren har falt mye fra toppen i 2021 – inngangen kan være lav"
+      risks:
+        - "Høy risiko (5 av 7) og svak historikk; Morningstar 2 stjerner"
+        - "Svært rentefølsom sektor – passer bare som en liten andel"
+      track: "1 år +7,1 % (DNB, kurs per 07.10.2026). N-klassen startet 2021."
+      sources:
+        - {title: "DNB – Storebrand Renewable Energy N", url: "https://www.dnb.no/sparing/fond/fond-liste/d/storebrand-renewable-energy-n-NO0011110256"}
+    - id: dnb_india
+      name: "DNB Fund India N"
+      provider: "DNB Asset Management"
+      category: vekst
+      manager: "DNB Asset Management"
+      fee: "1,23 % per år"
+      proxy: INDA
+      currency: USD
+      markets: []
+      sectors: []
+      headline: "Indiske aksjer bredt spredt på sektorer – verdens raskest voksende store økonomi."
+      why:
+        - "IMF anslår rundt 7 % vekst for India i 2026, mot 4,5 % for Kina (oktober 2026)"
+        - "Ung befolkning, voksende middelklasse og produksjon som flyttes fra Kina"
+        - "Har falt det siste året – inngangen er lavere enn på lenge"
+      risks:
+        - "−17 % siste år (Nordnet, per 23.10.2026); indiske aksjer er høyt priset mot andre fremvoksende markeder"
+        - "Valuta (rupi) og politisk risiko"
+      track: "1 år −17,1 % (Nordnet, per 23.10.2026). Morningstar 3 stjerner."
+      sources:
+        - {title: "Nordnet – DNB Fund India N NOK", url: "https://www.nordnet.no/fond/liste/dnb-fund-india-n-nok-5a9bb8ae"}
+        - {title: "IMF hever vekstanslaget for India til 7 % (The Hans India)", url: "https://www.thehansindia.com/business/india-7-china-45-imf-widens-growth-gap-1132272"}
+
 gurus:                            # kjente investorer – porteføljer fra SEC EDGAR (13F). Fanen er fjernet fra appen; sett enabled: true for å hente igjen
   enabled: false
   refresh_days: 1                 # sjekk daglig om det er kommet ny 13F (selve rapportene kommer kvartalsvis)

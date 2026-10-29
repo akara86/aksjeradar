@@ -29,7 +29,7 @@ from aksjeradar.autotrader import run_autotrader
 from aksjeradar.config import all_tickers, load_config
 from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
-from aksjeradar.funds import run_funds
+from aksjeradar.funds import run_funds, run_picks
 from aksjeradar.gurus import run_gurus
 from aksjeradar.notify import push_settings, send_email, send_push, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
@@ -154,16 +154,23 @@ def main() -> int:
     funds_payload = {}
     if cfg["funds"].get("enabled", True) and cfg["funds"].get("list"):
         try:
-            proxies = sorted({f["proxy"] for f in cfg["funds"]["list"]})
-            currencies = sorted({f.get("currency", "USD") for f in cfg["funds"]["list"]} - {"NOK"})
+            picks_list = (cfg.get("picks") or {}).get("list") or [] if (cfg.get("picks") or {}).get("enabled", True) else []
+            all_f = cfg["funds"]["list"] + picks_list
+            proxies = sorted({f["proxy"] for f in all_f} | {"URTH"})
+            currencies = sorted({f.get("currency", "USD") for f in all_f} - {"NOK"})
             if args.demo:
-                proxy_frames = demo_prices(proxies, days=760, seed=5)
-                fx_frames = demo_fx_frames(days=760)
+                proxy_frames = demo_prices(proxies, days=2600, seed=5)
+                fx_frames = demo_fx_frames(days=2600)
             else:
-                proxy_frames = fetch_prices(proxies, "3y")   # 2 år i grafen + 200 dager til glidende snitt
-                fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "3y")
+                proxy_frames = fetch_prices(proxies, "10y")   # 2 år i grafen, 200 dager til snitt, 10 år til langsiktige tall
+                fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "10y")
             funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table)
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
+            if picks_list:
+                glob = next((x for x in funds_payload.get("funds", []) if x["id"] in ("klp_global", "global")), None)
+                picks = run_picks(cfg, proxy_frames, fx_frames, table, glob["ret_1y"] if glob else None)
+                funds_payload = {k: v for k, v in funds_payload.items() if k != "funds"} | {"picks": picks, "funds": funds_payload.get("funds", [])}
+                log.info("Utvalgt: %d fond", len(picks["list"]))
         except Exception as e:  # noqa: BLE001
             log.exception("Fondsmodulen feilet: %s", e)
 

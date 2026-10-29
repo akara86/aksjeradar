@@ -594,3 +594,72 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
         "thresholds": th,
         "funds": funds,   # den store lista sist, så resten er lett å lese i fila
     })
+
+
+# --------------------------------------------------------------------------
+# «Utvalgt»: særlig interessante fond (kuratert liste i config.yaml under `picks`)
+# --------------------------------------------------------------------------
+CATEGORIES = {"forvalter": "Forvaltere med lang historikk", "tema": "Sektorer med vekst", "vekst": "Økonomier med høy vekst"}
+
+
+def _ann(s: pd.Series, years: float):
+    """Årlig snittavkastning over `years` år (None hvis for kort historikk)."""
+    if s is None or len(s) < 2:
+        return None
+    start = s.index[-1] - pd.Timedelta(days=int(365.25 * years))
+    if s.index[0] > start + pd.Timedelta(days=25):
+        return None
+    base = s[s.index <= start]
+    if base.empty:
+        return None
+    return (float(s.iloc[-1]) / float(base.iloc[-1])) ** (1 / years) - 1
+
+
+def run_picks(cfg: dict, proxy_frames: dict[str, pd.DataFrame], fx_frames: dict[str, pd.DataFrame],
+              table: pd.DataFrame | None = None, global_ret_1y: float | None = None) -> dict:
+    pcfg = cfg.get("picks") or {}
+    th = (cfg.get("funds") or {}).get("thresholds", {})
+    hist_days = int((cfg.get("funds") or {}).get("history_days", 520))
+    out = []
+    glob_ann5 = None
+    gp = proxy_frames.get("URTH")
+    if gp is not None and len(gp):
+        g = gp["Close"].astype(float).copy(); g.index = pd.to_datetime(g.index).normalize()
+        fxs = fx_series(fx_frames, "USD")
+        gn = (g * fxs.reindex(g.index, method="ffill")).dropna() if fxs is not None else g
+        glob_ann5 = _ann(gn, 5)
+    for i, p in enumerate(pcfg.get("list") or []):
+        f = dict(p)
+        f.setdefault("id", f"pick{i + 1}")
+        f.setdefault("currency", "USD")
+        proxy = proxy_frames.get(f["proxy"])
+        if proxy is None or len(proxy) < 60:
+            log.warning("Utvalgt «%s»: mangler kurser for %s", f["name"], f["proxy"])
+            continue
+        try:
+            fxs = fx_series(fx_frames, f["currency"])
+            a = analyze_fund(f, proxy, fxs, th, hist_days)
+            px = proxy["Close"].astype(float).copy(); px.index = pd.to_datetime(px.index).normalize()
+            px = px[~px.index.duplicated(keep="last")].sort_index()
+            nok = (px * fxs.reindex(px.index, method="ffill")).dropna() if (fxs is not None and not f.get("hedged")) else px
+            mv = market_view(f, table)
+            a.update(attractiveness(a, mv, global_ret_1y, nok))
+            a["deposit"] = deposit_advice(a, th)
+            a["analysis"] = fund_narrative(a, a["deposit"], th)
+            five = nok[nok.index >= nok.index[-1] - pd.Timedelta(days=int(365.25 * 5))]
+            a["long"] = {
+                "ann_3y": _ann(nok, 3), "ann_5y": _ann(nok, 5), "ann_10y": _ann(nok, 10),
+                "max_dd_5y": float((five / five.cummax() - 1).min()) if len(five) > 20 else None,
+                "global_ann_5y": glob_ann5, "since": nok.index[0].strftime("%Y-%m-%d"),
+            }
+        except Exception as e:  # noqa: BLE001
+            log.warning("Utvalgt «%s» feilet: %s", f["name"], e)
+            continue
+        for k in ("provider", "category", "manager", "fee", "headline", "why", "risks", "track", "sources"):
+            a[k] = f.get(k)
+        a["category_label"] = CATEGORIES.get(f.get("category"), f.get("category") or "")
+        a["owned"] = False
+        a["pick"] = True
+        out.append(a)
+    out.sort(key=lambda x: -x["attr_score"])
+    return clean_for_json({"checked": pcfg.get("checked"), "categories": CATEGORIES, "list": out})
