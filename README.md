@@ -136,6 +136,11 @@ laget av `run.py`) og `docs/funds_now.json` (estimat hvert kvarter i børstiden,
   og appen regner videre med fondets kurve i NOK pluss dagens bevegelse i indeks-ETF-en × valutakurs,
   oppdatert hvert kvarter i børstiden, pluss en graf over hva dagens beholdning var verdt dag for dag.
   Verdiene lagres bare på telefonen (sikkerhetskopi under «Mer»).
+- **Marked** – markedsbildet hver morgen: regime (risikovilje/blandet/forsiktig) og en skrevet oppsummering,
+  nøkkeltall (VIX, 10-årsrente, olje, gull, USD/NOK, EUR/NOK), hvilke av de 11 sektorene og temaene
+  (halvledere, forsvar, fornybar) som er i vinden eller nedgående mot S&P 500, en fremover-score per sektor
+  (momentum, trend, analytikernes kursmål, prising, vekst og bredde fra aksjeanalysen) og regioner i NOK.
+  Oppsett under `market:` i `config.yaml`; logikken ligger i `aksjeradar/market.py`.
 - **Utvalgt** – en kuratert liste over særlig interessante fond (anerkjente forvaltere med lang historikk,
   sektorer med vekst som teknologi og helse, og økonomier med høy vekst som India), med fakta og kilder
   (`picks:` i `config.yaml`, datert i `checked`), langsiktige tall for markedet fondet måles mot (3/5/10 år

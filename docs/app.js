@@ -6,7 +6,7 @@
   const $ = (sel, el) => (el || document).querySelector(sel);
   const PREVIEW = !!window.__PREVIEW__;
 
-  const TABS = [["idag", "I dag"], ["verdi", "Verdi"], ["utvalgt", "Utvalgt"], ["fond", "Fond"], ["mer", "Mer"]];
+  const TABS = [["idag", "I dag"], ["verdi", "Verdi"], ["marked", "Marked"], ["utvalgt", "Utvalgt"], ["fond", "Fond"], ["mer", "Mer"]];
   const state = { data: null, tab: "idag", error: null };
   try { state.tab = localStorage.getItem("ar.tab") || state.tab; } catch (e) { /* lagring utilgjengelig – ignorer */ }
   if (!TABS.some(t => t[0] === state.tab)) state.tab = "idag";
@@ -58,6 +58,7 @@
     idag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     verdi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></svg>',
     fond: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    marked: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/></svg>',
     utvalgt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z"/></svg>',
     mer: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   };
@@ -274,7 +275,7 @@
   function rerenderCharts() {
     document.querySelectorAll("[data-fchart]").forEach(box => {
       const kind = box.dataset.fchart;
-      box.outerHTML = kind === "verdi" ? valueChartBlock() : fundChartBlock(fundById(kind));
+      box.outerHTML = kind === "verdi" ? valueChartBlock() : kind.startsWith("mk:") ? marketChartBlock(kind.slice(3)) : fundChartBlock(fundById(kind));
     });
     bindCharts();
   }
@@ -537,7 +538,7 @@
       if (!svg || !label || svg.dataset.bound) return;
       svg.dataset.bound = "1";
       const kind = box.dataset.fchart;
-      const ser = kind === "verdi" ? valueSeries(chartState.range === "1D" ? "1U" : chartState.range) : seriesFor(fundById(kind), chartState.range);
+      const ser = kind === "verdi" ? valueSeries(chartState.range === "1D" ? "1U" : chartState.range) : kind.startsWith("mk:") ? marketSeries(kind.slice(3)) : seriesFor(fundById(kind), chartState.range);
       if (!ser || ser.loading || ser.none) return;
       const n = ser.nok.length, padL = +svg.dataset.padl, padR = +svg.dataset.padr;
       const defaultHtml = label.innerHTML;
@@ -560,6 +561,7 @@
         g.style.display = ""; line.setAttribute("x1", px); line.setAttribute("x2", px); dot.setAttribute("cx", px); dot.setAttribute("cy", pt[1]);
         const chg = ser.ref ? v / ser.ref - 1 : null;
         const lbl = ser.kind === "intra" ? ser.labels[i] : (String(ser.labels[i]).endsWith(" nå") ? "nå" : fmtDate(ser.labels[i]));
+        if (kind.startsWith("mk:")) { const ib = ser.idx && isNum(ser.idx[i]) && ser.refIdx ? ser.idx[i] / ser.refIdx - 1 : null; label.innerHTML = `<b class="mono ${sign(chg)}">${pct(chg)}</b><span class="muted">${esc(fmtDate(ser.labels[i]))}${ib != null ? ` · S&P 500 ${pct(ib)}` : ""}${ib != null && chg != null ? ` · <span class="${sign(chg - ib)}" style="font-weight:700">${pct(chg - ib)} relativt</span>` : ""}</span>`; return; }
         label.innerHTML = `<b class="mono">${kind === "verdi" ? money(v) : num(v, 2) + " kr"}</b><span class="mono ${sign(chg)}">${kind === "verdi" ? signed(v - ser.ref) + " (" + pct(chg) + ")" : pct(chg)}</span><span class="muted">${esc(lbl)}${ser.idx && isNum(ser.idx[i]) && ser.refIdx ? ` · indeks ${pct(ser.idx[i] / ser.refIdx - 1)}` : ""}</span>`;
       };
       const hide = () => { g.style.display = "none"; label.innerHTML = defaultHtml; };
@@ -641,6 +643,103 @@
     }
     html += `<p class="note">Fondskursen settes offisielt én gang per dag av fondsselskapet. Tallene her er et estimat basert på en ETF som følger samme indeks (15-minutters kurser) og dagens valutakurs. Aktive fond avviker fra indeksen. Verdiene du registrerer lagres bare på denne enheten – bruk «Sikkerhetskopi» for å flytte dem til en annen telefon.</p>`;
     return html;
+  }
+
+  // ---------- fane: Marked (sektorer i vinden / nedgående, regioner, nøkkeltall) ----------
+  const marketData = () => (state.data && state.data.funds && state.data.funds.market) || null;
+  const ST_CLASS = { "I vinden": "v-strong", "Snur opp": "v-buy", "Nøytral": "v-hold", "Svekkes": "v-wait", "Nedgående": "v-avoid" };
+  const stBadge = st => `<span class="vb ${ST_CLASS[st] || ""}">${esc(st)}</span>`;
+  const REG_CLASS = { "Risikovilje": "v-strong", "Blandet": "v-hold", "Forsiktig": "v-wait" };
+  function mkFind(id) { const m = marketData(); return m ? (m.sectors.find(x => x.id === id) || m.regions.find(x => x.id === id)) : null; }
+  function marketSeries(id) {
+    const x = mkFind(id);
+    if (!x) return { none: true, reason: "Ingen data." };
+    const s = sliceDaily(x.history, chartState.range === "1D" ? "1M" : chartState.range);
+    if (!s) return { none: true, reason: "Ingen historikk." };
+    s.ref = s.nok[0]; s.refIdx = s.idx ? s.idx[0] : null; s.fx = null;
+    return s;
+  }
+  function marketChartBlock(id) {
+    const x = mkFind(id), ser = marketSeries(id);
+    if (ser.none) return `<div class="empty">${esc(ser.reason)}</div>`;
+    const last = ser.nok[ser.nok.length - 1], chg = ser.ref ? last / ser.ref - 1 : null;
+    const ib = ser.idx && ser.refIdx ? ser.idx[ser.idx.length - 1] / ser.refIdx - 1 : null;
+    return `<div class="chart-box" data-fchart="mk:${esc(id)}"><div class="ranges">${RANGES.filter(r => r !== "1D").map(r => `<button data-frange="${r}" aria-pressed="${(chartState.range === "1D" ? "1M" : chartState.range) === r}">${r}</button>`).join("")}</div>
+      <div class="chart big"><div class="xh-label" data-default="1"><b class="mono ${sign(chg)}">${pct(chg)}</b><span class="muted">siden ${fmtDate(ser.labels[0])}${ib != null ? ` · S&P 500 ${pct(ib)} · <span class="${sign(chg - ib)}" style="font-weight:700">${pct(chg - ib)} relativt</span>` : ""}</span></div>
+      ${bigChart(ser, "pct", false)}
+      <div class="legend"><span><i style="background:${isNum(chg) && chg < 0 ? "var(--down)" : "var(--up)"}"></i>${esc(x.name)} (${esc(x.etf)}${x.history.idx ? "" : ", i NOK"})</span>${x.history.idx ? `<span><i style="background:var(--muted)"></i>S&P 500</span>` : ""}</div></div></div>`;
+  }
+  const relCell = v => `<td class="mono ${sign(v)} hm" style="--a:${isNum(v) ? Math.min(1, Math.abs(v) / 0.12).toFixed(2) : 0}">${isNum(v) ? (v > 0 ? "+" : "") + num(v * 100, 1) : "–"}</td>`;
+  function sectorRow(x) {
+    return `<button class="row mk" data-mkinfo="${esc(x.id)}">
+      <span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui);font-size:14px">${esc(x.name)}</span></span>
+      <span class="l2">${stBadge(x.status)}<span class="info" style="font-family:var(--font-ui)">${esc((x.why_now || []).slice(0, 2).join(" · "))}</span></span></span>
+      <span class="mid"></span><span class="r"><span class="pill ${scClass(x.forward)}" title="Fremover-score">${sc(x.forward)}</span></span></button>`;
+  }
+  function viewMarked() {
+    const m = marketData();
+    if (!m) return `<div class="empty-card" style="margin-top:14px"><b>Markedsanalysen er ikke kjørt ennå.</b><p>Den lages hver morgen sammen med fondsanalysen.</p></div>`;
+    const sect = m.sectors || [];
+    let html = `<div class="card mk-head"><div class="badges"><span class="vb big ${REG_CLASS[m.regime] || ""}">${esc(m.regime)}</span><span class="muted" style="font-size:12.5px">per ${fmtDate(m.as_of)}</span></div>
+      ${(m.summary || []).map(t => `<p>${esc(t)}</p>`).join("")}</div>`;
+    const mac = m.macro || {};
+    const tiles = ["vix", "rate10", "brent", "gold", "usdnok", "eurnok"].filter(k => mac[k]).map(k => {
+      const x = mac[k], dec = k === "rate10" ? 2 : (k === "usdnok" || k === "eurnok") ? 2 : 0;
+      const ch = k === "rate10" ? (isNum(x.abs_1m) ? (x.abs_1m > 0 ? "+" : "") + num(x.abs_1m, 2) + " pp" : "–") : pct(x.chg_1m);
+      const chv = k === "rate10" ? x.abs_1m : x.chg_1m;
+      return `<div class="mtile"><span class="s-l">${esc(x.name)}</span><b class="mono">${num(x.last, dec)}${x.unit === "%" ? nbsp + "%" : ""}</b><small class="mono ${k === "vix" || k === "rate10" ? sign(-chv) : sign(chv)}">${ch} 1M</small>${sparkline(x.spark, 120, 26)}</div>`;
+    }).join("");
+    if (tiles) html += `<div class="section">${sectionHead("Nøkkeltall")}<div class="mtiles">${tiles}</div></div>`;
+    const up = sect.filter(x => x.status === "I vinden" || x.status === "Snur opp").sort((a, b) => (b.rel["3m"] || 0) - (a.rel["3m"] || 0));
+    const dn = sect.filter(x => x.status === "Nedgående" || x.status === "Svekkes").sort((a, b) => (a.rel["3m"] || 0) - (b.rel["3m"] || 0));
+    const fw = sect.filter(x => x.kind === "sektor").sort((a, b) => b.forward - a.forward).slice(0, 4);
+    html += `<div class="section">${sectionHead("I vinden nå", up.length)}${up.length ? `<div class="list">${up.map(sectorRow).join("")}</div>` : `<div class="empty">Ingen sektorer er i tydelig opptrend akkurat nå.</div>`}</div>`;
+    html += `<div class="section">${sectionHead("Nedgående", dn.length)}${dn.length ? `<div class="list">${dn.map(sectorRow).join("")}</div>` : `<div class="empty">Ingen sektorer er i tydelig nedtrend.</div>`}</div>`;
+    html += `<div class="section">${sectionHead("Best posisjonert fremover")}<p class="hint">Modellens fremover-score (0–100) for de 11 sektorene: momentum siste år, trend, analytikernes kursmål, prising, inntjeningsvekst og andel aksjer i opptrend.</p>
+      ${fw.map((x, i) => `<button class="fund fr ${i === 0 ? "v-strong" : "v-buy"}" data-mkinfo="${esc(x.id)}"><span class="su-top fr-top"><span class="rank-no mono">#${i + 1}</span>${stBadge(x.status)}<span class="pill ${scClass(x.forward)}" style="margin-left:auto">${sc(x.forward)}</span></span>
+        <span class="fund-name" style="margin-top:6px">${esc(x.name)}</span>
+        <span class="fr-key">${esc((x.why_forward || []).concat(x.note ? [x.note] : []).slice(0, 3).join(" · ") || (x.why_now || []).join(" · "))}</span></button>`).join("")}</div>`;
+    html += `<div class="section">${sectionHead("Alle sektorer mot S&P 500", sect.length)}<p class="hint">Prosentpoeng bedre (+) eller dårligere (−) enn S&P 500. Trykk på en rad for detaljer.</p>
+      <div class="card" style="margin-top:0;padding:6px 4px"><table class="heat"><thead><tr><th></th><th>1M</th><th>3M</th><th>6M</th><th>1Å</th><th>Fr.</th></tr></thead><tbody>
+      ${sect.slice().sort((a, b) => (b.rel["3m"] || -9) - (a.rel["3m"] || -9)).map(x => `<tr data-mkinfo="${esc(x.id)}"><td class="nm"><span class="dot ${ST_CLASS[x.status] || ""}"></span>${esc(x.name)}</td>${relCell(x.rel["1m"])}${relCell(x.rel["3m"])}${relCell(x.rel["6m"])}${relCell(x.rel["1y"])}<td class="mono">${sc(x.forward)}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
+    const rg = m.regions || [];
+    if (rg.length) html += `<div class="section">${sectionHead("Regioner i NOK", rg.length)}<div class="card" style="margin-top:0;padding:6px 4px"><table class="heat"><thead><tr><th></th><th>1M</th><th>3M</th><th>6M</th><th>1Å</th></tr></thead><tbody>
+      ${rg.map(x => `<tr data-mkinfo="${esc(x.id)}"><td class="nm"><span class="dot ${ST_CLASS[x.status] || ""}"></span>${esc(x.name)}</td>${relCell(x.ret["1m"])}${relCell(x.ret["3m"])}${relCell(x.ret["6m"])}${relCell(x.ret["1y"])}</tr>`).join("")}
+      </tbody></table></div></div>`;
+    html += `<div class="card"><h3>Slik leses dette</h3><ul class="reasons" style="margin:0;padding-left:18px">
+      <li><b>I vinden</b>: over 200-dagers snitt, 50-dagers over 200, og bedre enn S&P 500 siste 3 måneder. <b>Snur opp</b>: fortsatt under 200-dagers snitt, men har tatt seg opp over 50-dagers. <b>Svekkes</b>: i opptrend, men har falt under 50-dagers snitt. <b>Nedgående</b>: under 200-dagers snitt og svakere enn markedet.</li>
+      <li><b>Fremover-score</b> veier momentum siste 12 måneder (25 %), trend (15 %), analytikernes kursmål (20 %), prising (15 %), inntjeningsvekst (15 %) og andel aksjer i opptrend (10 %) – de fire siste fra aksjeanalysen i Aksjeradar. Temaer uten egen sektor vurderes bare på kurs.</li>
+      <li><b>Markedsregimet</b> teller S&P 500 mot 200- og 50-dagers snitt, andel aksjer i opptrend og uroindeksen VIX.</li>
+    </ul></div>
+    <p class="note">Dette er en mekanisk analyse av offentlige kurser og nøkkeltall, oppdatert hver morgen. Momentum har historisk hatt en tendens til å vare i noen måneder, men snur ofte brått – og ingen modell vet hvilke sektorer som vinner fremover. Ikke investeringsråd.</p>`;
+    return html;
+  }
+  function openMarketItem(id, push) {
+    const x = mkFind(id), m = marketData();
+    if (!x) return;
+    const isSector = !!x.rel, uv = x.universe, fp = x.forward_parts || {};
+    const partRow = (l, v) => `<span class="lbl">${l}</span><span class="bar"><i style="width:${isNum(v) ? Math.max(2, v) : 0}%;${isNum(v) ? "" : "opacity:.3"}"></i></span><span class="val">${isNum(v) ? sc(v) : "–"}</span>`;
+    const fundLinks = (x.funds || []).map(fid => fundById(fid)).filter(Boolean);
+    showSheet(`
+      ${sheetTop(esc(x.name), isSector ? (x.kind === "tema" ? "Tema" : "Sektor") + " · " + esc(x.etf) : "Region i NOK · " + esc(x.etf))}
+      <div class="gutter sheet-body">
+        <div class="badges" style="margin-top:4px">${stBadge(x.status)}${isSector ? `<span class="pill ${scClass(x.forward)}">Fremover ${sc(x.forward)}</span>` : ""}</div>
+        ${x.note ? `<p style="margin:10px 0 0">${esc(x.note)}</p>` : ""}
+        ${marketChartBlock(id)}
+        <div class="levels" style="margin-top:10px">
+          <span><i>1 mnd</i><b class="mono ${sign(x.ret["1m"])}">${pct(x.ret["1m"])}</b>${isSector ? `<small class="mono ${sign(x.rel["1m"])}">${pct(x.rel["1m"])} rel.</small>` : ""}</span>
+          <span><i>3 mnd</i><b class="mono ${sign(x.ret["3m"])}">${pct(x.ret["3m"])}</b>${isSector ? `<small class="mono ${sign(x.rel["3m"])}">${pct(x.rel["3m"])} rel.</small>` : ""}</span>
+          <span><i>1 år</i><b class="mono ${sign(x.ret["1y"])}">${pct(x.ret["1y"])}</b>${isSector ? `<small class="mono ${sign(x.rel["1y"])}">${pct(x.rel["1y"])} rel.</small>` : ""}</span>
+          <span><i>Mot 200d</i><b class="mono ${sign(x.trend.vs_sma200)}">${pct(x.trend.vs_sma200)}</b><small>${x.trend.sma50_over_200 ? "50d over 200d" : "50d under 200d"}</small></span>
+        </div>
+        ${isSector ? `<div class="card"><h3>Fremover-score ${sc(x.forward)}</h3><div class="scores fund-scores">${partRow("Momentum (25 %)", fp.momentum)}${partRow("Trend (15 %)", fp.trend)}${partRow("Analytikere (20 %)", fp.analysts)}${partRow("Prising (15 %)", fp.valuation)}${partRow("Vekst (15 %)", fp.growth)}${partRow("Bredde (10 %)", fp.breadth)}</div>
+          ${(x.why_forward || []).length ? `<ul class="vd-why" style="margin-top:8px">${x.why_forward.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : `<p class="muted" style="margin:8px 0 0;font-size:13px">Temaet har ingen egen sektor i aksjeanalysen – vurdert på kurs alene (manglende deler teller som nøytrale 50).</p>`}</div>` : ""}
+        ${uv && (uv.top || []).length ? `<div class="card"><h3>Sterkeste aksjer i sektoren</h3><div class="lines">${uv.top.map(t => `<div class="ln"><span class="t"><span class="mono">${esc(t.ticker)}</span> · ${esc(t.name)}</span><span class="v">${esc(t.verdict || "")} ${sc(t.score)}</span></div>`).join("")}</div><p class="muted" style="font-size:12.5px;margin:8px 0 0">Fra aksjeanalysen i Aksjeradar (${uv.n} aksjer i sektoren).</p></div>` : ""}
+        ${fundLinks.length ? `<div class="card"><h3>Fond i appen med denne eksponeringen</h3>${fundLinks.map(f => `<button class="linkbtn" ${f.pick ? `data-pickinfo` : `data-fundinfo`}="${esc(f.id)}" style="display:block;padding:4px 0;text-align:left">${esc(f.name)}${f.owned ? " (ditt)" : ""} – ${esc((f.deposit || {}).action || "")} ›</button>`).join("")}</div>` : ""}
+        <p class="note">Mekanisk analyse oppdatert ${fmtDate(m.as_of)}. Ikke investeringsråd.</p>
+      </div>`, push, { mkinfo: id });
+    bindCharts();
   }
 
   // ---------- fane: Utvalgt (særlig interessante fond – kuratert liste med kilder, målt løpende) ----------
@@ -771,6 +870,7 @@
     else if (e.state && e.state.fundform !== undefined) openFundForm(e.state.fundform || null, false);
     else if (e.state && e.state.fundinfo) openFundAnalysis(e.state.fundinfo, false);
     else if (e.state && e.state.pickinfo) openPick(e.state.pickinfo, false);
+    else if (e.state && e.state.mkinfo) openMarketItem(e.state.mkinfo, false);
     else closeSheet();
   });
 
@@ -910,7 +1010,7 @@
       return;
     }
     if (needsNow() && !fundsNow && !fundsNowLoading) loadFundsNow(false);
-    const views = { idag: viewIdag, verdi: viewVerdi, utvalgt: viewUtvalgt, fond: viewFond, mer: viewMer };
+    const views = { idag: viewIdag, verdi: viewVerdi, marked: viewMarked, utvalgt: viewUtvalgt, fond: viewFond, mer: viewMer };
     main.innerHTML = views[state.tab]();
     bindCharts();
   }
@@ -926,6 +1026,8 @@
     const fm = e.target.closest("[data-fmode]");
     if (fm) { chartState.mode = fm.dataset.fmode; saveChart(); rerenderCharts(); return; }
     if (e.target.closest("[data-fsma]")) { chartState.sma = !chartState.sma; saveChart(); rerenderCharts(); return; }
+    const mi = e.target.closest("[data-mkinfo]");
+    if (mi) { openMarketItem(mi.dataset.mkinfo); return; }
     const pi = e.target.closest("[data-pickinfo]");
     if (pi) { openPick(pi.dataset.pickinfo); return; }
     const fi = e.target.closest("[data-fundinfo]");

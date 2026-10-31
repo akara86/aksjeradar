@@ -30,6 +30,7 @@ from aksjeradar.config import all_tickers, load_config
 from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
 from aksjeradar.funds import run_funds, run_picks
+from aksjeradar.market import run_market
 from aksjeradar.gurus import run_gurus
 from aksjeradar.notify import push_settings, send_email, send_push, send_telegram
 from aksjeradar.report import render_html, render_markdown, render_telegram, write_reports
@@ -166,6 +167,21 @@ def main() -> int:
                 fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "10y")
             funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table)
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
+            mc = cfg.get("market") or {}
+            if mc.get("enabled", True) and mc.get("sectors"):
+                try:
+                    mt = sorted({x["etf"] for x in mc.get("sectors", []) + mc.get("themes", []) + mc.get("regions", [])} | {mc.get("benchmark", "SPY")})
+                    mt_macro = [x["ticker"] for x in mc.get("macro", [])]
+                    need = [t for t in mt + mt_macro if t not in proxy_frames and t not in fx_frames]
+                    if args.demo:
+                        extra = demo_prices(need, days=760, seed=9)
+                    else:
+                        extra = fetch_prices(need, "3y") if need else {}
+                    market = run_market(cfg, {**proxy_frames, **fx_frames, **extra}, table)
+                    funds_payload["market"] = market
+                    log.info("Marked: %d sektorer/tema, %d regioner, regime %s", len(market["sectors"]), len(market["regions"]), market["regime"])
+                except Exception as e:  # noqa: BLE001
+                    log.exception("Markedsanalysen feilet: %s", e)
             if picks_list:
                 glob = next((x for x in funds_payload.get("funds", []) if x["id"] in ("klp_global", "global")), None)
                 picks = run_picks(cfg, proxy_frames, fx_frames, table, glob["ret_1y"] if glob else None)

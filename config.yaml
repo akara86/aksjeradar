@@ -406,6 +406,43 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       sectors: [Utilities]
       intraday_proxies: [{ticker: IQQH.DE, currency: EUR}]   # iShares Global Clean Energy (Xetra)
 
+market:                           # «Marked»-fanen: sektorer i vinden / nedgående, regioner og nøkkeltall (oppdateres hver morgen)
+  enabled: true
+  benchmark: SPY                  # sektorene måles mot S&P 500
+  history_days: 520
+  sectors:                        # SPDR-sektor-ETF-er; `sector` kobler til aksjeanalysen (Yahoo-sektornavn); `funds` = relevante fond i appen
+    - {id: tech, name: "Teknologi", etf: XLK, sector: Technology, funds: [dnb_teknologi, dnb_teknologi_pick]}
+    - {id: comm, name: "Kommunikasjon og medier", etf: XLC, sector: Communication Services, funds: [dnb_teknologi]}
+    - {id: health, name: "Helse", etf: XLV, sector: Healthcare, funds: [dnb_health, helse]}
+    - {id: fin, name: "Finans", etf: XLF, sector: Financial Services}
+    - {id: energy, name: "Energi", etf: XLE, sector: Energy}
+    - {id: ind, name: "Industri", etf: XLI, sector: Industrials}
+    - {id: cycl, name: "Forbruksvarer (sykliske)", etf: XLY, sector: Consumer Cyclical}
+    - {id: stap, name: "Dagligvarer (defensive)", etf: XLP, sector: Consumer Defensive}
+    - {id: util, name: "Kraft og forsyning", etf: XLU, sector: Utilities, funds: [storebrand_renewable, fornybar]}
+    - {id: mat, name: "Råvarer og materialer", etf: XLB, sector: Basic Materials}
+    - {id: re, name: "Eiendom", etf: XLRE, sector: Real Estate}
+  themes:                         # temaer uten egen sektor i aksjeanalysen (vurderes på kurs alene)
+    - {id: semi, name: "Halvledere og AI-brikker", etf: SOXX, note: "Kjernen i AI-utbyggingen – svinger kraftig.", funds: [dnb_teknologi]}
+    - {id: defense, name: "Forsvar og luftfart", etf: ITA, note: "Økte forsvarsbudsjetter i Europa og USA."}
+    - {id: clean, name: "Fornybar energi", etf: ICLN, note: "Sol, vind og strømnett – svært rentefølsomt.", funds: [storebrand_renewable, fornybar]}
+  regions:                        # i NOK
+    - {id: world, name: "Verden", etf: URTH, currency: USD, funds: [klp_global, storebrand_solutions]}
+    - {id: usa, name: "USA", etf: SPY, currency: USD, funds: [usa]}
+    - {id: europe, name: "Europa", etf: VGK, currency: USD, funds: [europa]}
+    - {id: norway, name: "Norge", etf: NORW, currency: USD, funds: [gambak, nordea_norge_verdi]}
+    - {id: japan, name: "Japan", etf: EWJ, currency: USD}
+    - {id: em, name: "Fremvoksende markeder", etf: IEMG, currency: USD, funds: [klp_em]}
+    - {id: india, name: "India", etf: INDA, currency: USD, funds: [dnb_india]}
+    - {id: china, name: "Kina", etf: MCHI, currency: USD}
+  macro:
+    - {id: vix, name: "Uroindeks (VIX)", ticker: "^VIX"}
+    - {id: rate10, name: "USA 10-årsrente", ticker: "^TNX", unit: "%"}
+    - {id: brent, name: "Brent-olje", ticker: "BZ=F", unit: "$"}
+    - {id: gold, name: "Gull", ticker: "GC=F", unit: "$"}
+    - {id: usdnok, name: "USD/NOK", ticker: "USDNOK=X", unit: "kr"}
+    - {id: eurnok, name: "EUR/NOK", ticker: "EURNOK=X", unit: "kr"}
+
 picks:                            # «Utvalgt»-fanen: særlig interessante fond (forvaltere, historikk, vekstsektorer/-økonomier)
   enabled: true
   # Fakta (forvalter, kostnad, historikk) er hentet fra kildene under og datert i `checked` – sjekk dem igjen av og til.
