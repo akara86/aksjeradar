@@ -310,6 +310,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
   list:
     # ---- Dine fond ----
     - id: klp_global
+      nav_ticker: "0P0001OPBL.IR"       # fondets ekte andelskurs hos Yahoo (ISIN NO0012445404) – brukes i stedet for proxyen der den finnes
       name: "KLP AksjeGlobal Indeks"
       examples: "Ditt fond · følger MSCI World"
       proxy: URTH
@@ -319,6 +320,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       markets: [alle]
       intraday_proxies: [{ticker: EUNL.DE, currency: EUR}]   # iShares Core MSCI World (Xetra) – dekker europeisk åpningstid
     - id: storebrand_solutions
+      nav_ticker: "0P0001EC8K.IR"       # fondets ekte andelskurs hos Yahoo (ISIN NO0010817703) – brukes i stedet for proxyen der den finnes
       name: "Storebrand Global Solutions"
       examples: "Ditt fond · aktivt forvaltet, referanseindeks MSCI ACWI – ETF-en er en tilnærming"
       proxy: ACWI
@@ -328,6 +330,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       markets: [alle]
       intraday_proxies: [{ticker: IUSQ.DE, currency: EUR}]   # iShares MSCI ACWI (Xetra)
     - id: gambak
+      nav_ticker: "0P0001LR11.IR"       # fondets ekte andelskurs hos Yahoo (ISIN NO0010904857) – brukes i stedet for proxyen der den finnes
       name: "Alfred Berg Gambak"
       examples: "Ditt fond · aktivt forvaltet norsk fond – følges via Oslo Børs-ETF (tilnærming)"
       proxy: NORW
@@ -338,6 +341,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       markets: [Oslo]
       intraday_proxies: [{ticker: OSEBX.OL, currency: NOK}]  # Oslo Børs hovedindeks
     - id: klp_em
+      nav_ticker: "0P0001OPBE.IR"       # fondets ekte andelskurs hos Yahoo (ISIN NO0012443664) – brukes i stedet for proxyen der den finnes
       name: "KLP AksjeFremvoksende Markeder Indeks"
       examples: "Ditt fond · følger MSCI Emerging Markets"
       proxy: IEMG
@@ -346,6 +350,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       role: satellitt
       intraday_proxies: [{ticker: IS3N.DE, currency: EUR}]   # iShares Core MSCI EM IMI (Xetra)
     - id: dnb_teknologi
+      nav_ticker: "0P00000MVB.IR"       # fondets ekte andelskurs hos Yahoo (ISIN NO0010337678) – brukes i stedet for proxyen der den finnes
       name: "DNB Teknologi"
       examples: "Ditt fond · aktivt forvaltet teknologi/telekom/media – følges via Nasdaq-100 (tilnærming)"
       proxy: QQQ

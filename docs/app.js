@@ -696,7 +696,7 @@
             <span><i>Nå (est.)</i><b class="mono">${money(e.now)}</b><small>${h.synthetic ? "bare innskudd" : "reg. " + money(h.value)}${e.depSum ? ` + innskudd ${money(e.depSum)}` : ""}</small></span>
             <span><i>I dag</i><b class="mono ${sign(e.todayKr)}">${pct(e.today)}</b><small class="mono ${sign(e.todayKr)}">${signed(e.todayKr)}</small></span>
             <span><i>Gevinst siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${signed(e.sinceKr)}</small></span>
-            <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.market_open ? e.est.age_min + " min gammel" : "stengt"}` : "sluttkurs " + fmtDate(e.nf.to)}</small></span>
+            <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.f.nav ? `andelskurs ${fmtDate(e.f.nav.last_date)}${e.f.nav.estimated_days || e.useIntra ? " + estimat" : ""}` : (e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.market_open ? e.est.age_min + " min gammel" : "stengt"}` : "sluttkurs " + fmtDate(e.nf.to))}</small></span>
           </div>
           ${e.useIntra && e.est.fx ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Indeks ${pct(e.est.proxy_change)} i ${esc(e.est.proxy_currency)} · valuta ${esc(e.est.fx.pair)} ${pct(e.est.fx.change)} → ${pct(e.today)} i NOK</p>` : ""}
           ${e.f.deposit ? `<button class="linkbtn" data-fundinfo="${esc(e.f.id)}" style="margin-top:8px;padding:0;text-align:left">Dagens råd: ${depBadge(e.f.deposit)} <span class="muted">analyse ›</span></button>` : ""}
@@ -705,7 +705,7 @@
         ${depositList()}
         <div class="btn-row wrap"><button class="btn" data-depadd="1">Registrer innskudd</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" id="pf-backup">Sikkerhetskopi</button></div>`;
     }
-    html += `<p class="note">Fondskursen settes offisielt én gang per dag av fondsselskapet. Tallene her er et estimat basert på en ETF som følger samme indeks (15-minutters kurser) og dagens valutakurs. Aktive fond avviker fra indeksen. Verdiene du registrerer lagres bare på denne enheten – bruk «Sikkerhetskopi» for å flytte dem til en annen telefon.</p>`;
+    html += `<p class="note">Verdien regnes fra fondenes offisielle andelskurser (publiseres én gang per dag, ofte med én dags forsinkelse). For dagene etter siste andelskurs – og i dag – estimeres utviklingen med en ETF som følger samme indeks (15-minutters kurser) og valutakursen. Verdiene du registrerer lagres bare på denne enheten – bruk «Sikkerhetskopi» for å flytte dem til en annen telefon.</p>`;
     return html;
   }
 
@@ -956,6 +956,7 @@
           <span><i>1 år</i><b class="mono ${sign(f.ret_1y)}">${pct(f.ret_1y)}</b></span>
         </div>
         ${fundChartBlock(f)}
+        ${f.nav ? `<p class="muted" style="margin:10px 0 0;font-size:12.5px">Kurven bruker fondets offisielle andelskurs (siste ${fmtDate(f.nav.last_date)}: ${num(f.nav.last, 2)} kr)${f.nav.estimated_days ? `, pluss estimat for ${f.nav.estimated_days} dag${f.nav.estimated_days > 1 ? "er" : ""} etter via ${esc(f.proxy)}` : ""}.${isNum(f.nav.te_daily) ? ` Estimatet via ${esc(f.proxy)} avviker typisk ${num(f.nav.te_daily * 100, 1)} % per dag fra fondet.` : ""}</p>` : ""}
         <div class="analysis" style="margin-top:14px">${(an.sections || []).map(sx => sx.h === "Hva som ville endret vurderingen" && (an.triggers || []).length
           ? `<h3>${esc(sx.h)}</h3><ul class="reasons" style="margin:0;padding-left:18px">${an.triggers.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`
           : `<h3>${esc(sx.h)}</h3><p>${esc(sx.t)}</p>`).join("")}</div>

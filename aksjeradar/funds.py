@@ -61,8 +61,43 @@ def fx_series(fx_frames: dict[str, pd.DataFrame], currency: str) -> pd.Series | 
     return s[~s.index.duplicated(keep="last")].sort_index()
 
 
-def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, history_days: int = 130) -> dict:
-    """Metrikker for ett fond. `proxy` = daglige kurser for ETF-en, `fx` = valutakurs til NOK (None = ingen omregning)."""
+def splice_nav(nav: pd.Series | None, proxy_nok: pd.Series) -> tuple[pd.Series, dict | None]:
+    """Fondets ekte andelskurser der de finnes; proxyen (ETF × valuta) fyller hullene før start og etter siste kurs.
+    Returnerer (kurve i NOK, info) – info er None hvis ekte kurser mangler."""
+    if nav is None or len(nav) < 20:
+        return proxy_nok, None
+    nav = nav.astype(float).copy()
+    nav.index = pd.to_datetime(nav.index).normalize()
+    nav = nav[~nav.index.duplicated(keep="last")].sort_index().dropna()
+    first, last = nav.index[0], nav.index[-1]
+    pn = proxy_nok.dropna()
+    before = pn[pn.index < first]
+    after = pn[pn.index > last]
+    parts = []
+    if len(before):
+        ref = pn[pn.index <= first]
+        if len(ref):
+            parts.append(before * (float(nav.iloc[0]) / float(ref.iloc[-1])))
+    parts.append(nav)
+    if len(after):
+        ref = pn[pn.index <= last]
+        if len(ref):
+            parts.append(after * (float(nav.iloc[-1]) / float(ref.iloc[-1])))
+    out = pd.concat(parts).sort_index()
+    out = out[~out.index.duplicated(keep="last")]
+    # hvor godt treffer proxyen fondet? (daglige endringer, samme dag)
+    j = pd.concat([nav.rename("nav"), pn.rename("p")], axis=1).dropna().pct_change().dropna().tail(126)
+    info = {"last_date": last.strftime("%Y-%m-%d"), "last": round(float(nav.iloc[-1]), 4), "first_date": first.strftime("%Y-%m-%d"),
+            "estimated_days": int(len(after)), "est_change": (float(out.iloc[-1]) / float(nav.iloc[-1]) - 1) if len(after) else 0.0,
+            "corr": round(float(j["nav"].corr(j["p"])), 3) if len(j) > 20 else None,
+            "te_daily": round(float((j["nav"] - j["p"]).std()), 5) if len(j) > 20 else None}
+    return out, info
+
+
+def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, history_days: int = 130,
+                 nav: pd.Series | None = None) -> dict:
+    """Metrikker for ett fond. `proxy` = daglige kurser for ETF-en, `fx` = valutakurs til NOK (None = ingen omregning).
+    `nav` = fondets ekte andelskurser (NOK) hvis tilgjengelig – da brukes de, og proxyen fyller bare hullene."""
     px = proxy["Close"].astype(float).copy()
     px.index = pd.to_datetime(px.index).normalize()
     px = px[~px.index.duplicated(keep="last")].sort_index()
@@ -75,6 +110,7 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
         fxa = None
         nok = px
     nok = nok.dropna()
+    nok, nav_info = splice_nav(nav, nok)
     last = float(nok.iloc[-1])
     sma200 = _num(nok.rolling(200).mean().iloc[-1])
     sma50 = _num(nok.rolling(50).mean().iloc[-1])
@@ -154,7 +190,7 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
         "ret_1m": nok_ret["1m"], "ret_3m": nok_ret["3m"], "ret_1y": nok_ret["1y"],
         "idx_ret_1m": idx_ret["1m"], "idx_ret_3m": idx_ret["3m"], "idx_ret_1y": idx_ret["1y"],
         "fx_last": fx_last, "fx_vs_sma200": fx_vs_sma200, "fx_rank_1y": fx_rank, "fx_ret_1m": fx_ret_1m,
-        "score": score, "level": level, "why": why,
+        "score": score, "level": level, "why": why, "nav": nav_info,
         "history": {"dates": [d.strftime("%Y-%m-%d") for d in hist.index],
                     "nok": [round(float(v), 2) for v in hist], "idx": [round(float(v), 2) for v in idx_hist],
                     "sma200": [r2(v) for v in sma200_s],
@@ -490,7 +526,7 @@ def fund_narrative(a: dict, dep: dict, th: dict) -> dict:
 
 
 def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], fx_frames: dict[str, pd.DataFrame],
-              table: pd.DataFrame | None = None) -> dict:
+              table: pd.DataFrame | None = None, nav_frames: dict[str, pd.DataFrame] | None = None) -> dict:
     fcfg = cfg["funds"]
     th = fcfg.get("thresholds", {})
     prev, _ = store.load_snapshot("funds", "levels")
@@ -505,7 +541,9 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
             log.warning("Fond «%s»: mangler kurser for %s", f["name"], f["proxy"])
             continue
         try:
-            a = analyze_fund(f, proxy, fx_series(fx_frames, f["currency"]), th, int(fcfg.get("history_days", 520)))  # kursdager i grafen
+            navs = (nav_frames or {}).get(f.get("nav_ticker")) if f.get("nav_ticker") else None
+            a = analyze_fund(f, proxy, fx_series(fx_frames, f["currency"]), th, int(fcfg.get("history_days", 520)),
+                             nav=navs["Close"] if navs is not None else None)
         except Exception as e:  # noqa: BLE001
             log.warning("Fond «%s» feilet: %s", f["name"], e)
             continue

@@ -165,7 +165,11 @@ def main() -> int:
             else:
                 proxy_frames = fetch_prices(proxies, "10y")   # 2 år i grafen, 200 dager til snitt, 10 år til langsiktige tall
                 fx_frames = fetch_prices([f"{c}NOK=X" for c in currencies], "10y")
-            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table)
+            nav_tickers = sorted({f["nav_ticker"] for f in cfg["funds"]["list"] if f.get("nav_ticker")})
+            nav_frames = {} if (args.demo or not nav_tickers) else fetch_prices(nav_tickers, "3y")
+            if nav_tickers and not args.demo:
+                log.info("Ekte andelskurser: %d av %d fond", len(nav_frames), len(nav_tickers))
+            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table, nav_frames)
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
             mc = cfg.get("market") or {}
             if mc.get("enabled", True) and mc.get("sectors"):
