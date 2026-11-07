@@ -16,12 +16,13 @@ jobs:
       - run: python tools/nav_probe.py nav_probe.json
       - run: python tools/verify_published.py published.json
       - run: python tools/holdings_probe.py holdings_probe.json
+      - run: python tools/debug_stress.py debug_stress.json
       - name: Lagre resultatet på egen gren
         run: |
           git config user.name "aksjeradar-bot"
           git config user.email "aksjeradar-bot@users.noreply.github.com"
           git checkout --orphan kontroll
           git rm -rfq --cached . >/dev/null
-          git add -f nav_probe.json published.json holdings_probe.json
+          git add -f nav_probe.json published.json holdings_probe.json debug_stress.json
           git commit -qm "Fondskontroll $(date -u +%F)"
           git push -fq origin kontroll
