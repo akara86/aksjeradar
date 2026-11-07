@@ -371,3 +371,26 @@ def demo_details(ticker: str, price: float, seed: int = 7) -> dict:
                         "shares": shares, "value": shares * price})
     return {"fundamentals": fundamentals, "analyst": analyst, "upgrades": upgrades,
             "insider": insider, "fetched_at": today.strftime("%Y-%m-%d")}
+
+
+def fetch_fund_holdings(ticker: str) -> dict | None:
+    """Sektorfordeling og de største posisjonene for et fond/ETF (Yahoo funds_data). None hvis ikke tilgjengelig."""
+    import yfinance as yf
+
+    try:
+        fd = yf.Ticker(ticker).funds_data
+        sectors = {k: float(v) for k, v in (fd.sector_weightings or {}).items() if v is not None and float(v) > 0}
+        top = []
+        th = fd.top_holdings
+        if th is not None and len(th):
+            for sym, row in th.iterrows():
+                pct = row.get("Holding Percent")
+                if pct is not None:
+                    top.append({"symbol": str(sym), "name": str(row.get("Name") or sym), "pct": float(pct)})
+        ac = fd.asset_classes or {}
+        if not sectors and not top:
+            return None
+        return {"source": ticker, "sectors": sectors, "top": top[:10], "stock": _num(ac.get("stockPosition")), "cash": _num(ac.get("cashPosition"))}
+    except Exception as e:  # noqa: BLE001
+        log.warning("Beholdningsdata for %s feilet: %s", ticker, e)
+        return None

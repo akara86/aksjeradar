@@ -133,7 +133,7 @@
   const DEP_CLASS = { boost: "v-strong", consider: "v-buy", regular: "v-hold", wait: "v-wait" };
   const depBadge = (d, big) => d ? `<span class="vb ${DEP_CLASS[d.code] || ""} ${big ? "big" : ""}">${esc(d.action)}</span>` : "";
 
-  function lineChart(series, dates) {
+  function lineChart(series, dates, lbl) {
     // series: [{values, color, width, dash}] – samme skala for alle
     const W = 360, H = 170, padL = 6, padR = 52, padT = 10, padB = 22;
     const all = series.flatMap(s => s.values).filter(isNum);
@@ -147,8 +147,8 @@
       <text x="${W - padR + 6}" y="${(y(v) + 4).toFixed(1)}" font-size="10" fill="var(--muted)">${hi >= 2000 ? num(v / 1000, 1) + "k" : num(v, 0)}</text>`).join("");
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verdiutvikling">${grid}
       ${series.map(s => `<path d="${path(s.values)}" fill="none" stroke="${s.color}" stroke-width="${s.width || 2}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
-      <text x="${padL}" y="${H - 6}" font-size="10" fill="var(--muted)">${fmtDate(dates[0])}</text>
-      <text x="${W - padR}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="end">${fmtDate(dates[dates.length - 1])}</text></svg>`;
+      <text x="${padL}" y="${H - 6}" font-size="10" fill="var(--muted)">${(lbl || fmtDate)(dates[0])}</text>
+      <text x="${W - padR}" y="${H - 6}" font-size="10" fill="var(--muted)" text-anchor="end">${(lbl || fmtDate)(dates[dates.length - 1])}</text></svg>`;
   }
   function fundChart(h) {
     // to linjer, hver indeksert til 100 ved start: fondet i NOK og indeksen i egen valuta
@@ -673,8 +673,151 @@
       <div class="gutter sheet-body"><div class="card"><div class="lines">${pendingImport.map(x => { const f = fundById(x.id); return `<div class="ln"><span class="d">${fmtDate(x.date)}</span><span class="t">${esc(f ? f.name : x.id + " (ukjent fond)")}${x.note ? `<br><span class="muted" style="font-size:12px">${esc(x.note)}</span>` : ""}${isDup(x) ? `<br><span class="muted" style="font-size:12px">finnes allerede – hoppes over</span>` : ""}</span><span class="v">${money(x.amount)}</span></div>`; }).join("")}</div></div>
       <div class="btn-row"><button class="btn" id="imp-ok">Legg til</button><button class="btn secondary" id="imp-cancel">Avbryt</button></div></div>`, true, { importdep: true });
   }
+
+  // ---------- Verdi: Fordeling · Fremtid · Risiko og kostnad ----------
+  const VMODES = [["oversikt", "Oversikt"], ["fordeling", "Fordeling"], ["fremtid", "Fremtid"], ["risiko", "Risiko"]];
+  let vmode = "oversikt";
+  try { vmode = localStorage.getItem("ar.vmode") || vmode; } catch (e) { /* ignorer */ }
+  if (!VMODES.some(m => m[0] === vmode)) vmode = "oversikt";
+  const SECTOR_NO = { technology: "Teknologi", financial_services: "Finans", industrials: "Industri", healthcare: "Helse", consumer_cyclical: "Sykliske forbruksvarer",
+    consumer_defensive: "Dagligvarer", communication_services: "Kommunikasjon og medier", energy: "Energi", basic_materials: "Råvarer", utilities: "Kraft og forsyning", realestate: "Eiendom" };
+  const BIGTECH = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "TSLA", "AVGO"];
+  function bars(items, total) {
+    const max = Math.max.apply(null, items.map(x => x.v)) || 1;
+    return `<div class="dist">${items.map(x => `<div class="drow"><span class="dl">${esc(x.l)}${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</span><span class="db"><i style="width:${Math.max(2, x.v / max * 100).toFixed(1)}%"></i></span><span class="dv mono">${pct(total ? x.v / total : null, false, 1)}<small>${money(x.v)}</small></span></div>`).join("")}</div>`;
+  }
+  function needValues() {
+    return `<div class="empty-card" style="margin-top:14px"><b>Registrer fondene dine først.</b><p>Denne visningen bruker verdien av hvert fond. Legg dem inn under «Oversikt».</p><button class="btn" data-vmode="oversikt">Til oversikten</button></div>`;
+  }
+  function viewFordeling() {
+    const ests = estimates();
+    if (!ests.length) return needValues();
+    const tot = ests.reduce((a, x) => a + x.e.now, 0);
+    let html = "";
+    // Marked
+    const groups = {};
+    ests.forEach(({ e }) => { const g = (e.f.exposure && e.f.exposure.group) || e.f.name; groups[g] = (groups[g] || 0) + e.now; });
+    html += `<div class="section">${sectionHead("Marked")}<div class="card" style="margin-top:0">${bars(Object.entries(groups).map(([l, v]) => ({ l, v })).sort((a, b) => b.v - a.v), tot)}</div></div>`;
+    // Valuta
+    const nok = ests.filter(x => (x.e.f.exposure || {}).currency === "NOK" || x.e.f.fx_relevant === false || x.e.f.hedged).reduce((a, x) => a + x.e.now, 0);
+    html += `<div class="section">${sectionHead("Valuta")}<div class="card" style="margin-top:0">${bars([{ l: "Utenlandsk valuta", sub: "påvirkes av kronekursen", v: tot - nok }, { l: "Norske kroner", sub: "norske aksjer eller valutasikret", v: nok }].filter(x => x.v > 0), tot)}
+      <p class="muted" style="font-size:12.5px;margin:8px 0 0">${pct((tot - nok) / tot, false, 0)} av pengene dine svinger med kronekursen. Svekkes kronen, øker verdien – styrkes den, faller verdien.</p></div></div>`;
+    // Sektorer
+    const sec = {}; let covered = 0;
+    ests.forEach(({ e }) => { const h = e.f.holdings; if (!h || !h.sectors) return; covered += e.now; const sum = Object.values(h.sectors).reduce((a, v) => a + v, 0) || 1; for (const [k, w] of Object.entries(h.sectors)) sec[k] = (sec[k] || 0) + e.now * w / sum; });
+    if (covered) {
+      const items = Object.entries(sec).map(([k, v]) => ({ l: SECTOR_NO[k] || k, v })).sort((a, b) => b.v - a.v).filter(x => x.v / covered > 0.005);
+      html += `<div class="section">${sectionHead("Sektorer")}<div class="card" style="margin-top:0">${bars(items, covered)}${covered < tot * 0.99 ? `<p class="muted" style="font-size:12.5px;margin:8px 0 0">Sektordata mangler for ${pct(1 - covered / tot, false, 0)} av beløpet.</p>` : ""}</div></div>`;
+    }
+    // Underliggende selskaper
+    const co = {};
+    ests.forEach(({ e }) => { const h = e.f.holdings; if (!h || !h.top) return; h.top.forEach(t => { const key = t.symbol === "GOOG" ? "GOOGL" : t.symbol; if (!co[key]) co[key] = { l: t.name, v: 0, funds: new Set() }; co[key].v += e.now * t.pct; co[key].funds.add(e.f.name); }); });
+    const coList = Object.entries(co).map(([k, x]) => ({ k, l: x.l, v: x.v, sub: x.funds.size > 1 ? `i ${x.funds.size} av fondene dine` : [...x.funds][0] })).sort((a, b) => b.v - a.v);
+    if (coList.length) {
+      const big = coList.filter(x => BIGTECH.includes(x.k)).reduce((a, x) => a + x.v, 0);
+      const overlap = coList.filter(x => x.sub && x.sub.startsWith("i "));
+      html += `<div class="section">${sectionHead("Største underliggende selskaper")}<div class="card" style="margin-top:0">${bars(coList.slice(0, 12), tot)}
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Fondene oppgir bare sine 10 største posisjoner, så de virkelige tallene er minst så store.</p></div></div>`;
+      const ins = [];
+      if (big) ins.push(`<b>${pct(big / tot, false, 1)}</b> (${money(big)}) av porteføljen ligger i de store amerikanske teknologiselskapene (Apple, NVIDIA, Microsoft, Amazon, Alphabet, Meta, Tesla, Broadcom) – bare fra fondenes 10 største posisjoner.`);
+      if (overlap.length) ins.push(`${overlap.length} selskap${overlap.length > 1 ? "er" : ""} finnes i flere av fondene dine: ${overlap.slice(0, 5).map(x => esc(x.l)).join(", ")}. Det er overlapp, ikke ekstra spredning.`);
+      const biggestFund = ests.slice().sort((a, b) => b.e.now - a.e.now)[0];
+      if (biggestFund && biggestFund.e.now / tot > 0.4) ins.push(`${esc(biggestFund.e.f.name)} er ${pct(biggestFund.e.now / tot, false, 0)} av porteføljen.${biggestFund.e.f.fee != null && biggestFund.e.f.fee <= 0.3 ? " Det er greit for et billig, bredt indeksfond som kjerne." : ""}`);
+      const techSec = covered ? (sec.technology || 0) / covered : null;
+      if (techSec != null) ins.push(`Teknologi er ${pct(techSec, false, 0)} av aksjene dine, mot ca. ${pct(((ests.find(x => x.h.id === "klp_global") || {}).e || { f: {} }).f.holdings ? ests.find(x => x.h.id === "klp_global").e.f.holdings.sectors.technology : 0.31, false, 0)} i en bred verdensindeks.`);
+      html += `<div class="card"><h3>Hva dette betyr</h3><ul class="reasons" style="margin:0;padding-left:18px">${ins.map(t => `<li>${t}</li>`).join("")}</ul></div>`;
+    }
+    html += `<p class="note">Sektorer og største posisjoner er fondenes egne tall hentet fra Morningstar via Yahoo, oppdatert jevnlig (ofte månedlig). Fordelingen bruker estimert verdi nå.</p>`;
+    return html;
+  }
+
+  // Fremtid: sparemål og fremskriving
+  function plan() { if (!pf.plan) pf.plan = { monthly: 5000, years: 20, target: 0 }; return pf.plan; }
+  const SCEN = [{ id: "svak", l: "Svakt", r: 0.03, col: "var(--down)" }, { id: "normal", l: "Normalt", r: 0.065, col: "var(--accent)" }, { id: "god", l: "Godt", r: 0.09, col: "var(--up)" }];
+  function project(start, monthly, rate, years) {
+    const rm = Math.pow(1 + rate, 1 / 12) - 1, out = [start]; let v = start;
+    for (let m = 1; m <= years * 12; m++) { v = v * (1 + rm) + monthly; if (m % 12 === 0) out.push(v); }
+    return out;
+  }
+  function viewFremtid() {
+    const ests = estimates();
+    const start = ests.length ? totals(ests).totNow : 0;
+    const pl = plan(), yrs = Math.max(1, Math.min(40, pl.years || 20));
+    const wfee = ests.length ? ests.reduce((a, x) => a + x.e.now * ((x.e.f.fee || 0) + (x.e.f.tx_cost || 0)), 0) / (start || 1) / 100 : 0;
+    const series = SCEN.map(sc => ({ ...sc, vals: project(start, pl.monthly || 0, sc.r - wfee, yrs) }));
+    const dates = Array.from({ length: yrs + 1 }, (_, i) => `${new Date().getFullYear() + i}-01-01`);
+    const paid = start + (pl.monthly || 0) * 12 * yrs;
+    let html = `<div class="card"><h3>Dine forutsetninger</h3><div class="form">
+      <label class="field"><span>Sparer per måned (kr)</span><input id="pl-monthly" type="number" inputmode="numeric" min="0" step="500" value="${pl.monthly || 0}"></label>
+      <label class="field"><span>Antall år: <b id="pl-yrs-v">${yrs}</b></span><input id="pl-years" type="range" min="1" max="40" value="${yrs}"></label>
+      <label class="field"><span>Mål (kr, valgfritt)</span><input id="pl-target" type="number" inputmode="numeric" min="0" step="50000" value="${pl.target || ""}" placeholder="f.eks. 2000000"></label>
+    </div><p class="muted" style="font-size:12.5px;margin:8px 0 0">Starter fra dagens estimerte verdi ${money(start)}${ests.length ? "" : " (registrer fondene under «Oversikt»)"}.</p></div>`;
+    const mill = v => (Math.abs(v) >= 1e6 ? num(v / 1e6, 2) + nbsp + "mill" : money(v));
+    html += `<div class="section">${sectionHead(`Om ${yrs} år (${new Date().getFullYear() + yrs})`)}<div class="levels two">${series.map(sc => `<span><i>${sc.l} · ${num(sc.r * 100, 1)} %</i><b class="mono">${mill(sc.vals[sc.vals.length - 1])}</b><small>gevinst ${mill(sc.vals[sc.vals.length - 1] - paid)}</small></span>`).join("")}<span><i>Satt inn</i><b class="mono">${mill(paid)}</b><small>i dag + sparing</small></span></div>
+      <div class="chart" style="margin-top:10px">${lineChart(series.map(sc => ({ values: sc.vals, color: sc.col, width: sc.id === "normal" ? 2.4 : 1.6, dash: sc.id === "normal" ? null : "4 3" })).concat(pl.target ? [{ values: dates.map(() => pl.target), color: "var(--muted)", width: 1, dash: "2 3" }] : []), dates, d => d.slice(0, 4))}
+      <div class="legend">${series.map(sc => `<span><i style="background:${sc.col}"></i>${sc.l}</span>`).join("")}${pl.target ? `<span><i style="background:var(--muted)"></i>Mål</span>` : ""}</div></div></div>`;
+    const rowsY = [5, 10, 15, 20, 30].filter(y => y <= yrs);
+    if (rowsY.length) html += `<div class="card"><table class="heat plain"><thead><tr><th style="text-align:left">År</th>${series.map(sc => `<th>${sc.l}</th>`).join("")}</tr></thead><tbody>${rowsY.map(y => `<tr><td class="nm">${y} år (${new Date().getFullYear() + y})</td>${series.map(sc => `<td class="mono">${num(sc.vals[y] / 1e6, 2)} mill</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    if (pl.target > 0) {
+      const reach = sc => { const v = project(start, pl.monthly || 0, sc.r - wfee, 50); const i = v.findIndex(x => x >= pl.target); return i < 0 ? null : i; };
+      html += `<div class="card"><h3>Når når du ${money(pl.target)}?</h3><ul class="reasons" style="margin:0;padding-left:18px">${series.map(sc => { const y = reach(sc); return `<li><b>${sc.l}</b>: ${y === null ? "ikke innen 50 år" : y === 0 ? "allerede nådd" : `om ca. ${y} år (${new Date().getFullYear() + y})`}</li>`; }).join("")}</ul></div>`;
+    }
+    html += `<p class="note">Scenariene er årlig avkastning før kostnader: 3 % (svakt), 6,5 % (normalt) og 9 % (godt). Globale aksjer har historisk gitt rundt 7–9 % per år over lange perioder, men med store svingninger underveis. Fondenes kostnader (vektet ${num(wfee * 100, 2)} % per år) er trukket fra. Tallene er i dagens kroner uten justering for prisvekst og skatt – en illustrasjon, ikke en prognose.</p>`;
+    return html;
+  }
+
+  // Risiko og kostnad
+  function viewRisiko() {
+    const ests = estimates();
+    if (!ests.length) return needValues();
+    const tot = ests.reduce((a, x) => a + x.e.now, 0);
+    let html = "";
+    // Kostnader
+    const rows = ests.map(({ e }) => ({ f: e.f, v: e.now, fee: e.f.fee, tx: e.f.tx_cost || 0, kr: e.f.fee != null ? e.now * (e.f.fee + (e.f.tx_cost || 0)) / 100 : null }));
+    const totKr = rows.reduce((a, x) => a + (x.kr || 0), 0), wfee = totKr / tot;
+    const g = 0.065, yrs = 20;
+    const fvAt = c => tot * Math.pow(1 + g - c, yrs);
+    const lost = fvAt(0) - fvAt(wfee), vsIndex = fvAt(0.0021) - fvAt(wfee);
+    html += `<div class="section">${sectionHead("Hva fondene koster deg")}<div class="card" style="margin-top:0"><div class="lines">${rows.map(x => `<div class="ln"><span class="t">${esc(x.f.name)}<br><span class="muted" style="font-size:12px">${x.fee != null ? `${num(x.fee, 2)} % + ${num(x.tx, 2)} % handel` : "kostnad ukjent"}</span></span><span class="v">${x.kr != null ? money(x.kr) + "/år" : "–"}</span></div>`).join("")}
+      <div class="ln" style="border-top:1px solid var(--line);padding-top:8px"><span class="t"><b>Totalt</b><br><span class="muted" style="font-size:12px">vektet ${num(wfee * 100, 2)} % av ${money(tot)}</span></span><span class="v"><b>${money(totKr)}/år</b></span></div></div>
+      <p style="margin:12px 0 0;font-size:14px;line-height:1.5">Over ${yrs} år, med ${num(g * 100, 1)} % årlig avkastning før kostnader, spiser kostnadene ca. <b>${money(lost)}</b> av sluttverdien. Hvis alt lå i et globalt indeksfond til 0,21 %, ville du hatt ca. <b>${money(vsIndex)}</b> mer – forutsatt at de aktive fondene ikke slår indeksen med mer enn de koster.</p>
+      ${rows.filter(x => x.fee != null && x.fee >= 0.9).length ? `<p class="muted" style="font-size:12.5px;margin:8px 0 0">De dyreste: ${rows.filter(x => x.fee >= 0.9).sort((a, b) => b.fee - a.fee).map(x => `${esc(x.f.name)} (${num(x.fee, 2)} %)`).join(", ")}. Aktive fond må slå markedet med minst kostnaden for å lønne seg.</p>` : ""}</div></div>`;
+    // Stresstest
+    const scen = (state.data.funds.stress_scenarios || []);
+    if (scen.length) {
+      html += `<div class="section">${sectionHead("Stresstest – hvis historien gjentok seg")}<p class="hint">Største fall fra topp til bunn i NOK for hvert fond (eller indeksen det følger) i kjente krakk, regnet på dagens verdier.</p>`;
+      for (const sc of scen) {
+        const per = ests.map(({ e }) => ({ f: e.f, v: e.now, s: (e.f.stress || {})[sc.id] }));
+        const loss = per.reduce((a, x) => a + (x.s ? x.v * x.s.drop : 0), 0), known = per.filter(x => x.s).reduce((a, x) => a + x.v, 0);
+        const recs = per.filter(x => x.s && x.s.recovery_days != null).map(x => x.s.recovery_days);
+        html += `<div class="card"><div class="su-top"><b style="font-size:15px">${esc(sc.name)}</b><span class="muted" style="margin-left:auto;font-size:12.5px">${esc(sc.period)}</span></div>
+          <div class="levels two" style="margin-top:8px"><span><i>Porteføljen</i><b class="mono neg">${known ? pct(loss / known) : "–"}</b><small class="neg">${money(loss)}</small></span><span><i>Tilbake på topp</i><b class="mono" style="font-size:14px">${recs.length ? `${Math.round(Math.max.apply(null, recs) / 30)} mnd` : "–"}</b><small>for det tregeste fondet</small></span></div>
+          <div class="lines" style="margin-top:8px">${per.map(x => `<div class="ln"><span class="t">${esc(x.f.name)}</span><span class="v mono ${x.s ? "neg" : ""}">${x.s ? pct(x.s.drop) : "for kort historikk"}</span></div>`).join("")}</div></div>`;
+      }
+      const w12 = ests.map(({ e }) => ({ f: e.f, v: e.now, w: (e.f.stress || {}).worst_12m })).filter(x => x.w);
+      if (w12.length) html += `<div class="card"><h3>Verste 12 måneder siste 10 år</h3><div class="lines">${w12.map(x => `<div class="ln"><span class="t">${esc(x.f.name)}<br><span class="muted" style="font-size:12px">til ${fmtDate(x.w.to)} ${x.w.to.slice(0, 4)}</span></span><span class="v mono neg">${pct(x.w.ret)}<br><small>${money(x.v * x.w.ret)}</small></span></div>`).join("")}</div></div>`;
+      html += `<p class="note">Fallene er målt i norske kroner, så valutaen er med: i 2020 falt kronen kraftig, noe som dempet fallet i utenlandske fond. Der fondet ikke har egen historikk så langt tilbake, brukes indeksen/ETF-en det følger. Historien gjentar seg aldri helt likt – neste krakk kan bli både mindre og større.</p></div>`;
+    }
+    return html;
+  }
+  function monthReports() {
+    const rs = (state.data && state.data.funds && state.data.funds.reports) || [];
+    if (!rs.length) return `<div class="empty">Første rapport kommer i starten av neste måned.</div>`;
+    return rs.map((r, i) => `<details class="card mrep" ${i === 0 ? "open" : ""}><summary><b>${esc(r.title)}</b><span class="mono ${sign(r.avg)}" style="margin-left:auto">${pct(r.avg)} snitt</span></summary>
+      <div class="lines" style="margin-top:10px">${r.funds.map(x => `<div class="ln"><span class="t">${esc(x.name)}<br><span class="muted" style="font-size:12px">${esc(x.advice || "")}</span></span><span class="v mono ${sign(x.ret)}">${pct(x.ret)}</span></div>`).join("")}</div>
+      ${(r.changes || []).length ? `<p class="muted" style="font-size:12.5px;margin:8px 0 0">Endrede råd: ${r.changes.map(esc).join("; ")}</p>` : ""}
+      ${r.market ? `<p style="font-size:13.5px;margin:8px 0 0">${esc(r.market)}</p>` : ""}</details>`).join("");
+  }
+
   function viewVerdi() {
     if (!fundsData().length) return `<div class="empty-card" style="margin-top:14px"><b>Ingen fond er satt opp i appen.</b></div>`;
+    const seg = `<div class="seg" style="margin-top:12px">${VMODES.map(([k, l]) => `<button data-vmode="${k}" aria-pressed="${vmode === k}">${l}</button>`).join("")}</div>`;
+    if (vmode === "fordeling") return seg + viewFordeling();
+    if (vmode === "fremtid") return seg + viewFremtid();
+    if (vmode === "risiko") return seg + viewRisiko();
+    return seg + viewOversikt();
+  }
+  function viewOversikt() {
     const ests = estimates();
     let html = "";
     if (!ests.length) {
@@ -898,6 +1041,7 @@
       <button class="row menu" id="pf-backup"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Sikkerhetskopi</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Flytt de registrerte fondsverdiene til en annen telefon</span></span></span><span class="mid"></span><span class="r">›</span></button>
       <button class="row menu" id="info-menu"><span class="l"><span class="l1"><span class="tick" style="font-family:var(--font-ui)">Om Aksjeradar</span></span><span class="l2"><span class="info" style="font-family:var(--font-ui)">Hvordan rådene og estimatene regnes ut</span></span></span><span class="mid"></span><span class="r">›</span></button>
     </div></div>`;
+    html += `<div class="section">${sectionHead("Månedsrapporter", ((state.data.funds || {}).reports || []).length)}${monthReports()}</div>`;
     html += `<div class="section">${sectionHead("Logg – slik har rådene utviklet seg", fundJournal().length)}<p class="hint">Ett innslag per børsdag for fondene dine. «Endret» markerer dagene rådet skiftet.</p>${fundJournalList(21)}</div>`;
     return html;
   }
@@ -1087,6 +1231,8 @@
   }
 
   document.addEventListener("click", e => {
+    const vm = e.target.closest("[data-vmode]");
+    if (vm) { vmode = vm.dataset.vmode; try { localStorage.setItem("ar.vmode", vmode); } catch (x) { /* ignorer */ } render(); return; }
     const fr = e.target.closest("[data-frange]");
     if (fr) { chartState.range = fr.dataset.frange; saveChart(); rerenderCharts(); return; }
     const fm = e.target.closest("[data-fmode]");
@@ -1176,6 +1322,17 @@
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
   scheduleFundsRefresh();
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && needsNow()) loadFundsNow(true); });
+  const onPlan = ev => {
+    const t = ev.target; if (!t || !t.id || !t.id.startsWith("pl-")) return;
+    const pl = plan();
+    if (t.id === "pl-monthly") pl.monthly = Math.max(0, parseFloat(t.value) || 0);
+    if (t.id === "pl-years") { pl.years = parseInt(t.value, 10) || 20; const yv = $("#pl-yrs-v"); if (yv) yv.textContent = pl.years; }
+    if (t.id === "pl-target") pl.target = Math.max(0, parseFloat(t.value) || 0);
+    pfSave();
+    if (ev.type === "change") { const y = window.scrollY; render(); window.scrollTo(0, y); }
+  };
+  document.addEventListener("input", onPlan);
+  document.addEventListener("change", onPlan);
   readImportHash();
   window.addEventListener("hashchange", () => { readImportHash(); if (pendingImport) openImport(); });
   load(false);

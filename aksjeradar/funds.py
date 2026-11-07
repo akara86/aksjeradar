@@ -94,6 +94,36 @@ def splice_nav(nav: pd.Series | None, proxy_nok: pd.Series) -> tuple[pd.Series, 
     return out, info
 
 
+STRESS = [
+    {"id": "trade2018", "name": "Handelskrigen og rentefrykt", "period": "høsten 2018", "start": "2018-09-01", "end": "2018-12-31"},
+    {"id": "covid2020", "name": "Koronakrakket", "period": "februar–mars 2020", "start": "2020-02-10", "end": "2020-04-15"},
+    {"id": "rates2022", "name": "Rentesjokket", "period": "januar–oktober 2022", "start": "2022-01-01", "end": "2022-10-31"},
+]
+
+
+def stress_test(nok: pd.Series) -> dict:
+    """Største fall (topp til bunn, i NOK) i kjente krakk, og verste 12 måneder i historikken."""
+    out = {}
+    for sc in STRESS:
+        w = nok[(nok.index >= sc["start"]) & (nok.index <= sc["end"])]
+        if len(w) < 15 or nok.index[0] > pd.Timestamp(sc["start"]) + pd.Timedelta(days=10):
+            out[sc["id"]] = None
+            continue
+        dd = w / w.cummax() - 1
+        trough = dd.idxmin()
+        peak = w[:trough].idxmax()
+        after = nok[nok.index > trough]
+        rec = after[after >= float(w[peak])]
+        out[sc["id"]] = {"drop": float(dd.min()), "peak": peak.strftime("%Y-%m-%d"), "trough": trough.strftime("%Y-%m-%d"),
+                         "recovered": rec.index[0].strftime("%Y-%m-%d") if len(rec) else None,
+                         "recovery_days": int((rec.index[0] - trough).days) if len(rec) else None}
+    r12 = nok / nok.shift(252) - 1
+    r12 = r12.dropna()
+    out["worst_12m"] = {"ret": float(r12.min()), "to": r12.idxmin().strftime("%Y-%m-%d")} if len(r12) else None
+    out["since"] = nok.index[0].strftime("%Y-%m-%d")
+    return out
+
+
 def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, history_days: int = 130,
                  nav: pd.Series | None = None) -> dict:
     """Metrikker for ett fond. `proxy` = daglige kurser for ETF-en, `fx` = valutakurs til NOK (None = ingen omregning).
@@ -190,7 +220,9 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
         "ret_1m": nok_ret["1m"], "ret_3m": nok_ret["3m"], "ret_1y": nok_ret["1y"],
         "idx_ret_1m": idx_ret["1m"], "idx_ret_3m": idx_ret["3m"], "idx_ret_1y": idx_ret["1y"],
         "fx_last": fx_last, "fx_vs_sma200": fx_vs_sma200, "fx_rank_1y": fx_rank, "fx_ret_1m": fx_ret_1m,
-        "score": score, "level": level, "why": why, "nav": nav_info,
+        "score": score, "level": level, "why": why, "nav": nav_info, "stress": stress_test(nok),
+        "monthly": {m.strftime("%Y-%m"): round(float(v), 5) for m, v in nok.resample("ME").last().pct_change().dropna().tail(13).items()},
+        "fee": f.get("fee"), "tx_cost": f.get("tx_cost"),
         "history": {"dates": [d.strftime("%Y-%m-%d") for d in hist.index],
                     "nok": [round(float(v), 2) for v in hist], "idx": [round(float(v), 2) for v in idx_hist],
                     "sma200": [r2(v) for v in sma200_s],
@@ -626,6 +658,7 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
     return clean_for_json({
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "base": fcfg.get("base_currency", "NOK"),
+        "stress_scenarios": STRESS,
         "alerts": alerts,
         "journal": journal_out,
         "actions": ACTIONS,
@@ -701,3 +734,43 @@ def run_picks(cfg: dict, proxy_frames: dict[str, pd.DataFrame], fx_frames: dict[
         out.append(a)
     out.sort(key=lambda x: -x["attr_score"])
     return clean_for_json({"checked": pcfg.get("checked"), "categories": CATEGORIES, "list": out})
+
+
+# --------------------------------------------------------------------------
+# Månedsrapport: utviklingen forrige hele måned for fondene du eier
+# --------------------------------------------------------------------------
+MONTHS_NO = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"]
+
+
+def monthly_report(store: Storage, funds_payload: dict, market: dict | None, run_date: str) -> tuple[dict | None, list, bool]:
+    """Lager rapport for forrige hele måned (én gang). Returnerer (ny rapport eller None, arkiv, skal_sendes)."""
+    d = datetime.strptime(run_date, "%Y-%m-%d")
+    y, m = (d.year, d.month - 1) if d.month > 1 else (d.year - 1, 12)
+    key = f"{y:04d}-{m:02d}"
+    archive, _ = store.load_snapshot("funds", "monthly_reports")
+    archive = dict(archive or {})
+    new = None
+    if key not in archive:
+        owned = [f for f in funds_payload.get("funds", []) if f.get("owned")]
+        rows = []
+        for f in owned:
+            r = (f.get("monthly") or {}).get(key)
+            if r is not None:
+                rows.append({"id": f["id"], "name": f["name"], "ret": r, "advice": (f.get("deposit") or {}).get("action"), "level": f.get("level")})
+        if rows:
+            rows.sort(key=lambda x: -x["ret"])
+            # rådsendringer i løpet av måneden (fra loggen)
+            changes = []
+            for day in funds_payload.get("journal") or []:
+                if day["date"].startswith(key):
+                    changes += [f"{day['date'][8:10]}.{day['date'][5:7]}: {x['name']} → {x['action'].lower()}" for x in day["funds"] if x.get("changed")]
+            avg = sum(x["ret"] for x in rows) / len(rows)
+            new = {"month": key, "title": f"{MONTHS_NO[m - 1].capitalize()} {y}", "funds": rows, "avg": avg,
+                   "best": rows[0], "worst": rows[-1], "changes": changes[:8],
+                   "market": ((market or {}).get("summary") or [None])[0], "regime": (market or {}).get("regime"),
+                   "made": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+            archive[key] = new
+            archive = {k: archive[k] for k in sorted(archive)[-12:]}
+            store.save_snapshot("funds", "monthly_reports", archive)
+    reports = [archive[k] for k in sorted(archive, reverse=True)]
+    return new, clean_for_json(reports), new is not None

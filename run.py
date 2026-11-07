@@ -27,9 +27,9 @@ from pathlib import Path
 
 from aksjeradar.autotrader import run_autotrader
 from aksjeradar.config import all_tickers, load_config
-from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fx, fetch_prices
+from aksjeradar.data import FX_DEMO, demo_details, demo_fx_frames, demo_prices, fetch_details, fetch_fund_holdings, fetch_fx, fetch_prices
 from aksjeradar.export import export_json
-from aksjeradar.funds import run_funds, run_picks
+from aksjeradar.funds import monthly_report, run_funds, run_picks
 from aksjeradar.market import run_market
 from aksjeradar.gurus import run_gurus
 from aksjeradar.notify import push_settings, send_email, send_push, send_telegram
@@ -170,6 +170,26 @@ def main() -> int:
             if nav_tickers and not args.demo:
                 log.info("Ekte andelskurser: %d av %d fond", len(nav_frames), len(nav_tickers))
             funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table, nav_frames)
+            # Hva fondene eier (sektorer og største selskaper) – til «Fordeling» i appen
+            for f in funds_payload.get("funds", []):
+                if not f.get("owned"):
+                    continue
+                fc = next((x for x in cfg["funds"]["list"] if x.get("id") == f["id"]), {})
+                h = None
+                if args.demo:
+                    rng = __import__("random").Random(f["id"])
+                    sec = {k: rng.random() for k in ("technology", "financial_services", "industrials", "healthcare", "consumer_cyclical", "energy", "communication_services")}
+                    tot = sum(sec.values())
+                    names = [("NVDA", "NVIDIA Corp"), ("AAPL", "Apple Inc"), ("MSFT", "Microsoft Corp"), ("AMZN", "Amazon.com Inc"), ("EQNR.OL", "Equinor ASA"),
+                             ("DNB.OL", "DNB Bank ASA"), ("2330.TW", "Taiwan Semiconductor"), ("GOOGL", "Alphabet Inc"), ("V", "Visa Inc"), ("META", "Meta Platforms")]
+                    rng.shuffle(names)
+                    h = {"source": "demo", "sectors": {k: v / tot for k, v in sec.items()}, "top": [{"symbol": s_, "name": n, "pct": round(0.08 - i * 0.006, 4)} for i, (s_, n) in enumerate(names)], "stock": 0.98, "cash": 0.02}
+                if not args.demo:
+                    for t in [fc.get("nav_ticker"), fc.get("proxy")]:
+                        if t and h is None:
+                            h = fetch_fund_holdings(t)
+                f["holdings"] = h
+                f["exposure"] = fc.get("exposure")
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
             mc = cfg.get("market") or {}
             if mc.get("enabled", True) and mc.get("sectors"):
@@ -186,6 +206,12 @@ def main() -> int:
                     log.info("Marked: %d sektorer/tema, %d regioner, regime %s", len(market["sectors"]), len(market["regions"]), market["regime"])
                 except Exception as e:  # noqa: BLE001
                     log.exception("Markedsanalysen feilet: %s", e)
+            try:
+                rep_new, reports, send_report = monthly_report(store, funds_payload, funds_payload.get("market"), run_date)
+                funds_payload["reports"] = reports
+                funds_payload["_report_new"] = rep_new if send_report else None
+            except Exception as e:  # noqa: BLE001
+                log.warning("Månedsrapport feilet: %s", e)
             if picks_list:
                 glob = next((x for x in funds_payload.get("funds", []) if x["id"] in ("klp_global", "global")), None)
                 picks = run_picks(cfg, proxy_frames, fx_frames, table, glob["ret_1y"] if glob else None)
@@ -284,6 +310,16 @@ def main() -> int:
             n_act = sum(1 for f in mine if f["deposit"]["code"] in ("boost", "consider"))
             send_push(cfg, f"Fondene dine {run_date}" + (f" – {n_act} med gunstig inngang" if n_act else ""), "\n".join(lines),
                       tags=["moneybag" if n_act else "satellite"], priority=4 if n_act else 3)
+        rep = funds_payload.get("_report_new")
+        if rep and pc.get("monthly", True):
+            pct_ = lambda v: f"{v * 100:+.1f} %".replace(".", ",").replace("-", "−")  # noqa: E731
+            lines = [f"{x['name'][:26]}: {pct_(x['ret'])}" for x in rep["funds"]]
+            lines.append(f"Snitt {pct_(rep['avg'])} · best {rep['best']['name'][:20]}, svakest {rep['worst']['name'][:20]}")
+            if rep.get("changes"):
+                lines.append("Endrede råd: " + "; ".join(rep["changes"][:3]))
+            if rep.get("regime"):
+                lines.append(f"Markedet: {rep['regime'].lower()}")
+            send_push(cfg, f"Månedsrapport {rep['title'].lower()}", "\n".join(lines), tags=["calendar"])
         if pc.get("funds", True):
             for a in (funds_payload.get("alerts") or []):
                 if a["kind"] == "innskudd":
