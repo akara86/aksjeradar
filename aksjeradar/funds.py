@@ -58,7 +58,24 @@ def fx_series(fx_frames: dict[str, pd.DataFrame], currency: str) -> pd.Series | 
         return None
     s = df["Close"].astype(float)
     s.index = pd.to_datetime(s.index).normalize()
-    return s[~s.index.duplicated(keep="last")].sort_index()
+    return clean_spikes(s[~s.index.duplicated(keep="last")].sort_index(), 0.06)
+
+
+def clean_spikes(s: pd.Series, thresh: float = 0.12) -> pd.Series:
+    """Fjerner enkeltdags feilnoteringer (f.eks. USDNOK 7,74 den 20.03.2020 mellom 10,78 og 11,76):
+    en kurs som avviker mer enn `thresh` fra medianen av nabodagene, erstattes med forrige kurs."""
+    if s is None or len(s) < 5:
+        return s
+    s = s.copy()
+    r_in = s / s.shift(1) - 1
+    r_out = s.shift(-1) / s - 1
+    # en topp eller bunn som går tilbake neste dag (hopp inn og hopp ut i motsatt retning)
+    bad = (r_in.abs() > thresh) & (r_out.abs() > thresh) & (np.sign(r_in) != np.sign(r_out))
+    if bad.any():
+        log.info("Fjernet %d feilnotering(er) i %s", int(bad.sum()), getattr(s, "name", "serie"))
+        s[bad] = np.nan
+        s = s.ffill().bfill()
+    return s
 
 
 def splice_nav(nav: pd.Series | None, proxy_nok: pd.Series) -> tuple[pd.Series, dict | None]:
@@ -130,7 +147,7 @@ def analyze_fund(f: dict, proxy: pd.DataFrame, fx: pd.Series | None, th: dict, h
     `nav` = fondets ekte andelskurser (NOK) hvis tilgjengelig – da brukes de, og proxyen fyller bare hullene."""
     px = proxy["Close"].astype(float).copy()
     px.index = pd.to_datetime(px.index).normalize()
-    px = px[~px.index.duplicated(keep="last")].sort_index()
+    px = clean_spikes(px[~px.index.duplicated(keep="last")].sort_index())
     hedged = bool(f.get("hedged"))
     fx_relevant = (fx is not None) and not hedged and f.get("fx_relevant", True)
     if fx is not None and not hedged:

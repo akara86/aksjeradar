@@ -41,6 +41,8 @@ def _close(df: pd.DataFrame | None) -> pd.Series | None:
     s = df["Close"].astype(float).copy()
     s.index = pd.to_datetime(s.index).normalize()
     s = s[~s.index.duplicated(keep="last")].sort_index().dropna()
+    from .funds import clean_spikes
+    s = clean_spikes(s, 0.06 if str(getattr(df, "attrs", {}).get("t", "")).endswith("=X") else 0.12)
     return s if len(s) > 30 else None
 
 
