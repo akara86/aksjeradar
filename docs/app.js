@@ -290,7 +290,7 @@
   function rerenderCharts() {
     document.querySelectorAll("[data-fchart]").forEach(box => {
       const kind = box.dataset.fchart;
-      box.outerHTML = kind === "verdi" ? valueChartBlock() : kind.startsWith("mk:") ? marketChartBlock(kind.slice(3)) : fundChartBlock(fundById(kind));
+      box.outerHTML = kind === "verdi" ? valueChartBlock() : kind === "fx" ? fxChartInner() : kind.startsWith("mk:") ? marketChartBlock(kind.slice(3)) : fundChartBlock(fundById(kind));
     });
     bindCharts();
   }
@@ -385,7 +385,7 @@
   function fmtTick(v, mode) {
     if (Math.abs(v) < 1e-9) v = 0;
     if (mode === "pct") return (v > 0 ? "+" : "") + num(v, Math.abs(v) < 3 && v !== 0 ? 1 : 0) + " %";
-    return v >= 10000 ? num(v / 1000, v < 100000 ? 1 : 0) + "k" : num(v, v < 100 ? 1 : 0);
+    return v >= 10000 ? num(v / 1000, v < 100000 ? 1 : 0) + "k" : num(v, v < 3 ? 3 : v < 30 ? 2 : v < 100 ? 1 : 0);
   }
   // Stor graf: område + linje, pene akser, valgfri indeks (stiplet) og 200d-snitt. Tegner i kr eller i % fra referansen.
   function bigChart(ser, mode, withSma) {
@@ -405,7 +405,8 @@
     const y = v => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
     const path = arr => { let d = "", pen = false; arr.forEach((v, i) => { if (!isNum(v)) { pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); pen = true; }); return d; };
     const lastV = main.filter(isNum).pop();
-    const up = isNum(lastV) && (mode === "pct" ? lastV >= 0 : (isNum(ser.ref) ? lastV >= ser.ref : true));
+    const rise = isNum(lastV) && (mode === "pct" ? lastV >= 0 : (isNum(ser.ref) ? lastV >= ser.ref : true));
+    const up = ser.invert ? !rise : rise;   // valuta: stigende kurs = svakere krone (rødt)
     const col = up ? "var(--up)" : "var(--down)";
     const ticks = niceTicks(lo, hi, 5).filter(v => v > lo && v < hi);
     const grid = ticks.map(v => `<line x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)"/><text x="${W - padR + 6}" y="${(y(v) + 3.5).toFixed(1)}" font-size="10" fill="var(--muted)">${fmtTick(v, mode)}</text>`).join("");
@@ -417,7 +418,7 @@
       ser.xLabels.forEach((lbl, k) => { xl.push(`<text x="${(padL + lbl.q * (W - padL - padR)).toFixed(1)}" y="${H - 7}" font-size="10" fill="var(--muted)" text-anchor="${k === 0 ? "start" : k === ser.xLabels.length - 1 ? "end" : "middle"}">${esc(lbl.t)}</text>`); });
     } else {
       const nl = Math.min(4, n);
-      for (let k = 0; k < nl; k++) { const i = Math.round((k / (nl - 1 || 1)) * (n - 1)); xl.push(`<text x="${x(i).toFixed(1)}" y="${H - 7}" font-size="10" fill="var(--muted)" text-anchor="${k === 0 ? "start" : k === nl - 1 ? "end" : "middle"}">${esc(ser.kind === "intra" ? ser.labels[i] : fmtDate(ser.labels[i]))}</text>`); }
+      for (let k = 0; k < nl; k++) { const i = Math.round((k / (nl - 1 || 1)) * (n - 1)); xl.push(`<text x="${x(i).toFixed(1)}" y="${H - 7}" font-size="10" fill="var(--muted)" text-anchor="${k === 0 ? "start" : k === nl - 1 ? "end" : "middle"}">${esc(ser.kind === "intra" ? ser.labels[i] : ser.longAxis ? new Date(ser.labels[i] + "T00:00:00").toLocaleDateString("nb-NO", { month: "short", year: "2-digit" }) : fmtDate(ser.labels[i]))}</text>`); }
     }
     const firstI = main.findIndex(isNum), lastI = main.length - 1 - main.slice().reverse().findIndex(isNum);
     const area = firstI >= 0 ? `${path(main)}L${x(lastI).toFixed(1)} ${(H - padB).toFixed(1)}L${x(firstI).toFixed(1)} ${(H - padB).toFixed(1)}Z` : "";
@@ -558,7 +559,7 @@
       if (!svg || !label || svg.dataset.bound) return;
       svg.dataset.bound = "1";
       const kind = box.dataset.fchart;
-      const ser = kind === "verdi" ? valueSeries(chartState.range === "1D" ? "1U" : chartState.range) : kind.startsWith("mk:") ? marketSeries(kind.slice(3)) : seriesFor(fundById(kind), chartState.range);
+      const ser = kind === "verdi" ? valueSeries(chartState.range === "1D" ? "1U" : chartState.range) : kind === "fx" ? fxSeries() : kind.startsWith("mk:") ? marketSeries(kind.slice(3)) : seriesFor(fundById(kind), chartState.range);
       if (!ser || ser.loading || ser.none) return;
       const n = ser.nok.length, padL = +svg.dataset.padl, padR = +svg.dataset.padr;
       const defaultHtml = label.innerHTML;
@@ -894,9 +895,10 @@
       const x = mac[k], dec = k === "rate10" ? 2 : (k === "usdnok" || k === "eurnok") ? 2 : 0;
       const ch = k === "rate10" ? (isNum(x.abs_1m) ? (x.abs_1m > 0 ? "+" : "") + num(x.abs_1m, 2) + " pp" : "–") : pct(x.chg_1m);
       const chv = k === "rate10" ? x.abs_1m : x.chg_1m;
-      return `<div class="mtile"><span class="s-l">${esc(x.name)}</span><b class="mono">${num(x.last, dec)}${x.unit === "%" ? nbsp + "%" : ""}</b><small class="mono ${k === "vix" || k === "rate10" ? sign(-chv) : sign(chv)}">${ch} 1M</small>${sparkline(x.spark, 120, 26)}</div>`;
+      return `<div class="mtile" ${k === "usdnok" || k === "eurnok" ? `data-fxpair="${k.slice(0, 3).toUpperCase()}" data-fxscroll="1" style="cursor:pointer"` : ""}><span class="s-l">${esc(x.name)}</span><b class="mono">${num(x.last, dec)}${x.unit === "%" ? nbsp + "%" : ""}</b><small class="mono ${k === "vix" || k === "rate10" ? sign(-chv) : sign(chv)}">${ch} 1M</small>${sparkline(x.spark, 120, 26)}</div>`;
     }).join("");
     if (tiles) html += `<div class="section">${sectionHead("Nøkkeltall")}<div class="mtiles">${tiles}</div></div>`;
+    html += fxSection();
     const up = sect.filter(x => x.status === "I vinden" || x.status === "Snur opp").sort((a, b) => (b.rel["3m"] || 0) - (a.rel["3m"] || 0));
     const dn = sect.filter(x => x.status === "Nedgående" || x.status === "Svekkes").sort((a, b) => (a.rel["3m"] || 0) - (b.rel["3m"] || 0));
     const fw = sect.filter(x => x.kind === "sektor").sort((a, b) => b.forward - a.forward).slice(0, 4);
@@ -946,6 +948,109 @@
         ${fundLinks.length ? `<div class="card"><h3>Fond i appen med denne eksponeringen</h3>${fundLinks.map(f => `<button class="linkbtn" ${f.pick ? `data-pickinfo` : `data-fundinfo`}="${esc(f.id)}" style="display:block;padding:4px 0;text-align:left">${esc(f.name)}${f.owned ? " (ditt)" : ""} – ${esc((f.deposit || {}).action || "")} ›</button>`).join("")}</div>` : ""}
         <p class="note">Mekanisk analyse oppdatert ${fmtDate(m.as_of)}. Ikke investeringsråd.</p>
       </div>`, push, { mkinfo: id });
+    bindCharts();
+  }
+
+  // ---------- kronekurs med skyvebryter (periode velges fritt, opptil 10 år) ----------
+  const fxState = { pair: "USD", a: null, b: null };
+  try { fxState.pair = localStorage.getItem("ar.fxpair") || "USD"; } catch (e) { /* ignorer */ }
+  const fxCache = {};
+  function fxData(pair) {
+    const m = marketData(); const raw = m && m.fx && m.fx[pair];
+    if (!raw) return null;
+    if (!fxCache[pair] || fxCache[pair].raw !== raw) {
+      const base = new Date(raw.d0 + "T00:00:00Z").getTime();
+      const dates = raw.dd ? raw.dd.map(n => new Date(base + n * 86400000).toISOString().slice(0, 10)) : raw.dates;
+      fxCache[pair] = { raw, dates, values: raw.values };
+    }
+    return fxCache[pair];
+  }
+  function fxPreset(n, days) {
+    const d = fxData(fxState.pair); if (!d) return;
+    const last = d.dates[d.dates.length - 1];
+    const from = new Date(new Date(last + "T00:00:00Z").getTime() - days * 86400000).toISOString().slice(0, 10);
+    let i = d.dates.findIndex(x => x >= from); if (i < 0) i = 0;
+    fxState.a = days >= 99999 ? 0 : Math.max(0, i - 1); fxState.b = d.dates.length - 1; fxState.preset = n;
+  }
+  function fxWindow() {
+    const d = fxData(fxState.pair); if (!d) return null;
+    const n = d.dates.length;
+    if (fxState.a == null || fxState.b == null || fxState.b >= n) fxPreset("1Å", 366);
+    let a = Math.max(0, Math.min(fxState.a, n - 2)), b = Math.max(a + 1, Math.min(fxState.b, n - 1));
+    return { d, a, b, n };
+  }
+  function fxSeries() {
+    const w = fxWindow(); if (!w) return { none: true, reason: "Ingen valutadata ennå." };
+    const { d, a, b } = w;
+    // tynn ut lange perioder til maks ~420 punkter, men behold siste punkt
+    const len = b - a + 1, step = Math.max(1, Math.ceil(len / 420));
+    const idx = []; for (let i = a; i <= b; i += step) idx.push(i); if (idx[idx.length - 1] !== b) idx.push(b);
+    const nok = idx.map(i => d.values[i]), labels = idx.map(i => d.dates[i]);
+    // 200-dagers snitt over hele historikken
+    const sma = idx.map(i => { if (i < 199) return null; let s_ = 0; for (let k = i - 199; k <= i; k++) s_ += d.values[k]; return s_ / 200; });
+    return { kind: "daily", labels, nok, ref: nok[0], idx: null, fx: null, sma, a, b, invert: true, longAxis: (b - a) > 300 };
+  }
+  const FX_PRESETS = [["1M", 31], ["3M", 92], ["1Å", 366], ["3Å", 1096], ["5Å", 1827], ["Alt", 99999]];
+  function fxChartInner() {
+    const ser = fxSeries();
+    if (ser.none) return `<div data-fchart="fx"><div class="empty">${esc(ser.reason)}</div></div>`;
+    const last = ser.nok[ser.nok.length - 1], chg = last / ser.ref - 1;
+    return `<div class="chart-box" data-fchart="fx" style="margin-top:0"><div class="chart big" style="margin-top:0">
+      <div class="xh-label" data-default="1"><b class="mono">${num(last, last < 3 ? 4 : 2)} kr</b><span class="mono ${sign(-chg)}">${pct(chg)}</span><span class="muted">${fmtDate(ser.labels[0])} ${ser.labels[0].slice(0, 4)} – ${fmtDate(ser.labels[ser.labels.length - 1])} ${ser.labels[ser.labels.length - 1].slice(0, 4)}</span></div>
+      ${bigChart(ser, "kr", chartState.sma)}
+      <div class="legend"><span><i style="background:${chg > 0 ? "var(--down)" : "var(--up)"}"></i>1 ${esc(fxState.pair)} i kroner</span>${chartState.sma ? `<span><i style="background:var(--warn)"></i>200-dagers snitt</span>` : ""}<span>stigende = svakere krone</span></div>
+    </div></div>`;
+  }
+  function fxStats() {
+    const w = fxWindow(); if (!w) return "";
+    const { d, a, b } = w, vals = d.values.slice(a, b + 1), last = d.values[d.values.length - 1];
+    const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals);
+    const iHi = a + vals.indexOf(hi), iLo = a + vals.indexOf(lo);
+    const all = d.values, rank = all.filter(v => v > last).length / all.length;   // andel dager med dyrere valuta = kronen svakere
+    const sma200 = all.length >= 200 ? all.slice(-200).reduce((s_, v) => s_ + v, 0) / 200 : null;
+    const avgAll = all.reduce((s_, v) => s_ + v, 0) / all.length;
+    const yrs = Math.round((new Date(d.dates[d.dates.length - 1]) - new Date(d.dates[0])) / 3.156e10);
+    const strength = rank >= 0.7 ? "sterk" : rank <= 0.3 ? "svak" : "middels";
+    return `<div class="levels" style="margin-top:10px">
+        <span><i>Endring</i><b class="mono ${sign(-(d.values[b] / d.values[a] - 1))}">${pct(d.values[b] / d.values[a] - 1)}</b><small>i perioden</small></span>
+        <span><i>Høyest</i><b class="mono">${num(hi, hi < 3 ? 4 : 2)}</b><small>${fmtDate(d.dates[iHi])} ${d.dates[iHi].slice(2, 4)}</small></span>
+        <span><i>Lavest</i><b class="mono">${num(lo, lo < 3 ? 4 : 2)}</b><small>${fmtDate(d.dates[iLo])} ${d.dates[iLo].slice(2, 4)}</small></span>
+        <span><i>Mot 200d</i><b class="mono ${sign(sma200 ? -(last / sma200 - 1) : null)}">${sma200 ? pct(last / sma200 - 1) : "–"}</b><small>snitt ${sma200 ? num(sma200, sma200 < 3 ? 4 : 2) : "–"}</small></span>
+      </div>
+      <p style="margin:10px 0 0;font-size:14px;line-height:1.5">Kronen er <b>${strength}</b> mot ${esc(d.raw.name.toLowerCase())} nå: den har vært svakere enn i dag på <b>${pct(rank, false, 0)}</b> av dagene de siste ${yrs} årene (snitt ${num(avgAll, avgAll < 3 ? 4 : 2)} kr).
+      ${rank >= 0.6 ? "En sterk krone gir flere utenlandske andeler per krone – gunstig for nye kjøp i utenlandske fond, men utenlandske fond du allerede eier er verdt mindre i kroner." : rank <= 0.4 ? "En svak krone løfter verdien av utenlandske fond målt i kroner, men gjør nye kjøp dyrere." : ""}</p>`;
+  }
+  function fxSection() {
+    const m = marketData(); if (!m || !m.fx || !Object.keys(m.fx).length) return "";
+    if (!m.fx[fxState.pair]) fxState.pair = Object.keys(m.fx)[0];
+    const w = fxWindow(); const n = w ? w.n : 2;
+    return `<div class="section" id="fx-section">${sectionHead("Kronekurs")}
+      <div class="seg small" style="margin-bottom:8px">${Object.entries(m.fx).map(([k, x]) => `<button data-fxpair="${esc(k)}" aria-pressed="${fxState.pair === k}">${esc(x.flag || "")} ${esc(k)}</button>`).join("")}</div>
+      <div class="ranges" style="margin-bottom:8px">${FX_PRESETS.map(([l, dd]) => `<button data-fxpreset="${l}" data-days="${dd}" aria-pressed="${fxState.preset === l}">${l}</button>`).join("")}</div>
+      <div id="fx-chart">${fxChartInner()}</div>
+      <div class="dual" aria-label="Velg periode">
+        <div class="dual-track"><i id="fx-fill" style="left:${(w.a / (n - 1) * 100).toFixed(2)}%;right:${(100 - w.b / (n - 1) * 100).toFixed(2)}%"></i></div>
+        <input type="range" id="fx-a" min="0" max="${n - 1}" value="${w.a}" aria-label="Fra dato">
+        <input type="range" id="fx-b" min="0" max="${n - 1}" value="${w.b}" aria-label="Til dato">
+      </div>
+      <div class="dual-lbl"><span id="fx-la">${fmtDate(w.d.dates[w.a])} ${w.d.dates[w.a].slice(0, 4)}</span><span class="muted">dra i håndtakene for å velge periode</span><span id="fx-lb">${fmtDate(w.d.dates[w.b])} ${w.d.dates[w.b].slice(0, 4)}</span></div>
+      <div id="fx-stats">${fxStats()}</div>
+      <label class="chip ${chartState.sma ? "on" : ""}" data-fsma="1" style="display:inline-block;margin-top:10px;cursor:pointer">200d-snitt</label>
+    </div>`;
+  }
+  function fxRefresh() {
+    const c = $("#fx-chart"), st = $("#fx-stats"), w = fxWindow();
+    if (c) c.innerHTML = fxChartInner();
+    if (st) st.innerHTML = fxStats();
+    if (w) {
+      const n = w.n, f = $("#fx-fill"), la = $("#fx-la"), lb = $("#fx-lb"), ia = $("#fx-a"), ib = $("#fx-b");
+      if (f) { f.style.left = (w.a / (n - 1) * 100).toFixed(2) + "%"; f.style.right = (100 - w.b / (n - 1) * 100).toFixed(2) + "%"; }
+      if (la) la.textContent = `${fmtDate(w.d.dates[w.a])} ${w.d.dates[w.a].slice(0, 4)}`;
+      if (lb) lb.textContent = `${fmtDate(w.d.dates[w.b])} ${w.d.dates[w.b].slice(0, 4)}`;
+      if (ia && +ia.value !== w.a) ia.value = w.a;
+      if (ib && +ib.value !== w.b) ib.value = w.b;
+    }
+    document.querySelectorAll("[data-fxpreset]").forEach(x => x.setAttribute("aria-pressed", String(fxState.preset === x.dataset.fxpreset)));
     bindCharts();
   }
 
@@ -1231,6 +1336,16 @@
   }
 
   document.addEventListener("click", e => {
+    const fxp = e.target.closest("[data-fxpair]");
+    if (fxp) {
+      fxState.pair = fxp.dataset.fxpair; try { localStorage.setItem("ar.fxpair", fxState.pair); } catch (x) { /* ignorer */ }
+      fxState.a = fxState.b = null; const pre = FX_PRESETS.find(p_ => p_[0] === (fxState.preset || "1Å")) || ["1Å", 366]; fxPreset(pre[0], pre[1]);
+      const y = window.scrollY; render(); window.scrollTo(0, y);
+      if (fxp.dataset.fxscroll) { const sec = $("#fx-section"); if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      return;
+    }
+    const fpr = e.target.closest("[data-fxpreset]");
+    if (fpr) { fxPreset(fpr.dataset.fxpreset, +fpr.dataset.days); fxRefresh(); return; }
     const vm = e.target.closest("[data-vmode]");
     if (vm) { vmode = vm.dataset.vmode; try { localStorage.setItem("ar.vmode", vmode); } catch (x) { /* ignorer */ } render(); return; }
     const fr = e.target.closest("[data-frange]");
@@ -1322,6 +1437,15 @@
   $("#view").innerHTML = `<div class="skeleton"><span></span><span></span><span></span></div>`;
   scheduleFundsRefresh();
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && needsNow()) loadFundsNow(true); });
+  const onFx = ev => {
+    const t = ev.target; if (!t || (t.id !== "fx-a" && t.id !== "fx-b")) return;
+    let a = +$("#fx-a").value, b = +$("#fx-b").value;
+    if (t.id === "fx-a" && a > b - 5) { a = b - 5; t.value = a; }
+    if (t.id === "fx-b" && b < a + 5) { b = a + 5; t.value = b; }
+    fxState.a = a; fxState.b = b; fxState.preset = null;
+    fxRefresh();
+  };
+  document.addEventListener("input", onFx);
   const onPlan = ev => {
     const t = ev.target; if (!t || !t.id || !t.id.startsWith("pl-")) return;
     const pl = plan();

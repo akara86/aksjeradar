@@ -201,7 +201,15 @@ def main() -> int:
                         extra = demo_prices(need, days=760, seed=9)
                     else:
                         extra = fetch_prices(need, "3y") if need else {}
-                    market = run_market(cfg, {**proxy_frames, **fx_frames, **extra}, table)
+                    fxp = [x["ticker"] for x in mc.get("fx_pairs", [])]
+                    if args.demo:
+                        fx_long = demo_prices(fxp, days=2600, seed=13)
+                        for t_, df_ in fx_long.items():   # demo: realistiske nivåer
+                            lvl = {"USDNOK=X": 10.5, "EURNOK=X": 11.5, "SEKNOK=X": 1.0, "GBPNOK=X": 13.5}.get(t_, 10)
+                            fx_long[t_] = df_ / float(df_["Close"].iloc[-1]) * lvl
+                    else:
+                        fx_long = fetch_prices(fxp, "10y") if fxp else {}
+                    market = run_market(cfg, {**proxy_frames, **fx_frames, **extra}, table, fx_long)
                     funds_payload["market"] = market
                     log.info("Marked: %d sektorer/tema, %d regioner, regime %s", len(market["sectors"]), len(market["regions"]), market["regime"])
                 except Exception as e:  # noqa: BLE001

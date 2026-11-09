@@ -147,7 +147,29 @@ def _hist(s: pd.Series, bench: pd.Series | None, days: int) -> dict:
             "idx": [r(v) for v in b] if b is not None else None, "sma200": [r(v) for v in sma]}
 
 
-def run_market(cfg: dict, frames: dict[str, pd.DataFrame], table: pd.DataFrame | None = None) -> dict:
+def fx_history(cfg: dict, fx_long: dict[str, pd.DataFrame] | None) -> dict:
+    """Kronekurs: daglige kurser (opptil 10 år) per valutapar, renset for enkeltdags feilnoteringer."""
+    from .funds import clean_spikes
+    out = {}
+    for item in (cfg.get("market") or {}).get("fx_pairs") or []:
+        df = (fx_long or {}).get(item["ticker"])
+        if df is None or df.empty:
+            continue
+        s = df["Close"].astype(float).copy()
+        s.index = pd.to_datetime(s.index).normalize()
+        s = clean_spikes(s[~s.index.duplicated(keep="last")].sort_index().dropna(), 0.04)
+        if len(s) < 60:
+            continue
+        dec = 4 if float(s.iloc[-1]) < 3 else 3
+        d0 = s.index[0]
+        out[item["id"]] = {"name": item["name"], "flag": item.get("flag", ""), "ticker": item["ticker"],
+                           "d0": d0.strftime("%Y-%m-%d"), "dd": [int((d - d0).days) for d in s.index],   # dager etter d0 (kompakt)
+                           "values": [round(float(v), dec) for v in s]}
+    return out
+
+
+def run_market(cfg: dict, frames: dict[str, pd.DataFrame], table: pd.DataFrame | None = None,
+               fx_long: dict[str, pd.DataFrame] | None = None) -> dict:
     mc = cfg.get("market") or {}
     days = int(mc.get("history_days", 520))
     bench_t = mc.get("benchmark", "SPY")
@@ -290,6 +312,6 @@ def run_market(cfg: dict, frames: dict[str, pd.DataFrame], table: pd.DataFrame |
         "benchmark": bench_t,
         "regime": regime, "regime_points": pts, "breadth": breadth, "spx": {"ret_1m": spx_1m, "ret_1y": _ret(bench, 252) if bench is not None else None, **spx_tr},
         "n_up": n_up, "n_down": n_dn,
-        "summary": txt, "macro": macro, "sectors": rows, "regions": regions,
+        "summary": txt, "macro": macro, "sectors": rows, "regions": regions, "fx": fx_history(cfg, fx_long),
         "status_order": STATUS_ORDER,
     })

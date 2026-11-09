@@ -455,6 +455,11 @@ market:                           # «Marked»-fanen: sektorer i vinden / nedgå
     - {id: em, name: "Fremvoksende markeder", etf: IEMG, currency: USD, funds: [klp_em]}
     - {id: india, name: "India", etf: INDA, currency: USD, funds: [dnb_india]}
     - {id: china, name: "Kina", etf: MCHI, currency: USD}
+  fx_pairs:                       # kronekurs-grafen i Marked-fanen (10 års daglig historikk)
+    - {id: USD, name: "Amerikanske dollar", ticker: "USDNOK=X", flag: "🇺🇸"}
+    - {id: EUR, name: "Euro", ticker: "EURNOK=X", flag: "🇪🇺"}
+    - {id: SEK, name: "Svenske kroner", ticker: "SEKNOK=X", flag: "🇸🇪"}
+    - {id: GBP, name: "Britiske pund", ticker: "GBPNOK=X", flag: "🇬🇧"}
   macro:
     - {id: vix, name: "Uroindeks (VIX)", ticker: "^VIX"}
     - {id: rate10, name: "USA 10-årsrente", ticker: "^TNX", unit: "%"}

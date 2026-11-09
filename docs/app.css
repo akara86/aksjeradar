@@ -399,3 +399,15 @@ details.mrep summary { display: flex; align-items: center; gap: 8px; cursor: poi
 details.mrep summary::-webkit-details-marker { display: none; }
 .jl .t { overflow: hidden; }
 .jl-act .vb { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- kronekurs: skyvebryter med to håndtak ---------- */
+.dual { position: relative; height: 34px; margin: 10px 6px 0; }
+.dual-track { position: absolute; left: 0; right: 0; top: 15px; height: 4px; border-radius: 2px; background: var(--surface-2); }
+.dual-track i { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 2px; }
+.dual input[type=range] { position: absolute; left: 0; top: 0; width: 100%; height: 34px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+.dual input[type=range]::-webkit-slider-runnable-track { background: none; height: 34px; }
+.dual input[type=range]::-moz-range-track { background: none; }
+.dual input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 26px; height: 26px; margin-top: 4px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: grab; }
+.dual input[type=range]::-moz-range-thumb { pointer-events: auto; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); cursor: grab; }
+.dual-lbl { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin: 4px 4px 0; font-family: var(--font-mono); }
+.dual-lbl .muted { font-family: var(--font-ui); font-size: 11.5px; text-align: center; }

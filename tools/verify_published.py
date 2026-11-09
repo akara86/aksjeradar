@@ -9,6 +9,7 @@ out = {"generated_at": d.get("generated_at"), "run_date": d.get("run_date"),
                            "stress": {k: (round(v["drop"], 3) if isinstance(v, dict) and "drop" in v else v) for k, v in (x.get("stress") or {}).items() if k != "since"}, "monthly_last": list((x.get("monthly") or {}).items())[-2:]} for x in f["funds"] if x.get("owned")},
        "market": {"regime": (f.get("market") or {}).get("regime"), "summary": (f.get("market") or {}).get("summary"),
                   "top": [(s["name"], s["status"], s["forward"]) for s in (f.get("market") or {}).get("sectors", [])][:5]},
+       "fx": {k: {"n": len(v.get("values", [])), "d0": v.get("d0"), "last": v.get("values", [None])[-1], "min": min(v.get("values") or [0]), "max": max(v.get("values") or [0])} for k, v in ((f.get("market") or {}).get("fx") or {}).items()},
        "reports": [(r["title"], round(r["avg"], 4)) for r in f.get("reports") or []],
        "picks": [(p["name"], p["attr_score"], (p.get("long") or {}).get("ann_5y")) for p in (f.get("picks") or {}).get("list", [])]}
 json.dump(out, open(sys.argv[1], "w"), ensure_ascii=False, indent=1)
