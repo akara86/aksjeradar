@@ -233,7 +233,7 @@
   }
   // Innskudd etter registrert verdi: hvert beløp vokser med fondet fra sin egen dato
   const deposits = () => { if (!Array.isArray(pf.deposits)) pf.deposits = []; return pf.deposits; };
-  const depCounts = (d, hold) => !hold || !(hold.value > 0) || d.date > hold.date;   // innskudd før/samme dag som registrert verdi er allerede med
+  const depCounts = (d, hold) => !!d.pending || !hold || !(hold.value > 0) || d.date > hold.date;   // «under behandling» er ikke med i bankens verdi ennå   // innskudd før/samme dag som registrert verdi er allerede med
   function holdingsAll() {
     const hs = fundHoldings().slice();
     for (const d of deposits()) {
@@ -255,7 +255,9 @@
     const base = hold.value * nf.factor + depBase;
     const now = base * (1 + todayChg);
     const invested = (hold.value || 0) + depSum;
-    return { f, nf, est, useIntra, base, now, today: todayChg, todayKr: now - base, deps, depSum, invested, sinceKr: now - invested, sincePct: invested ? now / invested - 1 : null };
+    const costBase = hold.cost > 0 ? hold.cost + depSum : null;   // innskutt i fondet (fra banken) + senere innskudd
+    return { f, nf, est, useIntra, base, now, today: todayChg, todayKr: now - base, deps, depSum, invested, sinceKr: now - invested, sincePct: invested ? now / invested - 1 : null,
+      costBase, retKr: costBase ? now - costBase : null, retPct: costBase ? now / costBase - 1 : null, pendingSum: deps.filter(d => d.pending).reduce((a, d) => a + d.amount, 0) };
   }
   function estimates() { return holdingsAll().map(h => ({ h, e: fundEstimate(h) })).filter(x => x.e); }
   function totals(ests) {
@@ -263,7 +265,10 @@
     const fresh = ests.some(x => x.e.useIntra && x.e.est.fresh);
     const anyOpen = ests.some(x => x.e.useIntra && x.e.est.market_open);
     const asOf = ests.map(x => x.e.est && x.e.useIntra ? x.e.est.as_of : null).filter(Boolean).sort().pop();
-    return { totNow, totBase, totStart, todayKr: totNow - totBase, since: totNow - totStart, fresh, anyOpen, asOf };
+    // Bankens totale innskudd (netto) på kontoen + innskudd registrert etter den datoen / under behandling
+    const b = pf.basis && pf.basis.invested > 0 ? pf.basis : null;
+    const invested = b ? b.invested + deposits().filter(d => d.pending || d.date > b.date).reduce((a, d) => a + d.amount, 0) : null;
+    return { totNow, totBase, totStart, todayKr: totNow - totBase, since: totNow - totStart, fresh, anyOpen, asOf, invested, ret: invested ? totNow - invested : null };
   }
 
   // ---------- grafmodul: fond dag for dag (tidsvelger, trådkors, periodestatistikk) ----------
@@ -636,7 +641,7 @@
     const hs = fundHoldings();
     return `<div class="section">${sectionHead("Innskudd", ds.length)}<div class="card" style="margin-top:0"><div class="lines">${ds.map(({ d, i }) => {
       const f = fundById(d.id), hold = hs.find(h => h.id === d.id), counts = depCounts(d, hold);
-      return `<div class="ln"><span class="d">${fmtDate(d.date)}</span><span class="t">${esc(f ? f.name : d.id)}${counts ? "" : `<br><span class="muted" style="font-size:12px">allerede med i registrert verdi (${fmtDate(hold.date)})</span>`}${d.note ? `<br><span class="muted" style="font-size:12px">${esc(d.note)}</span>` : ""}</span><span class="v">${money(d.amount)} <button class="linkbtn" data-depdel="${i}" aria-label="Fjern innskudd" style="margin-left:6px">✕</button></span></div>`;
+      return `<div class="ln"><span class="d">${fmtDate(d.date)}</span><span class="t">${esc(f ? f.name : d.id)}${d.pending ? `<br><span class="muted" style="font-size:12px">under behandling – ikke med i bankens verdi ennå</span>` : ""}${counts ? "" : `<br><span class="muted" style="font-size:12px">allerede med i registrert verdi (${fmtDate(hold.date)})</span>`}${d.note ? `<br><span class="muted" style="font-size:12px">${esc(d.note)}</span>` : ""}</span><span class="v">${money(d.amount)} <button class="linkbtn" data-depdel="${i}" aria-label="Fjern innskudd" style="margin-left:6px">✕</button></span></div>`;
     }).join("")}</div><p class="muted" style="font-size:12.5px;margin:8px 0 0">Hvert innskudd vokser med fondet fra sin dato. Innskudd fra før datoen på verdien du registrerte, er allerede med i den.</p></div></div>`;
   }
   function openDepositForm(push) {
@@ -822,24 +827,25 @@
     const ests = estimates();
     let html = "";
     if (!ests.length) {
-      html += `<div class="empty-card" style="margin-top:14px"><b>Registrer fondene dine.</b><p>Skriv inn verdien du ser i banken/plattformen og datoen den gjelder. Appen regner deretter ut et estimat av verdien akkurat nå – oppdatert hvert kvarter i børstiden – ut fra indeksen fondet følger og valutakursen.</p><div class="btn-row wrap"><button class="btn" data-fundadd="1">Legg til fond</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button></div></div>`;
+      html += `<div class="empty-card" style="margin-top:14px"><b>Registrer fondene dine.</b><p>Skriv inn verdien du ser i banken/plattformen og datoen den gjelder. Appen regner deretter ut et estimat av verdien akkurat nå – oppdatert hvert kvarter i børstiden – ut fra indeksen fondet følger og valutakursen.</p><div class="btn-row wrap"><button class="btn" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button></div></div>`;
     } else {
       const t = totals(ests);
       html += `<div style="margin-top:12px">${summaryCard([
         ["Estimert verdi nå", money(t.totNow)],
         ["I dag", signed(t.todayKr), sign(t.todayKr), pct(t.totBase ? t.todayKr / t.totBase : null)],
-        ["Gevinst siden reg.", signed(t.since), sign(t.since), pct(t.totStart ? t.since / t.totStart : null)],
+        t.invested ? ["Avkastning totalt", signed(t.ret), sign(t.ret), pct(t.ret / t.invested)] : ["Gevinst siden reg.", signed(t.since), sign(t.since), pct(t.totStart ? t.since / t.totStart : null)],
         ["Oppdatert", t.asOf ? fmtClock(t.asOf) + (t.fresh ? "" : t.anyOpen ? " (forsinket)" : " · børs stengt") : "siste sluttkurs", ""],
       ])}</div>`;
+      if (t.invested) html += `<p class="hint" style="margin-top:8px">Innskutt totalt ${money(t.invested)} (banken ${fmtDate(pf.basis.date)}: ${money(pf.basis.invested)}${t.invested > pf.basis.invested ? ` + ${money(t.invested - pf.basis.invested)} senere/under behandling` : ""}). Gevinst siden ${fmtDate(pf.basis.date)}: <b class="mono ${sign(t.since)}">${signed(t.since)}</b>.</p>`;
       html += `<p class="hint" style="margin-top:8px">${t.asOf ? (t.anyOpen ? `Intradag-kurser ca. 15 min forsinket. ` : `Børsene er stengt – viser dagens sluttkurs. `) : `Intradag-data mangler – viser siste sluttkurs fra den daglige analysen. `}Estimatet bruker indeksen fondet følger, ikke fondets egen kurs.</p>`;
       html += `<div class="section">${sectionHead("Utvikling dag for dag")}${valueChartBlock()}</div>`;
       html += `<div class="section">${sectionHead("Dine fond", ests.length)}${ests.map(({ h, e }) => `
         <div class="fund v-hold" style="border-left-color:var(--accent)">
           <div class="su-top"><span class="fund-name" style="margin:0;font-size:15px">${esc(e.f.name)}</span>${h.synthetic ? "" : `<button class="linkbtn" data-fundedit="${esc(h.id)}" style="margin-left:auto">Endre</button>`}</div>
           <div class="levels two" style="margin-top:8px">
-            <span><i>Nå (est.)</i><b class="mono">${money(e.now)}</b><small>${h.synthetic ? "bare innskudd" : "reg. " + money(h.value)}${e.depSum ? ` + innskudd ${money(e.depSum)}` : ""}</small></span>
+            <span><i>Nå (est.)</i><b class="mono">${money(e.now)}</b><small>${h.synthetic ? "bare innskudd" : "reg. " + money(h.value)}${e.depSum ? ` + innskudd ${money(e.depSum)}` : ""}${e.pendingSum ? " (under beh.)" : ""}</small></span>
             <span><i>I dag</i><b class="mono ${sign(e.todayKr)}">${pct(e.today)}</b><small class="mono ${sign(e.todayKr)}">${signed(e.todayKr)}</small></span>
-            <span><i>Gevinst siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${signed(e.sinceKr)}</small></span>
+            ${e.costBase ? `<span><i>Avkastning totalt</i><b class="mono ${sign(e.retKr)}">${pct(e.retPct)}</b><small class="mono ${sign(e.retKr)}">${signed(e.retKr)}</small></span>` : `<span><i>Gevinst siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${signed(e.sinceKr)}</small></span>`}
             <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.f.nav ? `andelskurs ${fmtDate(e.f.nav.last_date)}${e.f.nav.estimated_days || e.useIntra ? " + estimat" : ""}` : (e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.market_open ? e.est.age_min + " min gammel" : "stengt"}` : "sluttkurs " + fmtDate(e.nf.to))}</small></span>
           </div>
           ${e.useIntra && e.est.fx ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Indeks ${pct(e.est.proxy_change)} i ${esc(e.est.proxy_currency)} · valuta ${esc(e.est.fx.pair)} ${pct(e.est.fx.change)} → ${pct(e.today)} i NOK</p>` : ""}
@@ -847,7 +853,7 @@
           ${e.nf.note ? `<p class="muted" style="margin:6px 0 0;font-size:12.5px">${esc(e.nf.note)}</p>` : ""}
         </div>`).join("")}</div>
         ${depositList()}
-        <div class="btn-row wrap"><button class="btn" data-depadd="1">Registrer innskudd</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" id="pf-backup">Sikkerhetskopi</button></div>`;
+        <div class="btn-row wrap"><button class="btn" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" id="pf-backup">Sikkerhetskopi</button></div>`;
     }
     html += `<p class="note">Verdien regnes fra fondenes offisielle andelskurser (publiseres én gang per dag, ofte med én dags forsinkelse). For dagene etter siste andelskurs – og i dag – estimeres utviklingen med en ETF som følger samme indeks (15-minutters kurser) og valutakursen. Verdiene du registrerer lagres bare på denne enheten – bruk «Sikkerhetskopi» for å flytte dem til en annen telefon.</p>`;
     return html;
@@ -1185,6 +1191,7 @@
     else if (e.state && e.state.pickinfo) openPick(e.state.pickinfo, false);
     else if (e.state && e.state.mkinfo) openMarketItem(e.state.mkinfo, false);
     else if (e.state && e.state.depform) openDepositForm(false);
+    else if (e.state && e.state.bankupd) openBankUpdate(false);
     else closeSheet();
   });
 
@@ -1233,6 +1240,71 @@
           <p class="muted" style="font-size:13px;margin:0">Tips: registrer verdien på en dag fondet er kurssatt (en ukedag), så blir estimatet mest presist. Oppdater verdien av og til, f.eks. etter innskudd.</p>
         </div>
       </div>`, push, { fundform: id || "" });
+  }
+
+  // ---------- «Oppdater fra banken»: alle fond på én gang (verdi, innskutt, under behandling) ----------
+  function openBankUpdate(push) {
+    const owned = fundsData().filter(f => f.owned || fundHoldings().some(h => h.id === f.id));
+    const val = (id, k) => { const h = fundHoldings().find(x => x.id === id); return h && h[k] > 0 ? h[k] : ""; };
+    showSheet(`
+      ${sheetTop("Oppdater fra banken", "Skriv av tallene – eller lim inn en kode")}
+      <div class="gutter sheet-body"><div class="form">
+        <label class="field"><span>Lim inn kode (valgfritt)</span><textarea id="bu-code" class="ta" style="min-height:70px" placeholder="Kode fra Claude, f.eks. {&quot;date&quot;:…}"></textarea></label>
+        <div class="btn-row"><button class="btn secondary small" id="bu-fill">Fyll inn fra kode</button></div>
+        <label class="field"><span>Tallene gjelder dato</span><input id="bu-date" type="date" value="${today()}"></label>
+        ${owned.map(f => `<div class="card" style="margin:0"><b style="font-size:14px">${esc(f.name)}</b>
+          <div class="bu-row">
+            <label class="field"><span>Markedsverdi</span><input id="bu-v-${esc(f.id)}" type="number" inputmode="decimal" min="0" value="${val(f.id, "value")}"></label>
+            <label class="field"><span>Innskutt</span><input id="bu-c-${esc(f.id)}" type="number" inputmode="decimal" min="0" value="${val(f.id, "cost")}" placeholder="valgfritt"></label>
+            <label class="field"><span>Under beh.</span><input id="bu-p-${esc(f.id)}" type="number" inputmode="decimal" min="0" placeholder="0"></label>
+          </div></div>`).join("")}
+        <label class="field"><span>Innskudd totalt på kontoen (valgfritt)</span><input id="bu-total" type="number" inputmode="decimal" min="0" value="${pf.basis && pf.basis.invested > 0 ? pf.basis.invested : ""}" placeholder="«Innskudd» i bankappen"></label>
+        <p id="bu-msg" class="neg" style="margin:0"></p>
+        <div class="btn-row"><button class="btn" id="bu-ok">Lagre</button></div>
+        <p class="muted" style="font-size:13px;margin:0"><b>Innskutt</b> = markedsverdi minus avkastningen banken viser for fondet. <b>Under behandling</b> = kjøp som er bestilt, men ikke med i markedsverdien ennå. Ved lagring erstattes tidligere verdier, og registrerte innskudd fram til denne datoen fjernes (de er nå med i bankens tall).</p>
+      </div></div>`, push, { bankupd: true });
+    $("#bu-fill").addEventListener("click", () => {
+      const r = parseBankCode($("#bu-code").value);
+      if (!r) { $("#bu-msg").textContent = "Fant ingen gyldig kode."; return; }
+      if (r.date) $("#bu-date").value = r.date;
+      if (r.total) $("#bu-total").value = r.total;
+      let n = 0;
+      for (const [id, a] of Object.entries(r.funds)) {
+        const v = $("#bu-v-" + id); if (!v) continue;
+        v.value = a[0] || ""; $("#bu-c-" + id).value = a[1] || ""; $("#bu-p-" + id).value = a[2] || ""; n++;
+      }
+      $("#bu-msg").className = "pos"; $("#bu-msg").textContent = `Fylte inn ${n} fond. Sjekk tallene og trykk Lagre.`;
+    });
+  }
+  // Kode: {"date":"2026-11-10","total":746378,"funds":{"klp_global":[verdi,innskutt,underBeh],…}}
+  function parseBankCode(txt) {
+    try {
+      const o = JSON.parse(String(txt || "").trim());
+      if (!o || typeof o.funds !== "object") return null;
+      const funds = {};
+      for (const [id, a] of Object.entries(o.funds)) funds[id] = (Array.isArray(a) ? a : [a]).map(x => +x || 0);
+      return { date: /^\d{4}-\d{2}-\d{2}$/.test(o.date || "") ? o.date : null, total: +o.total || 0, funds };
+    } catch (e) { return null; }
+  }
+  function saveBankUpdate() {
+    const date = $("#bu-date").value || today();
+    const ids = fundsData().map(f => f.id).filter(id => $("#bu-v-" + id));
+    const rows = ids.map(id => ({ id, value: parseFloat($("#bu-v-" + id).value), cost: parseFloat($("#bu-c-" + id).value), pend: parseFloat($("#bu-p-" + id).value) })).filter(r => r.value > 0);
+    if (!rows.length) { $("#bu-msg").textContent = "Skriv inn markedsverdien for minst ett fond."; return false; }
+    pf = pfLoad();
+    for (const r of rows) {
+      const h = { id: r.id, value: Math.round(r.value), date };
+      if (r.cost > 0) h.cost = Math.round(r.cost);
+      const i = pf.funds.findIndex(x => x.id === r.id);
+      if (i >= 0) pf.funds[i] = h; else pf.funds.push(h);
+      if (!Array.isArray(pf.deposits)) pf.deposits = [];
+      pf.deposits = pf.deposits.filter(d => !(d.id === r.id && (d.pending || d.date <= date)));
+      if (r.pend > 0) pf.deposits.push({ id: r.id, date, amount: Math.round(r.pend), pending: true });
+    }
+    const tot = parseFloat($("#bu-total").value);
+    if (tot > 0) pf.basis = { date, invested: Math.round(tot) };
+    pfSave();
+    return true;
   }
 
   function openPush(push) {
@@ -1372,6 +1444,12 @@
     }
     if (e.target.closest("[data-fundadd]")) { openFundForm(null); return; }
     if (e.target.closest("[data-depadd]")) { openDepositForm(); return; }
+    if (e.target.closest("[data-bankupd]")) { openBankUpdate(); return; }
+    if (e.target.closest("#bu-ok")) {
+      if (!saveBankUpdate()) return;
+      state.tab = "verdi"; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ }
+      render(); history.back(); return;
+    }
     const dd = e.target.closest("[data-depdel]");
     if (dd) { deposits().splice(+dd.dataset.depdel, 1); pfSave(); render(); return; }
     if (e.target.closest("#dp-ok")) {
