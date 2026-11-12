@@ -252,8 +252,14 @@
     // Intradag-estimatet gjelder mot forrige børsdag. Unngå dobbelttelling hvis den daglige kurven allerede dekker dagen.
     let todayChg = 0, useIntra = false;
     if (est && isNum(est.est_change_today) && est.session && nf.to && est.session > nf.to) { todayChg = est.est_change_today; useIntra = true; }
-    const base = hold.value * nf.factor + depBase;
-    const now = base * (1 + todayChg);
+    let base = hold.value * nf.factor + depBase;
+    let now = base * (1 + todayChg);
+    // Dagens sluttkurs er allerede med i den daglige kurven (etter børsslutt): vis dagens endring likevel
+    const h = f.history;
+    if (!useIntra && h && h.dates && h.dates.length > 1 && h.dates[h.dates.length - 1] === today() && hold.date < today()) {
+      todayChg = h.nok[h.nok.length - 1] / h.nok[h.nok.length - 2] - 1;
+      base = now / (1 + todayChg);
+    }
     const invested = (hold.value || 0) + depSum;
     const costBase = hold.cost > 0 ? hold.cost + depSum : null;   // innskutt i fondet (fra banken) + senere innskudd
     return { f, nf, est, useIntra, base, now, today: todayChg, todayKr: now - base, deps, depSum, invested, sinceKr: now - invested, sincePct: invested ? now / invested - 1 : null,
