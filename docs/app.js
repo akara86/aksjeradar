@@ -833,7 +833,7 @@
     const ests = estimates();
     let html = "";
     if (!ests.length) {
-      html += `<div class="empty-card" style="margin-top:14px"><b>Registrer fondene dine.</b><p>Skriv inn verdien du ser i banken/plattformen og datoen den gjelder. Appen regner deretter ut et estimat av verdien akkurat nå – oppdatert hvert kvarter i børstiden – ut fra indeksen fondet følger og valutakursen.</p><div class="btn-row wrap"><button class="btn" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button></div></div>`;
+      html += `<div class="empty-card" style="margin-top:14px"><b>Registrer fondene dine.</b><p>Skriv inn verdien du ser i banken/plattformen og datoen den gjelder. Appen regner deretter ut et estimat av verdien akkurat nå – oppdatert hvert kvarter i børstiden – ut fra indeksen fondet følger og valutakursen.</p><div class="btn-row wrap"><button class="btn" data-bankpaste="1">Lim inn kode</button><button class="btn secondary" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button></div></div>`;
     } else {
       const t = totals(ests);
       html += `<div style="margin-top:12px">${summaryCard([
@@ -859,7 +859,7 @@
           ${e.nf.note ? `<p class="muted" style="margin:6px 0 0;font-size:12.5px">${esc(e.nf.note)}</p>` : ""}
         </div>`).join("")}</div>
         ${depositList()}
-        <div class="btn-row wrap"><button class="btn" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" id="pf-backup">Sikkerhetskopi</button></div>`;
+        <div class="btn-row wrap"><button class="btn" data-bankpaste="1">Lim inn kode</button><button class="btn secondary" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" id="pf-backup">Sikkerhetskopi</button></div>`;
     }
     html += `<p class="note">Verdien regnes fra fondenes offisielle andelskurser (publiseres én gang per dag, ofte med én dags forsinkelse). For dagene etter siste andelskurs – og i dag – estimeres utviklingen med en ETF som følger samme indeks (15-minutters kurser) og valutakursen. Verdiene du registrerer lagres bare på denne enheten – bruk «Sikkerhetskopi» for å flytte dem til en annen telefon.</p>`;
     return html;
@@ -1303,6 +1303,11 @@
     const ids = fundsData().map(f => f.id).filter(id => $("#bu-v-" + id));
     const rows = ids.map(id => ({ id, value: parseFloat($("#bu-v-" + id).value), cost: parseFloat($("#bu-c-" + id).value), pend: parseFloat($("#bu-p-" + id).value) })).filter(r => r.value > 0);
     if (!rows.length) { $("#bu-msg").textContent = "Skriv inn markedsverdien for minst ett fond."; return false; }
+    applyBank(date, rows, parseFloat($("#bu-total").value));
+    return true;
+  }
+  // Felles: lagre bankens tall (verdi, innskutt, under behandling) for en kursdato
+  function applyBank(date, rows, tot) {
     pf = pfLoad();
     for (const r of rows) {
       const h = { id: r.id, value: Math.round(r.value), date };
@@ -1313,10 +1318,27 @@
       pf.deposits = pf.deposits.filter(d => !(d.id === r.id && (d.pending || d.date <= date)));
       if (r.pend > 0) pf.deposits.push({ id: r.id, date, amount: Math.round(r.pend), pending: true });
     }
-    const tot = parseFloat($("#bu-total").value);
     if (tot > 0) pf.basis = { date, invested: Math.round(tot) };
     pfSave();
-    return true;
+  }
+  function flash(msg, ok) {
+    let el = document.getElementById("flash");
+    if (!el) { el = document.createElement("div"); el.id = "flash"; document.body.appendChild(el); }
+    el.className = ok ? "flash ok" : "flash err"; el.textContent = msg; el.hidden = false;
+    clearTimeout(flash.t); flash.t = setTimeout(() => { el.hidden = true; }, 5000);
+  }
+  // Ett trykk: les koden fra utklippstavlen og oppdater alle fond
+  async function pasteBankCode() {
+    let txt = "";
+    try { txt = await navigator.clipboard.readText(); } catch (e) { openBankUpdate(); flash("Fikk ikke lese utklippstavlen – lim inn koden i feltet øverst."); return; }
+    const r = parseBankCode(txt);
+    if (!r || !r.date) { flash("Fant ingen kode på utklippstavlen. Kopier koden fra Claude først."); return; }
+    const rows = Object.entries(r.funds).filter(([id]) => fundById(id)).map(([id, a]) => ({ id, value: a[0], cost: a[1], pend: a[2] })).filter(x => x.value > 0);
+    if (!rows.length) { flash("Koden inneholdt ingen kjente fond."); return; }
+    applyBank(r.date, rows, r.total);
+    state.tab = "verdi"; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ }
+    render();
+    flash(`Oppdatert ${rows.length} fond med bankens tall (kurs ${fmtDate(r.date)}).`, true);
   }
 
   function openPush(push) {
@@ -1457,6 +1479,7 @@
     if (e.target.closest("[data-fundadd]")) { openFundForm(null); return; }
     if (e.target.closest("[data-depadd]")) { openDepositForm(); return; }
     if (e.target.closest("[data-bankupd]")) { openBankUpdate(); return; }
+    if (e.target.closest("[data-bankpaste]")) { pasteBankCode(); return; }
     if (e.target.closest("#bu-ok")) {
       if (!saveBankUpdate()) return;
       state.tab = "verdi"; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ }
