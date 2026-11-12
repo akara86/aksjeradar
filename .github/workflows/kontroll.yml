@@ -17,12 +17,15 @@ jobs:
       - run: python tools/verify_published.py published.json
       - run: python tools/holdings_probe.py holdings_probe.json
       - run: python tools/debug_stress.py debug_stress.json
+      - run: |
+          curl -sf https://akara86.github.io/aksjeradar/funds.json -o site_funds.json
+          curl -sf https://akara86.github.io/aksjeradar/funds_now.json -o site_funds_now.json
       - name: Lagre resultatet på egen gren
         run: |
           git config user.name "aksjeradar-bot"
           git config user.email "aksjeradar-bot@users.noreply.github.com"
           git checkout --orphan kontroll
           git rm -rfq --cached . >/dev/null
-          git add -f nav_probe.json published.json holdings_probe.json debug_stress.json
+          git add -f nav_probe.json published.json holdings_probe.json debug_stress.json site_funds.json site_funds_now.json
           git commit -qm "Fondskontroll $(date -u +%F)"
           git push -fq origin kontroll
