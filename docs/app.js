@@ -1212,7 +1212,7 @@
           <span><i>1 år</i><b class="mono ${sign(f.ret_1y)}">${pct(f.ret_1y)}</b></span>
         </div>
         ${fundChartBlock(f)}
-        ${f.nav ? `<p class="muted" style="margin:10px 0 0;font-size:12.5px">Kurven bruker fondets offisielle andelskurs (siste ${fmtDate(f.nav.last_date)}: ${num(f.nav.last, 2)} kr)${f.nav.estimated_days ? `, pluss estimat for ${f.nav.estimated_days} dag${f.nav.estimated_days > 1 ? "er" : ""} etter via ${esc(f.proxy)}` : ""}.${isNum(f.nav.te_daily) ? ` Estimatet via ${esc(f.proxy)} avviker typisk ${num(f.nav.te_daily * 100, 1)} % per dag fra fondet.` : ""}</p>` : ""}
+        ${f.nav ? `<p class="muted" style="margin:10px 0 0;font-size:12.5px">Kurven bruker fondets offisielle andelskurs (siste ${fmtDate(f.nav.last_date)}: ${num(f.nav.last, 2)} kr)${f.nav.estimated_days ? `, pluss estimat for ${f.nav.estimated_days} dag${f.nav.estimated_days > 1 ? "er" : ""} etter via ${esc(f.proxy)}` : ""}.${isNum(f.nav.te_daily) ? ` ${f.nav.model ? "Estimatet (lært av hvordan fondets egne kurser har fulgt ETF-ene)" : `Estimatet via ${esc(f.proxy)}`} avviker typisk ${num(f.nav.te_daily * 100, 1)} % per dag fra fondet.` : ""}</p>` : ""}
         <div class="analysis" style="margin-top:14px">${(an.sections || []).map(sx => sx.h === "Hva som ville endret vurderingen" && (an.triggers || []).length
           ? `<h3>${esc(sx.h)}</h3><ul class="reasons" style="margin:0;padding-left:18px">${an.triggers.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`
           : `<h3>${esc(sx.h)}</h3><p>${esc(sx.t)}</p>`).join("")}</div>
@@ -1251,7 +1251,8 @@
       <div class="gutter sheet-body"><div class="form">
         <label class="field"><span>Lim inn kode (valgfritt)</span><textarea id="bu-code" class="ta" style="min-height:70px" placeholder="Kode fra Claude, f.eks. {&quot;date&quot;:…}"></textarea></label>
         <div class="btn-row"><button class="btn secondary small" id="bu-fill">Fyll inn fra kode</button></div>
-        <label class="field"><span>Tallene gjelder dato</span><input id="bu-date" type="date" value="${today()}"></label>
+        <label class="field"><span>Kursdato tallene gjelder</span><input id="bu-date" type="date" value="${prevWeekday()}"></label>
+        <p class="muted" style="font-size:12.5px;margin:-4px 0 0">Banken viser verdien etter siste publiserte andelskurs – som regel forrige børsdag (står ofte som «01.01 – <i>dato</i>» ved avkastningen).</p>
         ${owned.map(f => `<div class="card" style="margin:0"><b style="font-size:14px">${esc(f.name)}</b>
           <div class="bu-row">
             <label class="field"><span>Markedsverdi</span><input id="bu-v-${esc(f.id)}" type="number" inputmode="decimal" min="0" value="${val(f.id, "value")}"></label>
@@ -1277,6 +1278,11 @@
     });
   }
   // Kode: {"date":"2026-11-10","total":746378,"funds":{"klp_global":[verdi,innskutt,underBeh],…}}
+  function prevWeekday() {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
   function parseBankCode(txt) {
     try {
       const o = JSON.parse(String(txt || "").trim());

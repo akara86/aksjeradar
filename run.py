@@ -169,7 +169,13 @@ def main() -> int:
             nav_frames = {} if (args.demo or not nav_tickers) else fetch_prices(nav_tickers, "3y")
             if nav_tickers and not args.demo:
                 log.info("Ekte andelskurser: %d av %d fond", len(nav_frames), len(nav_tickers))
-            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table, nav_frames)
+            # Xetra/Oslo-ETF-er (dagskurser) – gir bedre estimat for dagene etter siste andelskurs
+            aux_t = sorted({p["ticker"] for f in cfg["funds"]["list"] if f.get("nav_ticker") for p in (f.get("intraday_proxies") or [])})
+            aux_frames = {} if (args.demo or not aux_t) else fetch_prices(aux_t, "3y")
+            for c in sorted({p.get("currency", "USD") for f in cfg["funds"]["list"] for p in (f.get("intraday_proxies") or [])} - {"NOK"} - {k[:3] for k in fx_frames}):
+                if not args.demo:
+                    fx_frames.update(fetch_prices([f"{c}NOK=X"], "10y"))
+            funds_payload = run_funds(store, cfg, proxy_frames, fx_frames, table, nav_frames, aux_frames)
             # Hva fondene eier (sektorer og største selskaper) – til «Fordeling» i appen
             for f in funds_payload.get("funds", []):
                 if not f.get("owned"):
