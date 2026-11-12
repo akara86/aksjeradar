@@ -1,0 +1,406 @@
+{
+ "generated_at": "2026-11-12T21:11:02Z",
+ "run_date": "2026-11-12",
+ "funds": {
+  "gambak": {
+   "price_nok": 549.06,
+   "last_date": "2026-11-12",
+   "nav": {
+    "last_date": "2026-11-11",
+    "last": 548.9348,
+    "first_date": "2023-11-13",
+    "estimated_days": 1,
+    "est_change": 0.0002226215283225308,
+    "corr": 0.633,
+    "te_daily": 0.00383,
+    "model": {
+     "weights": {
+      "NORW|0": 0.0268,
+      "NORW|1": 0.0084,
+      "OSEBX.OL|0": 0.6862,
+      "OSEBX.OL|1": 0.0047
+     },
+     "lam": 0.0,
+     "te_model": 0.00383,
+     "te_proxy": 0.00772,
+     "n": 250
+    }
+   },
+   "deposit": "Fortsett vanlig sparing",
+   "level": "Nøytral",
+   "hist_last": "2026-11-12",
+   "hist_len": 520,
+   "fee": 1.3,
+   "holdings": {
+    "source": "0P0001LR11.IR",
+    "n_sectors": 10,
+    "top3": [
+     "DNB Bank ASA",
+     "Var Energi ASA",
+     "Storebrand ASA"
+    ]
+   },
+   "stress": {
+    "trade2018": -0.111,
+    "covid2020": -0.244,
+    "rates2022": -0.179,
+    "worst_12m": {
+     "ret": -0.1307130508106119,
+     "to": "2022-09-23"
+    }
+   },
+   "monthly_last": [
+    [
+     "2026-10",
+     0.01415
+    ],
+    [
+     "2026-11",
+     -0.00902
+    ]
+   ]
+  },
+  "dnb_teknologi": {
+   "price_nok": 7604.6,
+   "last_date": "2026-11-12",
+   "nav": {
+    "last_date": "2026-11-10",
+    "last": 7452.6558,
+    "first_date": "2023-11-13",
+    "estimated_days": 2,
+    "est_change": 0.020387353517584472,
+    "corr": 0.54,
+    "te_daily": 0.00834,
+    "model": {
+     "weights": {
+      "QQQ|0": 0.2718,
+      "QQQ|1": -0.0403,
+      "EQQQ.DE|0": 0.2479,
+      "EQQQ.DE|1": 0.0493
+     },
+     "lam": 3e-05,
+     "te_model": 0.00834,
+     "te_proxy": 0.01202,
+     "n": 250
+    }
+   },
+   "deposit": "Fortsett vanlig sparing",
+   "level": "Nøytral",
+   "hist_last": "2026-11-12",
+   "hist_len": 520,
+   "fee": 1.15,
+   "holdings": {
+    "source": "0P00000MVB.IR",
+    "n_sectors": 4,
+    "top3": [
+     "Microsoft Corp",
+     "Alphabet Inc Class A",
+     "NVIDIA Corp"
+    ]
+   },
+   "stress": {
+    "trade2018": -0.186,
+    "covid2020": -0.224,
+    "rates2022": -0.237,
+    "worst_12m": {
+     "ret": -0.2744555062563986,
+     "to": "2022-12-28"
+    }
+   },
+   "monthly_last": [
+    [
+     "2026-10",
+     -0.04814
+    ],
+    [
+     "2026-11",
+     0.05931
+    ]
+   ]
+  },
+  "storebrand_solutions": {
+   "price_nok": 2707.02,
+   "last_date": "2026-11-12",
+   "nav": {
+    "last_date": "2026-11-10",
+    "last": 2659.2888,
+    "first_date": "2023-11-13",
+    "estimated_days": 2,
+    "est_change": 0.017949078546795727,
+    "corr": 0.625,
+    "te_daily": 0.00716,
+    "model": {
+     "weights": {
+      "ACWI|0": 0.328,
+      "ACWI|1": -0.037,
+      "IUSQ.DE|0": 0.2978,
+      "IUSQ.DE|1": 0.1408
+     },
+     "lam": 0.0,
+     "te_model": 0.00716,
+     "te_proxy": 0.00895,
+     "n": 250
+    }
+   },
+   "deposit": "Fortsett vanlig sparing",
+   "level": "Nøytral",
+   "hist_last": "2026-11-12",
+   "hist_len": 520,
+   "fee": 0.9,
+   "holdings": {
+    "source": "0P0001EC8K.IR",
+    "n_sectors": 9,
+    "top3": [
+     "American Tower Corp",
+     "Visa Inc Class A",
+     "Autodesk Inc"
+    ]
+   },
+   "stress": {
+    "trade2018": -0.117,
+    "covid2020": -0.242,
+    "rates2022": -0.128,
+    "worst_12m": {
+     "ret": -0.10601008111142984,
+     "to": "2022-12-15"
+    }
+   },
+   "monthly_last": [
+    [
+     "2026-10",
+     -0.04876
+    ],
+    [
+     "2026-11",
+     0.06555
+    ]
+   ]
+  },
+  "klp_global": {
+   "price_nok": 1902.62,
+   "last_date": "2026-11-12",
+   "nav": {
+    "last_date": "2026-11-10",
+    "last": 1872.6462,
+    "first_date": "2023-11-13",
+    "estimated_days": 2,
+    "est_change": 0.016004887681838165,
+    "corr": 0.756,
+    "te_daily": 0.0051,
+    "model": {
+     "weights": {
+      "URTH|0": 0.462,
+      "URTH|1": -0.0105,
+      "EUNL.DE|0": 0.1755,
+      "EUNL.DE|1": 0.056
+     },
+     "lam": 0.0,
+     "te_model": 0.0051,
+     "te_proxy": 0.00658,
+     "n": 250
+    }
+   },
+   "deposit": "Fortsett vanlig sparing",
+   "level": "Nøytral",
+   "hist_last": "2026-11-12",
+   "hist_len": 520,
+   "fee": 0.2,
+   "holdings": {
+    "source": "0P0001OPBL.IR",
+    "n_sectors": 11,
+    "top3": [
+     "Apple Inc",
+     "NVIDIA Corp",
+     "Microsoft Corp"
+    ]
+   },
+   "stress": {
+    "trade2018": -0.125,
+    "covid2020": -0.249,
+    "rates2022": -0.135,
+    "worst_12m": {
+     "ret": -0.10206540658315588,
+     "to": "2022-12-28"
+    }
+   },
+   "monthly_last": [
+    [
+     "2026-10",
+     -0.04655
+    ],
+    [
+     "2026-11",
+     0.04664
+    ]
+   ]
+  },
+  "klp_em": {
+   "price_nok": 1652.66,
+   "last_date": "2026-11-12",
+   "nav": {
+    "last_date": "2026-11-10",
+    "last": 1613.6899,
+    "first_date": "2023-11-13",
+    "estimated_days": 2,
+    "est_change": 0.024152659453336334,
+    "corr": 0.394,
+    "te_daily": 0.01104,
+    "model": {
+     "weights": {
+      "IEMG|0": -0.1438,
+      "IEMG|1": 0.2063,
+      "IS3N.DE|0": 0.6725,
+      "IS3N.DE|1": 0.196
+     },
+     "lam": 0.0,
+     "te_model": 0.01104,
+     "te_proxy": 0.0184,
+     "n": 250
+    }
+   },
+   "deposit": "Vurder ekstrainnskudd",
+   "level": "Gunstig",
+   "hist_last": "2026-11-12",
+   "hist_len": 520,
+   "fee": 0.28,
+   "holdings": {
+    "source": "0P0001OPBE.IR",
+    "n_sectors": 11,
+    "top3": [
+     "Taiwan Semiconductor Manufacturing Co Ltd",
+     "SK hynix Inc",
+     "Samsung Electronics Co Ltd"
+    ]
+   },
+   "stress": {
+    "trade2018": -0.105,
+    "covid2020": -0.231,
+    "rates2022": -0.189,
+    "worst_12m": {
+     "ret": -0.15237385600271203,
+     "to": "2022-10-28"
+    }
+   },
+   "monthly_last": [
+    [
+     "2026-10",
+     -0.11203
+    ],
+    [
+     "2026-11",
+     0.04855
+    ]
+   ]
+  }
+ },
+ "market": {
+  "regime": "Risikovilje",
+  "summary": [
+   "Markedet er i en fase med risikovilje: S&P 500 er −1,6 % siste måned og over 200-dagers snittet. 65 % av aksjene Aksjeradar følger er i opptrend. Uroindeksen VIX står i 19 (normalt).",
+   "Sterkest siste 3 måneder: helse (+15 pp), dagligvarer (defensive) (+9 pp), energi (+7 pp). Svakest: industri (−7 pp), teknologi (−6 pp), kommunikasjon og medier (−2 pp) – målt mot S&P 500.",
+   "Den amerikanske 10-årsrenten er 5,10 % (−0,09 prosentpoeng siste måned).",
+   "Dollaren koster 9,55 kr (+0,4 % siste måned).",
+   "Modellen gir høyest fremover-score til energi (88), teknologi (76), helse (65) – en blanding av momentum, analytikernes forventninger, prising og vekst."
+  ],
+  "top": [
+   [
+    "Energi",
+    "I vinden",
+    88.0
+   ],
+   [
+    "Teknologi",
+    "Svekkes",
+    76.1
+   ],
+   [
+    "Helse",
+    "I vinden",
+    65.1
+   ],
+   [
+    "Dagligvarer (defensive)",
+    "I vinden",
+    60.2
+   ],
+   [
+    "Halvledere og AI-brikker",
+    "Nedgående",
+    59.5
+   ]
+  ]
+ },
+ "fx": {
+  "USD": {
+   "n": 2601,
+   "d0": "2016-11-14",
+   "last": 9.554,
+   "min": 7.641,
+   "max": 11.76
+  },
+  "EUR": {
+   "n": 2602,
+   "d0": "2016-11-14",
+   "last": 10.562,
+   "min": 8.802,
+   "max": 12.595
+  },
+  "SEK": {
+   "n": 2601,
+   "d0": "2016-11-14",
+   "last": 0.9529,
+   "min": 0.8999,
+   "max": 1.1244
+  },
+  "GBP": {
+   "n": 2602,
+   "d0": "2016-11-14",
+   "last": 12.646,
+   "min": 9.98,
+   "max": 14.312
+  }
+ },
+ "reports": [
+  [
+   "Oktober 2026",
+   -0.0483
+  ]
+ ],
+ "picks": [
+  [
+   "DNB Fund India N",
+   64.3,
+   0.037019281169112794
+  ],
+  [
+   "DNB Health Care A",
+   63.7,
+   0.1087927707393277
+  ],
+  [
+   "Nordea Norge Verdi",
+   59.0,
+   0.09990429694168101
+  ],
+  [
+   "SKAGEN Global A",
+   48.9,
+   0.11911421843903858
+  ],
+  [
+   "Fundsmith Equity",
+   47.9,
+   0.12447569502272815
+  ],
+  [
+   "DNB Teknologi A",
+   46.0,
+   0.14608671580176025
+  ],
+  [
+   "Storebrand Renewable Energy N",
+   36.1,
+   -0.05703095004394387
+  ]
+ ]
+}

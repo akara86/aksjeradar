@@ -1,0 +1,1292 @@
+{
+ "0P0001OPBL.IR": {
+  "sector_weightings": {
+   "realestate": 0.0163,
+   "consumer_cyclical": 0.0854,
+   "basic_materials": 0.0301,
+   "consumer_defensive": 0.0505,
+   "technology": 0.3068,
+   "communication_services": 0.073,
+   "financial_services": 0.16209999,
+   "utilities": 0.0232,
+   "industrials": 0.102299996,
+   "energy": 0.047,
+   "healthcare": 0.1033
+  },
+  "asset_classes": {
+   "cashPosition": 0.0043,
+   "stockPosition": 0.9954,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.00029999999
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "0P0001OPBL.IR": 0.0465,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "0P0001OPBL.IR": 0.26478,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "0P0001OPBL.IR": 0.35694,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "0P0001OPBL.IR": 0.07121,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "0P0001OPBL.IR": 2627625.0,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "0P0001OPBL.IR": 16.23,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": null,
+   "family": "KLP Kapitalforvaltning AS",
+   "legalType": null
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "0P0001OPBL.IR": 0.001,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "0P0001OPBL.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "0P0001OPBL.IR": null,
+    "Category Average": null
+   }
+  ],
+  "description": "",
+  "top_holdings": [
+   {
+    "Symbol": "AAPL",
+    "Name": "Apple Inc",
+    "Holding Percent": 0.0562285
+   },
+   {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corp",
+    "Holding Percent": 0.0523673
+   },
+   {
+    "Symbol": "MSFT",
+    "Name": "Microsoft Corp",
+    "Holding Percent": 0.040914897
+   },
+   {
+    "Symbol": "AMZN",
+    "Name": "Amazon.com Inc",
+    "Holding Percent": 0.0258484
+   },
+   {
+    "Symbol": "GOOGL",
+    "Name": "Alphabet Inc Class A",
+    "Holding Percent": 0.0182401
+   },
+   {
+    "Symbol": "AVGO",
+    "Name": "Broadcom Inc",
+    "Holding Percent": 0.0163715
+   },
+   {
+    "Symbol": "META",
+    "Name": "Meta Platforms Inc Class A",
+    "Holding Percent": 0.0150027005
+   },
+   {
+    "Symbol": "GOOG",
+    "Name": "Alphabet Inc Class C",
+    "Holding Percent": 0.014448
+   },
+   {
+    "Symbol": "TSLA",
+    "Name": "Tesla Inc",
+    "Holding Percent": 0.012706799
+   },
+   {
+    "Symbol": "LLY",
+    "Name": "Eli Lilly and Co",
+    "Holding Percent": 0.012626
+   }
+  ]
+ },
+ "0P0001EC8K.IR": {
+  "sector_weightings": {
+   "realestate": 0.0418,
+   "consumer_cyclical": 0.052699998,
+   "basic_materials": 0.0399,
+   "consumer_defensive": 0.0,
+   "technology": 0.24620001,
+   "communication_services": 0.048699997,
+   "financial_services": 0.0999,
+   "utilities": 0.014400001,
+   "industrials": 0.3975,
+   "energy": 0.0,
+   "healthcare": 0.0588
+  },
+  "asset_classes": {
+   "cashPosition": 0.0021,
+   "stockPosition": 0.9979,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "0P0001EC8K.IR": 0.04825,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "0P0001EC8K.IR": 0.35339,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "0P0001EC8K.IR": 0.57373,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "0P0001EC8K.IR": 0.07932,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "0P0001EC8K.IR": 399560.4,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "0P0001EC8K.IR": 17.69,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": null,
+   "family": "Storebrand Asset Management AS",
+   "legalType": null
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "0P0001EC8K.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "0P0001EC8K.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "0P0001EC8K.IR": null,
+    "Category Average": null
+   }
+  ],
+  "description": "",
+  "top_holdings": [
+   {
+    "Symbol": "AMT",
+    "Name": "American Tower Corp",
+    "Holding Percent": 0.0417605
+   },
+   {
+    "Symbol": "V",
+    "Name": "Visa Inc Class A",
+    "Holding Percent": 0.0416327
+   },
+   {
+    "Symbol": "ADSK",
+    "Name": "Autodesk Inc",
+    "Holding Percent": 0.0314518
+   },
+   {
+    "Symbol": "PWR",
+    "Name": "Quanta Services Inc",
+    "Holding Percent": 0.030422201
+   },
+   {
+    "Symbol": "CRWD",
+    "Name": "CrowdStrike Holdings Inc Class A",
+    "Holding Percent": 0.030001199
+   },
+   {
+    "Symbol": "PRY.MI",
+    "Name": "Prysmian SpA",
+    "Holding Percent": 0.0296644
+   },
+   {
+    "Symbol": "PANW",
+    "Name": "Palo Alto Networks Inc",
+    "Holding Percent": 0.029375998
+   },
+   {
+    "Symbol": "6501.T",
+    "Name": "Hitachi Ltd",
+    "Holding Percent": 0.0276262
+   },
+   {
+    "Symbol": "03750",
+    "Name": "Contemporary Amperex Technology Co Ltd Ordinary Shares - Class H",
+    "Holding Percent": 0.026936801
+   },
+   {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corp",
+    "Holding Percent": 0.023204701
+   }
+  ]
+ },
+ "0P0001LR11.IR": {
+  "sector_weightings": {
+   "realestate": 0.0050999997,
+   "consumer_cyclical": 0.030299999,
+   "basic_materials": 0.031400003,
+   "consumer_defensive": 0.12560001,
+   "technology": 0.026500002,
+   "communication_services": 0.0109,
+   "financial_services": 0.29299998,
+   "utilities": 0.0183,
+   "industrials": 0.2009,
+   "energy": 0.258,
+   "healthcare": 0.0
+  },
+  "asset_classes": {
+   "cashPosition": 0.020299999,
+   "stockPosition": 0.9797,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "0P0001LR11.IR": 0.08723,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "0P0001LR11.IR": 0.44978,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "0P0001LR11.IR": 0.66831,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "0P0001LR11.IR": 0.16197,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "0P0001LR11.IR": 66314.53,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "0P0001LR11.IR": 3.67,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": null,
+   "family": "Alfred Berg Kapitalforvaltning AS",
+   "legalType": null
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "0P0001LR11.IR": 0.02,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "0P0001LR11.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "0P0001LR11.IR": null,
+    "Category Average": null
+   }
+  ],
+  "description": "",
+  "top_holdings": [
+   {
+    "Symbol": "DNB.OL",
+    "Name": "DNB Bank ASA",
+    "Holding Percent": 0.097524405
+   },
+   {
+    "Symbol": "VARO.ST",
+    "Name": "Var Energi ASA",
+    "Holding Percent": 0.0934274
+   },
+   {
+    "Symbol": "STB.OL",
+    "Name": "Storebrand ASA",
+    "Holding Percent": 0.059787404
+   },
+   {
+    "Symbol": "AKER.OL",
+    "Name": "Aker ASA Class A",
+    "Holding Percent": 0.0517883
+   },
+   {
+    "Symbol": "KOG.OL",
+    "Name": "Kongsberg Gruppen ASA",
+    "Holding Percent": 0.048502002
+   },
+   {
+    "Symbol": "MOWI.OL",
+    "Name": "Mowi ASA",
+    "Holding Percent": 0.047154598
+   },
+   {
+    "Symbol": "SUBC.OL",
+    "Name": "Subsea 7 SA",
+    "Holding Percent": 0.045317203
+   },
+   {
+    "Symbol": "SALM.OL",
+    "Name": "SalMar ASA",
+    "Holding Percent": 0.0443424
+   },
+   {
+    "Symbol": "FRO",
+    "Name": "Frontline PLC",
+    "Holding Percent": 0.0425322
+   },
+   {
+    "Symbol": "SB1NO.OL",
+    "Name": "SpareBank 1 Sor Norge ASA",
+    "Holding Percent": 0.0409097
+   }
+  ]
+ },
+ "0P0001OPBE.IR": {
+  "sector_weightings": {
+   "realestate": 0.007900001,
+   "consumer_cyclical": 0.080699995,
+   "basic_materials": 0.052800003,
+   "consumer_defensive": 0.0255,
+   "technology": 0.41919997,
+   "communication_services": 0.0586,
+   "financial_services": 0.2174,
+   "utilities": 0.012200001,
+   "industrials": 0.0579,
+   "energy": 0.0353,
+   "healthcare": 0.0326
+  },
+  "asset_classes": {
+   "cashPosition": 0.0117,
+   "stockPosition": 0.9883,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "0P0001OPBE.IR": 0.07714,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "0P0001OPBE.IR": 0.47507,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "0P0001OPBE.IR": 0.53107,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "0P0001OPBE.IR": 0.12096,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "0P0001OPBE.IR": 959550.0,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "0P0001OPBE.IR": 16.1,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": null,
+   "family": "KLP Kapitalforvaltning AS",
+   "legalType": null
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "0P0001OPBE.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "0P0001OPBE.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "0P0001OPBE.IR": null,
+    "Category Average": null
+   }
+  ],
+  "description": "",
+  "top_holdings": [
+   {
+    "Symbol": "2330.TW",
+    "Name": "Taiwan Semiconductor Manufacturing Co Ltd",
+    "Holding Percent": 0.1569224
+   },
+   {
+    "Symbol": "000660.KQ",
+    "Name": "SK hynix Inc",
+    "Holding Percent": 0.051373802
+   },
+   {
+    "Symbol": "005930.KQ",
+    "Name": "Samsung Electronics Co Ltd",
+    "Holding Percent": 0.0396725
+   },
+   {
+    "Symbol": "0700.HK",
+    "Name": "Tencent Holdings Ltd",
+    "Holding Percent": 0.026290901
+   },
+   {
+    "Symbol": "9988.HK",
+    "Name": "Alibaba Group Holding Ltd Ordinary Shares",
+    "Holding Percent": 0.0181752
+   },
+   {
+    "Symbol": "2454.TW",
+    "Name": "MediaTek Inc",
+    "Holding Percent": 0.015413701
+   },
+   {
+    "Symbol": "00939",
+    "Name": "China Construction Bank Corp Class H",
+    "Holding Percent": 0.0108359
+   },
+   {
+    "Symbol": "2317.TW",
+    "Name": "Hon Hai Precision Industry Co Ltd",
+    "Holding Percent": 0.0080902
+   },
+   {
+    "Symbol": "2308.TW",
+    "Name": "Delta Electronics Inc",
+    "Holding Percent": 0.0069696996
+   }
+  ]
+ },
+ "0P00000MVB.IR": {
+  "sector_weightings": {
+   "realestate": 0.0,
+   "consumer_cyclical": 0.0863,
+   "basic_materials": 0.0,
+   "consumer_defensive": 0.0,
+   "technology": 0.622,
+   "communication_services": 0.2131,
+   "financial_services": 0.078600004,
+   "utilities": 0.0,
+   "industrials": 0.0,
+   "energy": 0.0,
+   "healthcare": 0.0
+  },
+  "asset_classes": {
+   "cashPosition": 0.018,
+   "stockPosition": 0.982,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "0P00000MVB.IR": 0.04563,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "0P00000MVB.IR": 0.19355,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "0P00000MVB.IR": 0.28498,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "0P00000MVB.IR": 0.06581,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "0P00000MVB.IR": 3041707.0,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "0P00000MVB.IR": 25.38,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": null,
+   "family": "DNB Asset Management AS",
+   "legalType": null
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "0P00000MVB.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "0P00000MVB.IR": null,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "0P00000MVB.IR": null,
+    "Category Average": null
+   }
+  ],
+  "description": "",
+  "top_holdings": [
+   {
+    "Symbol": "MSFT",
+    "Name": "Microsoft Corp",
+    "Holding Percent": 0.096874
+   },
+   {
+    "Symbol": "GOOGL",
+    "Name": "Alphabet Inc Class A",
+    "Holding Percent": 0.0688103
+   },
+   {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corp",
+    "Holding Percent": 0.0614074
+   },
+   {
+    "Symbol": "AMZN",
+    "Name": "Amazon.com Inc",
+    "Holding Percent": 0.0508747
+   },
+   {
+    "Symbol": "META",
+    "Name": "Meta Platforms Inc Class A",
+    "Holding Percent": 0.0462702
+   },
+   {
+    "Symbol": "AVGO",
+    "Name": "Broadcom Inc",
+    "Holding Percent": 0.0420715
+   },
+   {
+    "Symbol": "MA",
+    "Name": "Mastercard Inc Class A",
+    "Holding Percent": 0.0375596
+   },
+   {
+    "Symbol": "V",
+    "Name": "Visa Inc Class A",
+    "Holding Percent": 0.0364388
+   },
+   {
+    "Symbol": "ERIC-B.ST",
+    "Name": "Telefonaktiebolaget L M Ericsson Class B",
+    "Holding Percent": 0.0344052
+   },
+   {
+    "Symbol": "ADYEN.AS",
+    "Name": "Adyen NV",
+    "Holding Percent": 0.0308549
+   }
+  ]
+ },
+ "URTH": {
+  "sector_weightings": {
+   "realestate": 0.0163,
+   "consumer_cyclical": 0.0859,
+   "basic_materials": 0.0301,
+   "consumer_defensive": 0.052699998,
+   "technology": 0.30629998,
+   "communication_services": 0.0727,
+   "financial_services": 0.1593,
+   "utilities": 0.024500001,
+   "industrials": 0.1041,
+   "energy": 0.0461,
+   "healthcare": 0.1021
+  },
+  "asset_classes": {
+   "cashPosition": 0.0032,
+   "stockPosition": 0.9965,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.00029999999
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "URTH": 0.04576,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "URTH": 0.2617,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "URTH": 0.36312,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "URTH": 0.0626,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "URTH": null,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "URTH": null,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": "Global Large-Stock Blend",
+   "family": "iShares",
+   "legalType": "Exchange Traded Fund"
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "URTH": 0.0023999999,
+    "Category Average": 0.0093474
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "URTH": 0.04,
+    "Category Average": 0.4889
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "URTH": 290655.1,
+    "Category Average": 290655.1
+   }
+  ],
+  "description": "The fund generally will invest at least 80% of its assets in the component securities of the underlying index and in investments that have economic characteristics that are substantially identical to the component securities of the underlying index. The index is designed to measure the performance of equity securities in the large and mid-capitalization segments of developed market countries.",
+  "top_holdings": [
+   {
+    "Symbol": "AAPL",
+    "Name": "Apple Inc",
+    "Holding Percent": 0.0563011
+   },
+   {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corp",
+    "Holding Percent": 0.052333202
+   },
+   {
+    "Symbol": "MSFT",
+    "Name": "Microsoft Corp",
+    "Holding Percent": 0.0409607
+   },
+   {
+    "Symbol": "AMZN",
+    "Name": "Amazon.com Inc",
+    "Holding Percent": 0.0258656
+   },
+   {
+    "Symbol": "GOOGL",
+    "Name": "Alphabet Inc Class A",
+    "Holding Percent": 0.0182845
+   },
+   {
+    "Symbol": "AVGO",
+    "Name": "Broadcom Inc",
+    "Holding Percent": 0.016395
+   },
+   {
+    "Symbol": "META",
+    "Name": "Meta Platforms Inc Class A",
+    "Holding Percent": 0.0150203
+   },
+   {
+    "Symbol": "GOOG",
+    "Name": "Alphabet Inc Class C",
+    "Holding Percent": 0.0144456
+   },
+   {
+    "Symbol": "TSLA",
+    "Name": "Tesla Inc",
+    "Holding Percent": 0.0127196
+   },
+   {
+    "Symbol": "LLY",
+    "Name": "Eli Lilly and Co",
+    "Holding Percent": 0.0126225
+   }
+  ]
+ },
+ "ACWI": {
+  "sector_weightings": {
+   "realestate": 0.0156,
+   "consumer_cyclical": 0.0851,
+   "basic_materials": 0.0327,
+   "consumer_defensive": 0.0499,
+   "technology": 0.3189,
+   "communication_services": 0.071100004,
+   "financial_services": 0.16510001,
+   "utilities": 0.0238,
+   "industrials": 0.098900005,
+   "energy": 0.045100003,
+   "healthcare": 0.0938
+  },
+  "asset_classes": {
+   "cashPosition": 0.0038,
+   "stockPosition": 0.9959,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.00029999999
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "ACWI": 0.04846,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "ACWI": 0.28285,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "ACWI": 0.37508,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "ACWI": 0.06527,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "ACWI": null,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "ACWI": null,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": "Global Large-Stock Blend",
+   "family": "iShares",
+   "legalType": "Exchange Traded Fund"
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "ACWI": 0.0032,
+    "Category Average": 0.0093474
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "ACWI": 0.03,
+    "Category Average": 0.4889
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "ACWI": 263229.03,
+    "Category Average": 263229.03
+   }
+  ],
+  "description": "The fund generally will invest at least 80% of its assets in the component securities of its underlying index and in investments that have economic characteristics that are substantially identical to the component securities of its underlying index. The index is a free float-adjusted market capitalization weighted index designed to measure the combined equity market performance of developed and emerging markets countries.",
+  "top_holdings": [
+   {
+    "Symbol": "AAPL",
+    "Name": "Apple Inc",
+    "Holding Percent": 0.049977
+   },
+   {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corp",
+    "Holding Percent": 0.046455797
+   },
+   {
+    "Symbol": "MSFT",
+    "Name": "Microsoft Corp",
+    "Holding Percent": 0.0363658
+   },
+   {
+    "Symbol": "AMZN",
+    "Name": "Amazon.com Inc",
+    "Holding Percent": 0.0229745
+   },
+   {
+    "Symbol": "2330.TW",
+    "Name": "Taiwan Semiconductor Manufacturing Co Ltd",
+    "Holding Percent": 0.0176476
+   },
+   {
+    "Symbol": "GOOGL",
+    "Name": "Alphabet Inc Class A",
+    "Holding Percent": 0.0162059
+   },
+   {
+    "Symbol": "AVGO",
+    "Name": "Broadcom Inc",
+    "Holding Percent": 0.014552601
+   },
+   {
+    "Symbol": "META",
+    "Name": "Meta Platforms Inc Class A",
+    "Holding Percent": 0.0133343
+   },
+   {
+    "Symbol": "GOOG",
+    "Name": "Alphabet Inc Class C",
+    "Holding Percent": 0.012848199
+   },
+   {
+    "Symbol": "TSLA",
+    "Name": "Tesla Inc",
+    "Holding Percent": 0.0112947
+   }
+  ]
+ },
+ "NORW": {
+  "sector_weightings": {
+   "realestate": 0.0018000001,
+   "consumer_cyclical": 0.0056,
+   "basic_materials": 0.071100004,
+   "consumer_defensive": 0.1159,
+   "technology": 0.0313,
+   "communication_services": 0.0546,
+   "financial_services": 0.23,
+   "utilities": 0.0053,
+   "industrials": 0.1549,
+   "energy": 0.32939997,
+   "healthcare": 0.0
+  },
+  "asset_classes": {
+   "cashPosition": 0.0011999999,
+   "stockPosition": 0.9988,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "NORW": 0.07606,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "NORW": 0.45616,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "NORW": 0.64729,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "NORW": 0.15413,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "NORW": null,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "NORW": null,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": "Focused Region",
+   "family": "Global X Funds",
+   "legalType": "Exchange Traded Fund"
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "NORW": 0.005,
+    "Category Average": 0.0
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "NORW": 0.08979999,
+    "Category Average": null
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "NORW": 13834.63,
+    "Category Average": 13834.63
+   }
+  ],
+  "description": "The fund invests at least 80% of its total assets in the securities of the underlying index and in American Depositary Receipts (\"ADRs\") and Global Depositary Receipts (\"GDRs\") based on the securities in the underlying index. The underlying index is designed to represent the performance of the broad Norway equity universe. The fund is non-diversified.",
+  "top_holdings": [
+   {
+    "Symbol": "EQNR.OL",
+    "Name": "Equinor ASA",
+    "Holding Percent": 0.1326251
+   },
+   {
+    "Symbol": "DNB.OL",
+    "Name": "DNB Bank ASA",
+    "Holding Percent": 0.1147484
+   },
+   {
+    "Symbol": "KOG.OL",
+    "Name": "Kongsberg Gruppen ASA",
+    "Holding Percent": 0.0670139
+   },
+   {
+    "Symbol": "AKRBP.OL",
+    "Name": "Aker BP ASA",
+    "Holding Percent": 0.0558832
+   },
+   {
+    "Symbol": "MOWI.OL",
+    "Name": "Mowi ASA",
+    "Holding Percent": 0.0426646
+   },
+   {
+    "Symbol": "NHY.OL",
+    "Name": "Norsk Hydro ASA",
+    "Holding Percent": 0.038336597
+   },
+   {
+    "Symbol": "TEL.OL",
+    "Name": "Telenor ASA",
+    "Holding Percent": 0.036556
+   },
+   {
+    "Symbol": "STB.OL",
+    "Name": "Storebrand ASA",
+    "Holding Percent": 0.034320198
+   },
+   {
+    "Symbol": "FRO",
+    "Name": "Frontline PLC",
+    "Holding Percent": 0.0336867
+   },
+   {
+    "Symbol": "SUBC.OL",
+    "Name": "Subsea 7 SA",
+    "Holding Percent": 0.032892898
+   }
+  ]
+ },
+ "IEMG": {
+  "sector_weightings": {
+   "realestate": 0.016,
+   "consumer_cyclical": 0.081,
+   "basic_materials": 0.057600003,
+   "consumer_defensive": 0.0295,
+   "technology": 0.3987,
+   "communication_services": 0.056700002,
+   "financial_services": 0.19610001,
+   "utilities": 0.0197,
+   "industrials": 0.072399996,
+   "energy": 0.0363,
+   "healthcare": 0.036
+  },
+  "asset_classes": {
+   "cashPosition": 0.0025,
+   "stockPosition": 0.9974,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0001,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "IEMG": 0.06967,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "IEMG": 0.47092,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "IEMG": 0.52996,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "IEMG": 0.09246,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "IEMG": null,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "IEMG": null,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": "Diversified Emerging Mkts",
+   "family": "iShares",
+   "legalType": "Exchange Traded Fund"
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "IEMG": 0.00090000004,
+    "Category Average": 0.010580501
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "IEMG": 0.06,
+    "Category Average": 0.5726
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "IEMG": 74380.46,
+    "Category Average": 74380.46
+   }
+  ],
+  "description": "The fund generally will invest at least 80% of its assets in the component securities of the underlying index and in investments that have economic characteristics that are substantially identical to the component securities of the underlying index. The index is designed to measure large-, mid- and small-cap equity market performance in the global emerging markets.",
+  "top_holdings": [
+   {
+    "Symbol": "2330.TW",
+    "Name": "Taiwan Semiconductor Manufacturing Co Ltd",
+    "Holding Percent": 0.1393971
+   },
+   {
+    "Symbol": "005930.KQ",
+    "Name": "Samsung Electronics Co Ltd",
+    "Holding Percent": 0.0613859
+   },
+   {
+    "Symbol": "000660.KQ",
+    "Name": "SK hynix Inc",
+    "Holding Percent": 0.0456854
+   },
+   {
+    "Symbol": "0700.HK",
+    "Name": "Tencent Holdings Ltd",
+    "Holding Percent": 0.0233586
+   },
+   {
+    "Symbol": "9988.HK",
+    "Name": "Alibaba Group Holding Ltd Ordinary Shares",
+    "Holding Percent": 0.016122399
+   },
+   {
+    "Symbol": "2454.TW",
+    "Name": "MediaTek Inc",
+    "Holding Percent": 0.0134924995
+   },
+   {
+    "Symbol": "00939",
+    "Name": "China Construction Bank Corp Class H",
+    "Holding Percent": 0.008564101
+   },
+   {
+    "Symbol": "2317.TW",
+    "Name": "Hon Hai Precision Industry Co Ltd",
+    "Holding Percent": 0.0071821
+   },
+   {
+    "Symbol": "HDFCBANK.NS",
+    "Name": "HDFC Bank Ltd",
+    "Holding Percent": 0.0064973
+   }
+  ]
+ },
+ "QQQ": {
+  "sector_weightings": {
+   "realestate": 0.0,
+   "consumer_cyclical": 0.1104,
+   "basic_materials": 0.0107,
+   "consumer_defensive": 0.0679,
+   "technology": 0.5801,
+   "communication_services": 0.1109,
+   "financial_services": 0.0022,
+   "utilities": 0.0117999995,
+   "industrials": 0.052600004,
+   "energy": 0.0050999997,
+   "healthcare": 0.0482
+  },
+  "asset_classes": {
+   "cashPosition": 0.0016,
+   "stockPosition": 0.9984,
+   "bondPosition": 0.0,
+   "preferredPosition": 0.0,
+   "convertiblePosition": 0.0,
+   "otherPosition": 0.0
+  },
+  "equity_holdings": [
+   {
+    "Average": "Price/Earnings",
+    "QQQ": 0.03516,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Book",
+    "QQQ": 0.1146,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Sales",
+    "QQQ": 0.16675,
+    "Category Average": null
+   },
+   {
+    "Average": "Price/Cashflow",
+    "QQQ": 0.04481,
+    "Category Average": null
+   },
+   {
+    "Average": "Median Market Cap",
+    "QQQ": null,
+    "Category Average": null
+   },
+   {
+    "Average": "3 Year Earnings Growth",
+    "QQQ": null,
+    "Category Average": null
+   }
+  ],
+  "fund_overview": {
+   "categoryName": "Large Growth",
+   "family": "Invesco",
+   "legalType": "Exchange Traded Fund"
+  },
+  "fund_operations": [
+   {
+    "Attributes": "Annual Report Expense Ratio",
+    "QQQ": 0.0018000001,
+    "Category Average": 0.0089579
+   },
+   {
+    "Attributes": "Annual Holdings Turnover",
+    "QQQ": 0.0,
+    "Category Average": 0.6156
+   },
+   {
+    "Attributes": "Total Net Assets",
+    "QQQ": 763952.5,
+    "Category Average": 763952.5
+   }
+  ],
+  "description": "To maintain the correspondence between the composition and weights of the securities in the trust (the \"securities\") and the stocks in the NASDAQ-100 Index®, the adviser adjusts the securities from time to time to conform to periodic changes in the identity and/or relative weights of index securities. The composition and weighting of the securities portion of a portfolio deposit are also adjusted to conform to changes in the index.",
+  "top_holdings": [
+   {
+    "Symbol": "AAPL",
+    "Name": "Apple Inc",
+    "Holding Percent": 0.0815917
+   },
+   {
+    "Symbol": "NVDA",
+    "Name": "NVIDIA Corp",
+    "Holding Percent": 0.080005705
+   },
+   {
+    "Symbol": "MSFT",
+    "Name": "Microsoft Corp",
+    "Holding Percent": 0.062867396
+   },
+   {
+    "Symbol": "MU",
+    "Name": "Micron Technology Inc",
+    "Holding Percent": 0.0447466
+   },
+   {
+    "Symbol": "AMZN",
+    "Name": "Amazon.com Inc",
+    "Holding Percent": 0.0420532
+   },
+   {
+    "Symbol": "AMD",
+    "Name": "Advanced Micro Devices Inc",
+    "Holding Percent": 0.0369033
+   },
+   {
+    "Symbol": "TSLA",
+    "Name": "Tesla Inc",
+    "Holding Percent": 0.0340695
+   },
+   {
+    "Symbol": "META",
+    "Name": "Meta Platforms Inc Class A",
+    "Holding Percent": 0.029663898
+   },
+   {
+    "Symbol": "WMT",
+    "Name": "Walmart Inc",
+    "Holding Percent": 0.026898898
+   },
+   {
+    "Symbol": "GOOGL",
+    "Name": "Alphabet Inc Class A",
+    "Holding Percent": 0.026636802
+   }
+  ]
+ }
+}
