@@ -31,3 +31,32 @@ for f in funds:
     out[f["id"]] = rec
 json.dump(out, open(sys.argv[1], "w"), ensure_ascii=False, indent=1)
 print(json.dumps({k: {n: {l: v[l] for l in ("-1", "0", "1")} for n, v in r.items()} for k, r in out.items()}))
+
+# Regresjon: flere kilder (proxy i dag/i går, Xetra-proxy i dag/i går) -> fondets endring. Treffsikkerhet målt utenfor utvalget.
+import numpy as np
+reg = {}
+for f in funds:
+    nav = raw[f["nav_ticker"]].dropna()
+    feats = {}
+    for tk, cur in [(f["proxy"], f.get("currency", "USD"))] + [(p["ticker"], p.get("currency", "USD")) for p in f.get("intraday_proxies") or []]:
+        px = raw[tk].dropna()
+        fx = raw[f"{cur}NOK=X"].dropna() if cur != "NOK" else None
+        nok = px * fx.reindex(px.index, method="ffill") if fx is not None and f.get("fx_relevant", True) else px
+        r = nok.pct_change()
+        feats[tk + "_0"] = r
+        feats[tk + "_1"] = r.shift(1)
+    X = pd.concat(feats, axis=1)
+    j = pd.concat([nav.pct_change().rename("y"), X], axis=1).dropna().tail(240)
+    n = len(j); k = int(n * 0.7)
+    tr, te = j.iloc[:k], j.iloc[k:]
+    A = tr.drop(columns="y").values; y = tr["y"].values
+    lam = 1e-4 * len(A)
+    w = np.linalg.solve(A.T @ A + lam * np.eye(A.shape[1]), A.T @ y)
+    pred = te.drop(columns="y").values @ w
+    base = te[f["proxy"] + "_0"].values
+    reg[f["id"]] = {"weights": dict(zip(X.columns, [round(float(x), 3) for x in w])), "n_test": int(len(te)),
+                    "te_reg": round(float(np.std(te["y"].values - pred)), 5), "te_proxy": round(float(np.std(te["y"].values - base)), 5),
+                    "corr_reg": round(float(np.corrcoef(te["y"].values, pred)[0, 1]), 3)}
+out["_regression"] = reg
+json.dump(out, open(sys.argv[1], "w"), ensure_ascii=False, indent=1)
+print(json.dumps(reg))
