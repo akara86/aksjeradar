@@ -16,7 +16,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  actions: read
+  actions: write   # for å starte neste kjøring selv
 
 concurrency:
   group: aksjeradar-pages
@@ -25,11 +25,13 @@ concurrency:
 jobs:
   intradag:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Noter starttid
+        run: echo "START=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -66,3 +68,18 @@ jobs:
       - name: Publiser
         id: deployment
         uses: actions/deploy-pages@v4
+      # GitHub hopper ofte over planlagte kjøringer (den 18.11 kom ingen i det hele tatt). Derfor starter hver
+      # kjøring den neste selv, ca. 15 min etter at den startet – i børstiden på ukedager. Planen over er reserve.
+      - name: Start neste kjøring om ca. 15 minutter
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=$(date -u +%u); H=$(date -u +%H)
+          if [ "$D" -le 5 ] && [ "$((10#$H))" -ge 7 ] && [ "$((10#$H))" -lt 21 ]; then
+            WAIT=$(( 840 - ( $(date +%s) - START ) ))
+            if [ "$WAIT" -gt 0 ]; then sleep "$WAIT"; fi
+            gh api -X POST "repos/${{ github.repository }}/actions/workflows/intraday.yml/dispatches" -f ref=main && echo "Neste kjøring startet"
+          else
+            echo "Utenfor børstiden – ingen ny kjøring (den daglige kjøringen starter kjeden igjen i morgen)"
+          fi
