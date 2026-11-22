@@ -138,6 +138,15 @@ def _forward_score(mom_rank: float | None, tr: dict, uv: dict | None) -> tuple[f
     return round(total, 1), {k: (None if v is None else round(v, 1)) for k, v in parts.items()}, why
 
 
+def _ta(s: pd.Series):
+    try:
+        from .technical import technical
+        return technical(s)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Teknisk analyse feilet: %s", e)
+        return None
+
+
 def _hist(s: pd.Series, bench: pd.Series | None, days: int) -> dict:
     h = s.tail(days)
     b = bench.reindex(h.index).ffill() if bench is not None else None
@@ -210,6 +219,7 @@ def run_market(cfg: dict, frames: dict[str, pd.DataFrame], table: pd.DataFrame |
             why.append(("over" if x["trend"]["vs_sma200"] > 0 else "under") + f" 200-dagers snitt ({x['trend']['vs_sma200'] * 100:+.1f} %)")
         x["why_now"] = why
         x["why_forward"] = fwhy
+        x["ta"] = _ta(x["_s"])
         x["history"] = _hist(x.pop("_s"), bench, days)
 
     # ---- regioner (i NOK) ----
@@ -227,7 +237,7 @@ def run_market(cfg: dict, frames: dict[str, pd.DataFrame], table: pd.DataFrame |
         r = {k: _ret(s, n) for k, n in (("1d", 1), ("1m", 21), ("3m", 63), ("6m", 126), ("1y", 252))}
         regions.append({"id": item["id"], "name": item["name"], "etf": item["etf"], "ret": r, "trend": tr,
                         "status": _status(None, None, tr) if tr["vs_sma200"] is not None else "Nøytral",
-                        "funds": item.get("funds", []), "history": _hist(s, None, days)})
+                        "funds": item.get("funds", []), "history": _hist(s, None, days), "ta": _ta(s)})
     for x in regions:   # regionstatus uten relativ styrke: enkel trendregel
         tr, r3 = x["trend"], x["ret"]["3m"] or 0
         if tr["vs_sma200"] is None:

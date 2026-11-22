@@ -896,6 +896,106 @@
       <span class="l2">${stBadge(x.status)}<span class="info" style="font-family:var(--font-ui)">${esc((x.why_now || []).slice(0, 2).join(" · "))}</span></span></span>
       <span class="mid"></span><span class="r"><span class="pill ${scClass(x.forward)}" title="Fremover-score">${sc(x.forward)}</span></span></button>`;
   }
+
+  // ---------- teknisk analyse (tall fra den daglige kjøringen; grafene regnes ut her fra kurshistorikken) ----------
+  const TA_CLASS = { "Sterk": "v-strong", "Positiv": "v-buy", "Nøytral": "v-hold", "Svak": "v-wait", "Negativ": "v-avoid" };
+  const taBadge = (ta, small) => ta ? `<span class="vb ${TA_CLASS[ta.verdict] || ""}">${small ? "Teknisk · " : ""}${esc(ta.verdict)}</span>` : "";
+  let taRange = 126;
+  try { taRange = +localStorage.getItem("ar.tarange") || 126; } catch (e) { /* ignorer */ }
+  function ema(a, n) { const k = 2 / (n + 1); const out = []; let e = null; for (const v of a) { e = e == null ? v : v * k + e * (1 - k); out.push(e); } return out; }
+  function sma(a, n) { const out = []; let sum = 0; for (let i = 0; i < a.length; i++) { sum += a[i]; if (i >= n) sum -= a[i - n]; out.push(i >= n - 1 ? sum / n : null); } return out; }
+  function taSeries(h) {
+    if (!h || !h.nok || h.nok.length < 60) return null;
+    const c = h.nok.map(Number), n = c.length;
+    const m20 = sma(c, 20), m50 = sma(c, 50);
+    const sd = c.map((_, i) => { if (i < 19) return null; let s = 0; for (let k = i - 19; k <= i; k++) s += (c[k] - m20[i]) ** 2; return Math.sqrt(s / 19); });
+    // RSI (Wilder)
+    const rsi = new Array(n).fill(null); let up = 0, dn = 0;
+    for (let i = 1; i < n; i++) {
+      const d = c[i] - c[i - 1], u = Math.max(d, 0), w = Math.max(-d, 0);
+      if (i <= 14) { up += u / 14; dn += w / 14; } else { up = (up * 13 + u) / 14; dn = (dn * 13 + w) / 14; }
+      if (i >= 14) rsi[i] = dn === 0 ? 100 : 100 - 100 / (1 + up / dn);
+    }
+    const e12 = ema(c, 12), e26 = ema(c, 26), macd = c.map((_, i) => e12[i] - e26[i]), sig = ema(macd, 9);
+    const from = Math.max(0, n - taRange);
+    const cut = a => a.slice(from);
+    return { dates: cut(h.dates), close: cut(c), sma20: cut(m20), sma50: cut(m50), sma200: h.sma200 ? cut(h.sma200) : null,
+      bbUp: cut(m20.map((m, i) => m == null || sd[i] == null ? null : m + 2 * sd[i])), bbLo: cut(m20.map((m, i) => m == null || sd[i] == null ? null : m - 2 * sd[i])),
+      rsi: cut(rsi), macd: cut(macd), sig: cut(sig), hist: cut(macd.map((m, i) => m - sig[i])) };
+  }
+  function taPanel(kind, t, ta) {
+    const W = 340, H = kind === "price" ? 150 : 70, L = 2, R = 34, T = 6, B = 6, n = t.dates.length;
+    const x = i => L + (i / (n - 1)) * (W - L - R);
+    const path = (arr, y) => { let d = "", pen = false; arr.forEach((v, i) => { if (!isNum(v)) { pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); pen = true; }); return d; };
+    const lbl = (yv, txt) => `<text x="${W - R + 4}" y="${(yv + 3.5).toFixed(1)}" class="ta-ax">${txt}</text>`;
+    let body = "";
+    if (kind === "price") {
+      const all = [].concat(t.close, t.bbUp, t.bbLo, t.sma50, ta && ta.support ? [ta.support.level] : [], ta && ta.resistance ? [ta.resistance.level] : []).filter(isNum);
+      let lo = Math.min.apply(null, all), hi = Math.max.apply(null, all); const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+      const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+      // Bollinger-bånd som flate
+      let band = ""; const iu = t.bbUp.map((v, i) => [i, v]).filter(p => isNum(p[1])), il = t.bbLo.map((v, i) => [i, v]).filter(p => isNum(p[1]));
+      if (iu.length > 2) band = `<path d="M${iu.map(p => x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join("L")}L${il.reverse().map(p => x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join("L")}Z" class="ta-band"/>`;
+      const lvl = (o, cls, name) => o && isNum(o.level) && o.level > lo && o.level < hi ? `<line x1="${L}" x2="${W - R}" y1="${y(o.level).toFixed(1)}" y2="${y(o.level).toFixed(1)}" class="${cls}"/>${lbl(y(o.level), name)}` : "";
+      body = band + lvl(ta && ta.support, "ta-sup", "støtte") + lvl(ta && ta.resistance, "ta-res", "motst.")
+        + (t.sma200 ? `<path d="${path(t.sma200, y)}" class="ta-l200"/>` : "") + `<path d="${path(t.sma50, y)}" class="ta-l50"/><path d="${path(t.close, y)}" class="ta-px"/>`;
+    } else if (kind === "rsi") {
+      const y = v => T + (1 - v / 100) * (H - T - B);
+      body = `<rect x="${L}" y="${y(70)}" width="${W - L - R}" height="${y(30) - y(70)}" class="ta-zone"/>`
+        + [70, 50, 30].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="ta-grid"/>${lbl(y(v), v)}`).join("")
+        + `<path d="${path(t.rsi, y)}" class="ta-rsi"/>`;
+    } else {
+      const all = [].concat(t.macd, t.sig, t.hist).filter(isNum); const m = Math.max.apply(null, all.map(Math.abs)) || 1;
+      const y = v => T + (1 - (v + m) / (2 * m)) * (H - T - B), bw = Math.max(1, (W - L - R) / n - 0.6);
+      body = `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" class="ta-grid"/>${lbl(y(0), "0")}`
+        + t.hist.map((v, i) => isNum(v) ? `<rect x="${(x(i) - bw / 2).toFixed(1)}" y="${Math.min(y(v), y(0)).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.abs(y(v) - y(0)).toFixed(1)}" class="${v >= 0 ? "ta-hp" : "ta-hn"}"/>` : "").join("")
+        + `<path d="${path(t.macd, y)}" class="ta-macd"/><path d="${path(t.sig, y)}" class="ta-sig"/>`;
+    }
+    return `<svg class="ta-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${kind}">${body}</svg>`;
+  }
+  function taBlock(ta, hist, id) {
+    if (!ta) return "";
+    const t = taSeries(hist);
+    const groups = ["Trend", "Momentum", "Svingninger"];
+    const lvl = (o, name) => o ? `<span><i>${name}</i><b class="mono">${pct(o.pct)}</b><small>${o.touches > 1 ? o.touches + " treff" : "1 treff"}</small></span>` : `<span><i>${name}</i><b class="mono">–</b><small>ingen nær</small></span>`;
+    const bar = (l, v) => `<span class="lbl">${l}</span><span class="bar ta-bar"><i style="left:${v >= 0 ? 50 : 50 + v / 2}%;width:${Math.abs(v) / 2}%" class="${v >= 0 ? "p" : "n"}"></i></span><span class="val mono">${v > 0 ? "+" : ""}${v}</span>`;
+    return `<div class="section" id="ta-${esc(id)}">${sectionHead("Teknisk analyse")}
+      <div class="card ta-card" style="margin-top:0">
+        <div class="su-top">${taBadge(ta)}<span class="pill ${ta.score >= 15 ? "hi" : ta.score <= -15 ? "lo" : "mid"}" style="margin-left:auto">${ta.score > 0 ? "+" : ""}${ta.score}</span></div>
+        <p style="margin:10px 0 6px">${esc(ta.summary)}</p>
+        <div class="scores fund-scores">${bar("Trend", ta.trend_score)}${bar("Momentum", ta.momentum_score)}</div>
+        ${t ? `<div class="ranges ta-ranges">${[[63, "3M"], [126, "6M"], [252, "1Å"]].map(([v, l]) => `<button data-tarange="${v}" aria-pressed="${taRange === v}">${l}</button>`).join("")}</div>
+        <div class="ta-legend"><span class="k px"></span>Kurs <span class="k l50"></span>50d ${t.sma200 ? `<span class="k l200"></span>200d ` : ""}<span class="k band"></span>Bollinger</div>
+        ${taPanel("price", t, ta)}
+        <div class="ta-lbl">RSI (14) <b class="mono">${num(ta.rsi, 0)}</b> <span class="muted">· over 70 overkjøpt, under 30 oversolgt</span></div>${taPanel("rsi", t)}
+        <div class="ta-lbl">MACD (12, 26, 9) <b class="${ta.macd > ta.macd_signal ? "pos" : "neg"}">${ta.macd > ta.macd_signal ? "over signal" : "under signal"}</b>${ta.macd_cross ? ` <span class="muted">· kryss ${fmtDate(ta.macd_cross.date)}</span>` : ""}</div>${taPanel("macd", t)}` : ""}
+        <div class="levels" style="margin-top:12px">
+          ${lvl(ta.support, "Støtte")}${lvl(ta.resistance, "Motstand")}
+          <span><i>Fra 52u-topp</i><b class="mono ${sign(ta.from_high52)}">${pct(ta.from_high52)}</b></span>
+          <span><i>Volatilitet</i><b class="mono">${pct(ta.vol, false, 0)}</b><small>per år</small></span>
+        </div>
+      </div>
+      ${groups.map(g => { const xs = (ta.signals || []).filter(x => x.group === g); return xs.length ? `<div class="card"><h3>${g}</h3><div class="lines ta-sigs">${xs.map(x => `<div class="ln"><span class="t"><b>${esc(x.name)}</b><br><span class="muted" style="font-size:12.5px">${esc(x.text)}</span></span><span class="v mono ${x.tone === "pos" ? "pos" : x.tone === "neg" ? "neg" : ""}">${esc(x.value)}</span></div>`).join("")}</div></div>` : ""; }).join("")}
+      <details class="card ta-help"><summary>Slik leses teknisk analyse</summary>
+        <p><b>Glidende snitt</b> (50 og 200 dager) viser trenden. Kurs over 200-dagers og 50-dagers over 200-dagers («gyllent kryss») regnes som opptrend; motsatt kalles «dødskryss».</p>
+        <p><b>RSI</b> (0–100) måler hvor raskt kursen har steget eller falt de siste 14 dagene. Over 70 = overkjøpt, under 30 = oversolgt.</p>
+        <p><b>MACD</b> sammenligner et raskt og et tregt snitt. Når MACD-linjen krysser over signallinjen, regnes det som et kjøpssignal – og omvendt. Søylene viser avstanden.</p>
+        <p><b>Bollinger-båndene</b> (det skraverte feltet) rammer inn normale svingninger. Ved øvre bånd er kursen strukket, ved nedre presset. Smale bånd varsler ofte et større utslag.</p>
+        <p><b>Støtte og motstand</b> er nivåer der kursen har snudd før (lokale bunner og topper siste 6 mnd). Flere treff = sterkere nivå.</p>
+        <p class="muted">Samlet score (−100 til +100): trend teller 65 %, momentum 35 %. Teknisk analyse beskriver kursbildet – den spår ikke framtiden, og for langsiktig fondssparing er den mest nyttig for å <i>spre</i> innkjøp, ikke for å time markedet.</p>
+      </details></div>`;
+  }
+  function taOverview() {
+    const m = marketData(); if (!m) return "";
+    const rows = (m.sectors || []).concat(m.regions || []).filter(x => x.ta);
+    if (!rows.length) return "";
+    const sorted = rows.slice().sort((a, b) => b.ta.score - a.ta.score);
+    const cell = x => `<tr data-mkinfo="${esc(x.id)}"><td class="nm"><span class="dot ${TA_CLASS[x.ta.verdict] || ""}"></span>${esc(x.name)}${x.rel ? "" : ` <span class="muted" style="font-size:11px">NOK</span>`}</td><td class="mono ${x.ta.score >= 15 ? "pos" : x.ta.score <= -15 ? "neg" : ""}">${x.ta.score > 0 ? "+" : ""}${x.ta.score}</td><td class="mono ${x.ta.rsi >= 70 ? "neg" : x.ta.rsi <= 30 ? "pos" : ""}">${num(x.ta.rsi, 0)}</td><td class="${x.ta.macd > x.ta.macd_signal ? "pos" : "neg"}">${x.ta.macd > x.ta.macd_signal ? "▲" : "▼"}</td><td class="mono ${sign(x.ta.vs_sma200)}">${pct(x.ta.vs_sma200, true, 0)}</td></tr>`;
+    const ob = rows.filter(x => x.ta.rsi >= 70).map(x => x.name), os = rows.filter(x => x.ta.rsi <= 30).map(x => x.name);
+    return `<div class="section">${sectionHead("Teknisk oversikt", rows.length)}<p class="hint">Samlet teknisk score (trend + momentum), RSI, MACD (▲ over / ▼ under signallinjen) og avstand til 200-dagers snitt. Trykk på en rad for grafer og alle signaler.</p>
+      ${ob.length || os.length ? `<div class="card" style="margin-top:0">${ob.length ? `<p style="margin:0 0 4px"><b>Overkjøpt (RSI over 70):</b> ${esc(ob.join(", "))}</p>` : ""}${os.length ? `<p style="margin:0"><b>Oversolgt (RSI under 30):</b> ${esc(os.join(", "))}</p>` : ""}</div>` : ""}
+      <div class="card" style="margin-top:${ob.length || os.length ? 10 : 0}px;padding:6px 4px"><table class="heat"><thead><tr><th></th><th>Score</th><th>RSI</th><th>MACD</th><th>200d</th></tr></thead><tbody>${sorted.map(cell).join("")}</tbody></table></div></div>`;
+  }
   function viewMarked() {
     const m = marketData();
     if (!m) return `<div class="empty-card" style="margin-top:14px"><b>Markedsanalysen er ikke kjørt ennå.</b><p>Den lages hver morgen sammen med fondsanalysen.</p></div>`;
@@ -924,6 +1024,7 @@
       <div class="card" style="margin-top:0;padding:6px 4px"><table class="heat"><thead><tr><th></th><th>1M</th><th>3M</th><th>6M</th><th>1Å</th><th>Fr.</th></tr></thead><tbody>
       ${sect.slice().sort((a, b) => (b.rel["3m"] || -9) - (a.rel["3m"] || -9)).map(x => `<tr data-mkinfo="${esc(x.id)}"><td class="nm"><span class="dot ${ST_CLASS[x.status] || ""}"></span>${esc(x.name)}</td>${relCell(x.rel["1m"])}${relCell(x.rel["3m"])}${relCell(x.rel["6m"])}${relCell(x.rel["1y"])}<td class="mono">${sc(x.forward)}</td></tr>`).join("")}
       </tbody></table></div></div>`;
+    html += taOverview();
     const rg = m.regions || [];
     if (rg.length) html += `<div class="section">${sectionHead("Regioner i NOK", rg.length)}<div class="card" style="margin-top:0;padding:6px 4px"><table class="heat"><thead><tr><th></th><th>1M</th><th>3M</th><th>6M</th><th>1Å</th></tr></thead><tbody>
       ${rg.map(x => `<tr data-mkinfo="${esc(x.id)}"><td class="nm"><span class="dot ${ST_CLASS[x.status] || ""}"></span>${esc(x.name)}</td>${relCell(x.ret["1m"])}${relCell(x.ret["3m"])}${relCell(x.ret["6m"])}${relCell(x.ret["1y"])}</tr>`).join("")}
@@ -945,7 +1046,7 @@
     showSheet(`
       ${sheetTop(esc(x.name), isSector ? (x.kind === "tema" ? "Tema" : "Sektor") + " · " + esc(x.etf) : "Region i NOK · " + esc(x.etf))}
       <div class="gutter sheet-body">
-        <div class="badges" style="margin-top:4px">${stBadge(x.status)}${isSector ? `<span class="pill ${scClass(x.forward)}">Fremover ${sc(x.forward)}</span>` : ""}</div>
+        <div class="badges" style="margin-top:4px">${stBadge(x.status)}${taBadge(x.ta, true)}${isSector ? `<span class="pill ${scClass(x.forward)}">Fremover ${sc(x.forward)}</span>` : ""}</div>
         ${x.note ? `<p style="margin:10px 0 0">${esc(x.note)}</p>` : ""}
         ${marketChartBlock(id)}
         <div class="levels" style="margin-top:10px">
@@ -954,6 +1055,7 @@
           <span><i>1 år</i><b class="mono ${sign(x.ret["1y"])}">${pct(x.ret["1y"])}</b>${isSector ? `<small class="mono ${sign(x.rel["1y"])}">${pct(x.rel["1y"])} rel.</small>` : ""}</span>
           <span><i>Mot 200d</i><b class="mono ${sign(x.trend.vs_sma200)}">${pct(x.trend.vs_sma200)}</b><small>${x.trend.sma50_over_200 ? "50d over 200d" : "50d under 200d"}</small></span>
         </div>
+        ${taBlock(x.ta, x.history, id)}
         ${isSector ? `<div class="card"><h3>Fremover-score ${sc(x.forward)}</h3><div class="scores fund-scores">${partRow("Momentum (25 %)", fp.momentum)}${partRow("Trend (15 %)", fp.trend)}${partRow("Analytikere (20 %)", fp.analysts)}${partRow("Prising (15 %)", fp.valuation)}${partRow("Vekst (15 %)", fp.growth)}${partRow("Bredde (10 %)", fp.breadth)}</div>
           ${(x.why_forward || []).length ? `<ul class="vd-why" style="margin-top:8px">${x.why_forward.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : `<p class="muted" style="margin:8px 0 0;font-size:13px">Temaet har ingen egen sektor i aksjeanalysen – vurdert på kurs alene (manglende deler teller som nøytrale 50).</p>`}</div>` : ""}
         ${uv && (uv.top || []).length ? `<div class="card"><h3>Sterkeste aksjer i sektoren</h3><div class="lines">${uv.top.map(t => `<div class="ln"><span class="t"><span class="mono">${esc(t.ticker)}</span> · ${esc(t.name)}</span><span class="v">${esc(t.verdict || "")} ${sc(t.score)}</span></div>`).join("")}</div><p class="muted" style="font-size:12.5px;margin:8px 0 0">Fra aksjeanalysen i Aksjeradar (${uv.n} aksjer i sektoren).</p></div>` : ""}
@@ -1209,7 +1311,7 @@
       ${sheetTop(esc(f.name), `Dagens analyse · ${fmtDate(f.last_date)}`)}
       <div class="gutter sheet-body">
         <div class="badges" style="margin-top:4px">${depBadge(d, true)}${f.owned ? `<span class="vb own">Ditt</span>` : ""}</div>
-        <div class="badges" style="margin-top:8px"><span class="vb ${LEVEL_CLASS[f.level] || ""}">Inngang · ${esc(f.level)}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">Attraktivitet · ${esc(f.attr_verdict)}</span>` : ""}<span class="vb" style="background:var(--surface-2);color:var(--muted)">#${f.rank || "–"} av ${fundsData().length}</span></div>
+        <div class="badges" style="margin-top:8px"><span class="vb ${LEVEL_CLASS[f.level] || ""}">Inngang · ${esc(f.level)}</span>${f.attr_verdict ? `<span class="vb ${AV[f.attr_verdict]}">Attraktivitet · ${esc(f.attr_verdict)}</span>` : ""}<span class="vb" style="background:var(--surface-2);color:var(--muted)">#${f.rank || "–"} av ${fundsData().length}</span>${taBadge(f.ta, true)}</div>
         ${d.changed ? `<div class="alert" style="margin-top:10px">Rådet er endret i dag${d.prev_code && fundActions()[d.prev_code] ? ` – var «${esc(fundActions()[d.prev_code])}»` : ""}.</div>` : ""}
         <div class="levels" style="margin-top:12px">
           <span><i>Kurs (NOK)</i><b class="mono">${num(f.price_nok, 0)}</b><small class="${sign(f.change_1d)}">${pct(f.change_1d)} i dag</small></span>
@@ -1219,6 +1321,7 @@
         </div>
         ${fundChartBlock(f)}
         ${f.nav ? `<p class="muted" style="margin:10px 0 0;font-size:12.5px">Kurven bruker fondets offisielle andelskurs (siste ${fmtDate(f.nav.last_date)}: ${num(f.nav.last, 2)} kr)${f.nav.estimated_days ? `, pluss estimat for ${f.nav.estimated_days} dag${f.nav.estimated_days > 1 ? "er" : ""} etter via ${esc(f.proxy)}` : ""}.${isNum(f.nav.te_daily) ? ` ${f.nav.model ? "Estimatet (lært av hvordan fondets egne kurser har fulgt ETF-ene)" : `Estimatet via ${esc(f.proxy)}`} avviker typisk ${num(f.nav.te_daily * 100, 1)} % per dag fra fondet.` : ""}</p>` : ""}
+        ${taBlock(f.ta, f.history, id)}
         <div class="analysis" style="margin-top:14px">${(an.sections || []).map(sx => sx.h === "Hva som ville endret vurderingen" && (an.triggers || []).length
           ? `<h3>${esc(sx.h)}</h3><ul class="reasons" style="margin:0;padding-left:18px">${an.triggers.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`
           : `<h3>${esc(sx.h)}</h3><p>${esc(sx.t)}</p>`).join("")}</div>
@@ -1454,6 +1557,14 @@
     if (fpr) { fxPreset(fpr.dataset.fxpreset, +fpr.dataset.days); fxRefresh(); return; }
     const vm = e.target.closest("[data-vmode]");
     if (vm) { vmode = vm.dataset.vmode; try { localStorage.setItem("ar.vmode", vmode); } catch (x) { /* ignorer */ } render(); return; }
+    const tr = e.target.closest("[data-tarange]");
+    if (tr) {
+      taRange = +tr.dataset.tarange; try { localStorage.setItem("ar.tarange", String(taRange)); } catch (x) { /* ignorer */ }
+      const sec = tr.closest("[id^='ta-']"), id = sec && sec.id.slice(3);
+      const src = id && (($("#sheet").innerHTML.includes("data-mkinfo") || !fundById(id)) && mkFind(id) && mkFind(id).ta ? mkFind(id) : fundById(id));
+      if (src) sec.outerHTML = taBlock(src.ta, src.history, id);
+      return;
+    }
     const fr = e.target.closest("[data-frange]");
     if (fr) { chartState.range = fr.dataset.frange; saveChart(); rerenderCharts(); return; }
     const fm = e.target.closest("[data-fmode]");

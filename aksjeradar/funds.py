@@ -673,6 +673,12 @@ def run_funds(store: Storage, cfg: dict, proxy_frames: dict[str, pd.DataFrame], 
         except Exception as e:  # noqa: BLE001
             log.warning("Fond «%s» feilet: %s", f["name"], e)
             continue
+        try:   # teknisk analyse av fondets kurve i NOK
+            from .technical import technical
+            h = a.get("history") or {}
+            a["ta"] = technical(pd.Series(h["nok"], index=pd.to_datetime(h["dates"]), dtype=float)) if h.get("nok") else None
+        except Exception as e:  # noqa: BLE001
+            log.warning("Teknisk analyse feilet for %s: %s", f["id"], e)
         old = prev.get(f["id"])
         a["prev_level"] = old
         good_now = a["level"] in ("Gunstig", "Svært gunstig")
