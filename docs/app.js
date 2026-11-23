@@ -859,7 +859,11 @@
     if (M.C) {
       const i = M.ids.indexOf("klp_global"), j = M.ids.indexOf("storebrand_solutions");
       if (i >= 0 && j >= 0 && M.C[i][j] != null) {
-        const sb = fundById("storebrand_solutions"), kg = fundById("klp_global"), r1 = ret2y("storebrand_solutions"), r2 = ret2y("klp_global");
+        const sb = fundById("storebrand_solutions"), kg = fundById("klp_global");
+        // samme startdato for begge (seneste av de to historikkenes første dato)
+        const from = [sb.history, kg.history].map(h => h && h.dates[0]).sort().pop();
+        const rr = f => { const h = f.history; if (!h || !from) return null; const i = h.dates.findIndex(d => d >= from); return i < 0 ? null : { r: h.nok[h.nok.length - 1] / h.nok[i] - 1, from: h.dates[i] }; };
+        const r1 = rr(sb), r2 = rr(kg);
         pts.push({ h: `Storebrand Global Solutions og KLP Global ligner (korrelasjon ${num(M.C[i][j], 2)})`, t: `Begge er globale aksjefond, og de svinger ${M.C[i][j] >= 0.85 ? "nesten likt" : "ganske likt"}. Storebrand koster ${num(((sb.fee || 0) + (sb.tx_cost || 0)), 2)} % i året mot ${num(((kg.fee || 0) + (kg.tx_cost || 0)), 2)} % for KLP – ${money((((sb.fee || 0) + (sb.tx_cost || 0)) - ((kg.fee || 0) + (kg.tx_cost || 0))) / 100 * (cur.storebrand_solutions || 0) * tot)} mer per år på beløpet ditt.${r1 && r2 ? ` Siden ${fmtDate(r1.from)} ${new Date(r1.from).getFullYear()} har Storebrand gitt ${pct(r1.r)} mot ${pct(r2.r)} for KLP Global.` : ""} Den høye totale avkastningen i Storebrand kommer fra tidligere år. Å la Storebrand bli en mindre andel – ved å sette nye penger andre steder – er i tråd med at du vil redusere den.` });
       }
     }
