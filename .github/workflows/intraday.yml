@@ -68,6 +68,13 @@ jobs:
       - name: Publiser
         id: deployment
         uses: actions/deploy-pages@v4
+      # GitHub Pages feiler av og til forbigående («Fetching artifact metadata failed») – vent litt og prøv igjen
+      - name: Vent før nytt forsøk
+        if: failure() && steps.deployment.outcome == 'failure'
+        run: sleep 60
+      - name: Publiser (nytt forsøk)
+        if: failure() && steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4
       # GitHub hopper ofte over planlagte kjøringer (den 18.11 kom ingen i det hele tatt). Derfor starter hver
       # kjøring den neste selv, ca. 15 min etter at den startet – i børstiden på ukedager. Planen over er reserve.
       - name: Start neste kjøring om ca. 15 minutter
