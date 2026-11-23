@@ -43,10 +43,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Nyeste vellykkede daglige kjøring (sortert på tid – «gh run list --status success» ga av og til en eldre kjøring)
-          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=30" --jq '[.workflow_runs[] | select(.conclusion=="success")] | sort_by(.created_at) | last | .id')
-          echo "Bruker nettside fra daglig kjøring $RUN_ID"
-          gh run download "$RUN_ID" -n site -D site
+          # Nyeste vellykkede daglige kjøring som faktisk har en nettside (kjøringer som hoppet over analysen har ingen)
+          for RUN_ID in $(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=30" --jq '[.workflow_runs[] | select(.conclusion=="success")] | sort_by(.created_at) | reverse | .[].id'); do
+            if gh run download "$RUN_ID" -n site -D site 2>/dev/null; then echo "Bruker nettside fra daglig kjøring $RUN_ID"; break; fi
+          done
           ls site | head
       - name: Lag intradag-setups og etterprøv gårsdagens
         env:

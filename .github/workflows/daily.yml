@@ -15,6 +15,11 @@ on:
   schedule:
     # 06:40 UTC = 08:40 norsk vintertid / 07:40 sommertid – etter USA-stenging, før Oslo åpner.
     - cron: "40 6 * * 1-5"
+    # GitHub hopper ofte over eller forsinker planlagte kjøringer i timevis. Flere reserve-tidspunkter;
+    # jobben «sjekk» hopper over analysen hvis dagens analyse allerede er laget.
+    - cron: "10 8 * * 1-5"
+    - cron: "40 9 * * 1-5"
+    - cron: "10 12 * * 1-5"
   push:
     branches: [main]
   workflow_dispatch:
@@ -30,7 +35,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  sjekk:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          TODAY=$(date -u +%F)
+          N=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=30" --jq "[.workflow_runs[] | select(.conclusion==\"success\" and (.event==\"schedule\" or .event==\"workflow_dispatch\") and (.created_at|startswith(\"$TODAY\")))] | length")
+          echo "Vellykkede kjøringer i dag: $N"
+          if [ "$N" -gt 0 ]; then echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
   analyse:
+    needs: sjekk
+    if: needs.sjekk.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -105,7 +127,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
       - name: Start intradag-oppdateringene for dagen
-        if: github.event_name == 'schedule'
+        if: github.event_name != 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X POST "repos/${{ github.repository }}/actions/workflows/intraday.yml/dispatches" -f ref=main
