@@ -59,6 +59,8 @@ def push_settings(cfg: dict) -> dict | None:
     pc = (cfg.get("notify") or {}).get("push") or {}
     if not pc.get("enabled"):
         return None
+    if os.getenv("AKSJERADAR_NO_PUSH"):   # kjøringer etter kodeendringer skal ikke sende varsler
+        return None
     topic = os.getenv("NTFY_TOPIC", "").strip() or str(pc.get("ntfy_topic") or "").strip()
     if not topic:
         return None
