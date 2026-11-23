@@ -449,3 +449,23 @@ details.mrep summary::-webkit-details-marker { display: none; }
 .ta-sigs .v { white-space: nowrap; padding-left: 10px; }
 .ta-help summary { cursor: pointer; font-weight: 600; }
 .ta-help p { font-size: 13.5px; margin: 8px 0 0; }
+/* Vekting */
+.seg button { min-width: 0; padding-left: 2px; padding-right: 2px; }
+.vk-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.vk-legend i { display: inline-block; width: 12px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+.vk-legend i.you, .vk-bars i.you { background: var(--accent); }
+.vk-legend i.wld, .vk-bars i.wld { background: color-mix(in srgb, var(--muted) 45%, transparent); }
+.vk-row { display: grid; grid-template-columns: 112px 1fr 64px; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.vk-row:first-of-type { border-top: 0; }
+.vk-bars { display: flex; flex-direction: column; gap: 3px; }
+.vk-bars i { display: block; height: 7px; border-radius: 3px; min-width: 2px; }
+.vk-v { text-align: right; line-height: 1.15; }
+.vk-v small { display: block; font-size: 11px; }
+.heat.corr td.c0 { color: var(--muted); }
+.heat.corr td.c1 { background: color-mix(in srgb, var(--up) 22%, transparent); }
+.heat.corr td.c2 { background: color-mix(in srgb, var(--up) 10%, transparent); }
+.heat.corr td.c3 { background: var(--surface-2); }
+.heat.corr td.c4 { background: color-mix(in srgb, var(--warn, #d08a12) 18%, transparent); }
+.heat.corr td.c5 { background: color-mix(in srgb, var(--down) 22%, transparent); }
+.heat tr.sel td { font-weight: 700; }
+.heat tr.sel td.nm { color: var(--accent); }

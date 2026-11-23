@@ -687,7 +687,7 @@
   }
 
   // ---------- Verdi: Fordeling · Fremtid · Risiko og kostnad ----------
-  const VMODES = [["oversikt", "Oversikt"], ["fordeling", "Fordeling"], ["fremtid", "Fremtid"], ["risiko", "Risiko"]];
+  const VMODES = [["oversikt", "Oversikt"], ["fordeling", "Fordeling"], ["fremtid", "Fremtid"], ["risiko", "Risiko"], ["vekting", "Vekting"]];
   let vmode = "oversikt";
   try { vmode = localStorage.getItem("ar.vmode") || vmode; } catch (e) { /* ignorer */ }
   if (!VMODES.some(m => m[0] === vmode)) vmode = "oversikt";
@@ -743,6 +743,176 @@
     return html;
   }
 
+
+  // ---------- Vekting: hvor diversifisert er porteføljen, og bør den vektes annerledes? ----------
+  const REGION_DEFAULT = {
+    klp_global: { USA: 0.72, Europa: 0.16, Japan: 0.05, "Andre industriland": 0.07 },
+    storebrand_solutions: { USA: 0.55, Europa: 0.28, Japan: 0.04, Fremvoksende: 0.08, "Andre industriland": 0.05 },
+    gambak: { Norge: 1 }, klp_em: { Fremvoksende: 1 },
+    dnb_teknologi: { USA: 0.84, Europa: 0.07, Fremvoksende: 0.06, Japan: 0.03 },
+  };
+  // Verdensmarkedet (MSCI ACWI, omtrent): andel av verdens aksjeverdier
+  const WORLD = { USA: 0.64, Europa: 0.15, Japan: 0.05, "Andre industriland": 0.05, Fremvoksende: 0.11, Norge: 0.002 };
+  const REG_ORDER = ["USA", "Europa", "Norge", "Japan", "Andre industriland", "Fremvoksende"];
+  const MODELS = [
+    { id: "kjerne", l: "Kjerne og satellitter", w: { klp_global: 0.60, klp_em: 0.12, gambak: 0.12, storebrand_solutions: 0.08, dnb_teknologi: 0.08 },
+      why: "Et billig globalt indeksfond som kjerne (60 %), og mindre «satellitter» med egne ideer: fremvoksende markeder, Norge, et aktivt globalt fond og teknologi. Den vanligste anbefalingen for langsiktig sparing – lav kostnad og bred spredning, men med plass til fondene du har tro på." },
+    { id: "marked", l: "Som verdensmarkedet", w: { klp_global: 0.88, klp_em: 0.12 },
+      why: "Bare to indeksfond som til sammen ligner hele verdens aksjemarked. Lavest mulig kostnad og ingen overlapp, men også ingen ekstra vekt på Norge, teknologi eller aktive forvaltere." },
+    { id: "vekst", l: "Mer vekst", w: { klp_global: 0.50, dnb_teknologi: 0.15, klp_em: 0.15, gambak: 0.10, storebrand_solutions: 0.10 },
+      why: "Kjerne på 50 %, og mer vekt på teknologi og fremvoksende markeder – områder med høyere forventet vekst, men også større svingninger. Passer en lang sparehorisont og vilje til å tåle store fall underveis." },
+  ];
+  let vModel = "kjerne";
+  try { vModel = localStorage.getItem("ar.vmodel") || "kjerne"; } catch (e) { /* ignorer */ }
+  const TAX_RATE = 0.3784;   // skatt på gevinst ved salg av aksjefond (22 % × 1,72), utenfor aksjesparekonto
+  const fundRegions = f => f.regions || REGION_DEFAULT[f.id] || null;
+  function retMatrix(ids, days) {
+    // daglige endringer på felles datoer siste ~år
+    const maps = ids.map(id => { const f = fundById(id), h = f && f.history; const m = {}; if (h) h.dates.forEach((d, i) => { m[d] = h.nok[i]; }); return m; });
+    let dates = Object.keys(maps[0] || {}).filter(d => maps.every(m => m[d] != null)).sort().slice(-(days + 1));
+    const R = ids.map((_, k) => dates.slice(1).map((d, i) => maps[k][d] / maps[k][dates[i]] - 1));
+    return { R, n: dates.length - 1 };
+  }
+  function corr(a, b) {
+    const n = a.length; if (n < 30) return null;
+    const ma = a.reduce((x, y) => x + y, 0) / n, mb = b.reduce((x, y) => x + y, 0) / n;
+    let sab = 0, sa = 0, sb = 0; for (let i = 0; i < n; i++) { sab += (a[i] - ma) * (b[i] - mb); sa += (a[i] - ma) ** 2; sb += (b[i] - mb) ** 2; }
+    return sab / Math.sqrt(sa * sb);
+  }
+  const sd = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)); };
+  function divMetrics(w) {
+    const ids = Object.keys(w).filter(id => w[id] > 0 && fundById(id));
+    const tw = ids.reduce((a, id) => a + w[id], 0) || 1;
+    const W = {}; ids.forEach(id => { W[id] = w[id] / tw; });
+    const eff = 1 / ids.reduce((a, id) => a + W[id] ** 2, 0);
+    const reg = {}; let regCov = 0;
+    ids.forEach(id => { const r = fundRegions(fundById(id)); if (!r) return; regCov += W[id]; for (const [k, v] of Object.entries(r)) reg[k] = (reg[k] || 0) + W[id] * v; });
+    const regDev = regCov ? REG_ORDER.reduce((a, k) => a + Math.abs((reg[k] || 0) / regCov - (WORLD[k] || 0)), 0) / 2 : null;
+    const fee = ids.reduce((a, id) => { const f = fundById(id); return a + W[id] * ((f.fee || 0) + (f.tx_cost || 0)); }, 0) / 100;
+    const { R, n } = retMatrix(ids, 252);
+    let vol = null, wvol = null, benefit = null, C = null;
+    if (n > 60) {
+      const port = R[0].map((_, i) => ids.reduce((a, id, k) => a + W[id] * R[k][i], 0));
+      vol = sd(port) * Math.sqrt(252);
+      wvol = ids.reduce((a, id, k) => a + W[id] * sd(R[k]) * Math.sqrt(252), 0);
+      benefit = 1 - vol / wvol;
+      C = ids.map((_, a) => ids.map((_, b) => corr(R[a], R[b])));
+    }
+    let tech = null, secCov = 0, t = 0;
+    ids.forEach(id => { const h = fundById(id).holdings; if (!h || !h.sectors) return; const sum = Object.values(h.sectors).reduce((a, v) => a + v, 0) || 1; secCov += W[id]; t += W[id] * (h.sectors.technology || 0) / sum; });
+    if (secCov > 0.5) tech = t / secCov;
+    const sEff = Math.min(1, Math.max(0, (eff - 1) / 3));
+    const sReg = regDev == null ? 0.5 : Math.max(0, 1 - regDev / 0.4);
+    const sDiv = benefit == null ? 0.5 : Math.min(1, Math.max(0, benefit / 0.12));
+    const sSec = tech == null ? 0.5 : tech <= 0.3 ? 1 : Math.max(0, 1 - (tech - 0.3) / 0.25);
+    const score = Math.round(100 * (0.25 * sEff + 0.35 * sReg + 0.2 * sDiv + 0.2 * sSec));
+    return { ids, W, eff, reg, regCov, regDev, fee, vol, wvol, benefit, C, tech, score, parts: { sEff, sReg, sDiv, sSec } };
+  }
+  function ret2y(id) { const h = (fundById(id) || {}).history; if (!h || h.nok.length < 400) return null; const n = h.nok.length; return { r: h.nok[n - 1] / h.nok[0] - 1, from: h.dates[0] }; }
+  function growFee(start, monthly, years, feeDiff) {   // ekstra sluttverdi med lavere kostnad (6,5 % brutto)
+    const fv = r => { const rm = Math.pow(1 + r, 1 / 12) - 1; let v = start; for (let m = 0; m < years * 12; m++) v = v * (1 + rm) + monthly; return v; };
+    return fv(0.065) - fv(0.065 - feeDiff);
+  }
+  function viewVekting() {
+    const ests = estimates();
+    if (!ests.length) return needValues();
+    const tot = ests.reduce((a, x) => a + x.e.now, 0);
+    const cur = {}; ests.forEach(({ h, e }) => { cur[h.id] = (cur[h.id] || 0) + e.now / tot; });
+    const M = divMetrics(cur);
+    const name = id => esc((fundById(id) || { name: id }).name);
+    const short = id => esc(((fundById(id) || { name: id }).name).replace("KLP AksjeFremvoksende Markeder Indeks", "KLP Fremvoksende").replace("Storebrand Global Solutions", "Storebrand GS").replace("KLP AksjeGlobal Indeks", "KLP Global").replace("Alfred Berg Gambak", "Gambak"));
+    const grade = M.score >= 75 ? ["Godt spredt", "v-strong"] : M.score >= 60 ? ["Ganske godt spredt", "v-buy"] : M.score >= 45 ? ["Middels spredt", "v-hold"] : ["Konsentrert", "v-wait"];
+    const part = (l, v, sub) => `<span class="lbl">${l}</span><span class="bar"><i style="width:${Math.max(2, v * 100).toFixed(0)}%"></i></span><span class="val mono">${Math.round(v * 100)}</span>`;
+    let html = `<div class="card" style="margin-top:12px"><div class="su-top"><span class="vb ${grade[1]}">${grade[0]}</span><span class="pill ${scClass(M.score)}" style="margin-left:auto">${M.score} / 100</span></div>
+      <h3 style="margin:10px 0 6px">Diversifiseringsscore</h3>
+      <div class="scores fund-scores">${part("Antall fond (25 %)", M.parts.sEff)}${part("Regioner mot verden (35 %)", M.parts.sReg)}${part("Ulike svingninger (20 %)", M.parts.sDiv)}${part("Sektorbalanse (20 %)", M.parts.sSec)}</div>
+      <div class="levels two" style="margin-top:12px">
+        <span><i>Effektivt antall fond</i><b class="mono">${num(M.eff, 1)}</b><small>av ${M.ids.length}</small></span>
+        <span><i>Avvik fra verden</i><b class="mono">${pct(M.regDev, false, 0)}</b><small>av regionvektene</small></span>
+        <span><i>Spredningsgevinst</i><b class="mono">${pct(M.benefit, false, 1)}</b><small>lavere svingning</small></span>
+        <span><i>Kostnad</i><b class="mono">${pct(M.fee, false, 2)}</b><small>${money(M.fee * tot)}/år</small></span>
+      </div></div>`;
+    // Regioner mot verden
+    const regRows = REG_ORDER.filter(k => (M.reg[k] || 0) > 0.001 || WORLD[k] > 0.01).map(k => {
+      const you = (M.reg[k] || 0) / (M.regCov || 1), w = WORLD[k] || 0, d = you - w;
+      return `<div class="vk-row"><span class="vk-l">${k}</span><span class="vk-bars"><i class="you" style="width:${(you * 100).toFixed(1)}%"></i><i class="wld" style="width:${(w * 100).toFixed(1)}%"></i></span><span class="vk-v mono">${pct(you, false, 0)}<small class="muted">${Math.round(d * 100) === 0 ? "±0" : (d > 0 ? "+" : "−") + num(Math.abs(d) * 100, 0)} pp</small></span></div>`;
+    }).join("");
+    html += `<div class="section">${sectionHead("Regioner – deg mot verden")}<div class="card" style="margin-top:0"><div class="vk-legend"><span><i class="you"></i>Din portefølje</span><span><i class="wld"></i>Verdensmarkedet</span></div>${regRows}
+      <p class="muted" style="font-size:12.5px;margin:8px 0 0">Gjennom fondene dine (omtrentlig fordeling fra indeks og faktaark). «pp» = prosentpoeng over (+) eller under (−) verdensmarkedets vekt.</p></div></div>`;
+    // Korrelasjon
+    if (M.C) {
+      const cls = v => v == null ? "" : v >= 0.9 ? "c5" : v >= 0.8 ? "c4" : v >= 0.65 ? "c3" : v >= 0.5 ? "c2" : "c1";
+      html += `<div class="section">${sectionHead("Hvor likt svinger fondene?")}<div class="card" style="margin-top:0;padding:8px 6px;overflow-x:auto"><table class="heat corr"><thead><tr><th></th>${M.ids.map(id => `<th>${({ klp_global: "KLP G", storebrand_solutions: "Stb", gambak: "Gbk", klp_em: "KLP F", dnb_teknologi: "DNB T" })[id] || short(id).split(" ")[0]}</th>`).join("")}</tr></thead><tbody>
+        ${M.ids.map((a, i) => `<tr><td class="nm">${short(a)}</td>${M.ids.map((b, j) => i === j ? `<td class="mono c0">–</td>` : `<td class="mono ${cls(M.C[i][j])}">${num(M.C[i][j], 2)}</td>`).join("")}</tr>`).join("")}
+        </tbody></table>
+        <p class="muted" style="font-size:12.5px;margin:8px 6px 0">Korrelasjon i daglige endringer siste år (i kroner). 1 = svinger helt likt, 0 = uavhengig. Over 0,85 betyr at fondene gir lite ekstra spredning hverandre imellom. Porteføljen svinger ${pct(M.vol, false, 0)} per år, mot ${pct(M.wvol, false, 0)} hvis fondene hadde svingt helt likt.</p></div></div>`;
+    }
+    // Drøfting
+    const pts = [];
+    const reg = k => (M.reg[k] || 0) / (M.regCov || 1);
+    const no = reg("Norge"), us = reg("USA"), em = reg("Fremvoksende");
+    if (no > 0.05) pts.push({ h: `Norge: ${pct(no, false, 0)} mot ${pct(WORLD.Norge, false, 1)} av verden`, t: `Du har mye hjemmemarked, nesten bare gjennom Gambak. <b>For:</b> norske aksjer svinger ikke med kronekursen, og Gambak har levert svært godt (+${num((((fundById("gambak") || {}).ret_1y) || 0) * 100, 0)} % siste år). Litt Norge kan også dempe fall når kronen styrkes. <b>Mot:</b> Oslo Børs er dominert av energi, sjømat og bank, og du har allerede inntekt, bolig og jobb i Norge. Rundt 10–15 % Norge er vanlig blant norske sparere; mer enn 20 % gir tydelig konsentrasjon.` });
+    if (us > 0.6) pts.push({ h: `USA: ${pct(us, false, 0)} mot ${pct(WORLD.USA, false, 0)} av verden`, t: `KLP Global, Storebrand og DNB Teknologi henter alle mesteparten fra USA. Det er i tråd med verdensindeksen, men USA er i dag høyt priset historisk sett, og mange av de samme store selskapene går igjen i tre av fondene.` });
+    else if (us > 0.45) pts.push({ h: `USA: ${pct(us, false, 0)} mot ${pct(WORLD.USA, false, 0)} av verden`, t: `Litt under verdensindeksens vekt – mest fordi Norge tar plass. Det er et bevisst valg det går an å stå for, men husk at amerikanske selskaper har stått for mesteparten av avkastningen i verdens aksjemarked de siste 15 årene.` });
+    if (em < WORLD.Fremvoksende - 0.03) pts.push({ h: `Fremvoksende markeder: ${pct(em, false, 0)} mot ${pct(WORLD.Fremvoksende, false, 0)} av verden`, t: `Underveid. Fremvoksende markeder (Kina, India, Taiwan, Korea, Brasil) er rimeligere priset og har høyere økonomisk vekst, men større politisk risiko. Nye innskudd til KLP Fremvoksende – eller et India-fond (se «Utvalgt») – tar deg mot verdensvekten.` });
+    else if (em > WORLD.Fremvoksende + 0.06) pts.push({ h: `Fremvoksende markeder: ${pct(em, false, 0)} mot ${pct(WORLD.Fremvoksende, false, 0)} av verden`, t: `Overvekt i fremvoksende markeder gir mer vekstpotensial, men også større svingninger og politisk risiko.` });
+    if (M.C) {
+      const i = M.ids.indexOf("klp_global"), j = M.ids.indexOf("storebrand_solutions");
+      if (i >= 0 && j >= 0 && M.C[i][j] != null) {
+        const sb = fundById("storebrand_solutions"), kg = fundById("klp_global"), r1 = ret2y("storebrand_solutions"), r2 = ret2y("klp_global");
+        pts.push({ h: `Storebrand Global Solutions og KLP Global ligner (korrelasjon ${num(M.C[i][j], 2)})`, t: `Begge er globale aksjefond, og de svinger ${M.C[i][j] >= 0.85 ? "nesten likt" : "ganske likt"}. Storebrand koster ${num(((sb.fee || 0) + (sb.tx_cost || 0)), 2)} % i året mot ${num(((kg.fee || 0) + (kg.tx_cost || 0)), 2)} % for KLP – ${money((((sb.fee || 0) + (sb.tx_cost || 0)) - ((kg.fee || 0) + (kg.tx_cost || 0))) / 100 * (cur.storebrand_solutions || 0) * tot)} mer per år på beløpet ditt.${r1 && r2 ? ` Siden ${fmtDate(r1.from)} ${new Date(r1.from).getFullYear()} har Storebrand gitt ${pct(r1.r)} mot ${pct(r2.r)} for KLP Global.` : ""} Den høye totale avkastningen i Storebrand kommer fra tidligere år. Å la Storebrand bli en mindre andel – ved å sette nye penger andre steder – er i tråd med at du vil redusere den.` });
+      }
+    }
+    if (M.tech != null) {
+      const kg = fundById("klp_global"), wt = kg && kg.holdings && kg.holdings.sectors ? (kg.holdings.sectors.technology || 0) / (Object.values(kg.holdings.sectors).reduce((a, v) => a + v, 0) || 1) : 0.27;
+      pts.push({ h: `Teknologi: ${pct(M.tech, false, 0)} av aksjene mot ca. ${pct(wt, false, 0)} i verdensindeksen`, t: M.tech > wt + 0.05 ? `DNB Teknologi og de globale fondene eier mange av de samme selskapene (NVIDIA, Microsoft, Apple). Det gir mer teknologi enn markedet. Det har lønnet seg de siste årene, men teknologi faller ofte mest i nedgangstider (2022: −30–40 %).` : `Teknologiandelen er på linje med markedet – DNB Teknologi gir en moderat ekstra vekt.` });
+    }
+    const idx = fundById("klp_global"), idxFee = idx ? ((idx.fee || 0) + (idx.tx_cost || 0)) / 100 : 0.002;
+    if (M.fee - idxFee > 0.002) {
+      const pl = plan(), gain = growFee(tot, pl.monthly || 0, pl.years || 20, M.fee - idxFee);
+      pts.push({ h: `Kostnader: ${pct(M.fee, false, 2)} i året (${money(M.fee * tot)})`, t: `Et rent indeksoppsett ville kostet rundt ${pct(idxFee, false, 2)}. Forskjellen er ${money((M.fee - idxFee) * tot)} i år – og med ${money(pl.monthly || 0)} i månedlig sparing over ${pl.years || 20} år utgjør den omtrent <b>${money(gain)}</b> i sluttverdi (ved 6,5 % årlig avkastning). Aktive fond må slå indeksen med minst kostnadsforskjellen hvert år for å være verdt det – det klarer et mindretall over tid, men Gambak er et av unntakene i Norge.` });
+    }
+    html += `<div class="section">${sectionHead("Bør du vekte annerledes?")}${pts.map(p => `<div class="card"><h3 style="font-size:15px">${p.h}</h3><p style="margin:6px 0 0">${p.t}</p></div>`).join("")}</div>`;
+    // Modeller
+    const mods = [{ id: "naa", l: "Slik du har det nå", w: cur }].concat(MODELS);
+    const mm = mods.map(m => ({ ...m, M: m.id === "naa" ? M : divMetrics(m.w) }));
+    html += `<div class="section">${sectionHead("Tre alternative vektinger")}<div class="card" style="margin-top:0;padding:6px 4px;overflow-x:auto"><table class="heat plain"><thead><tr><th></th><th>Score</th><th>Kost.</th><th>Sving.</th><th>USA</th><th>Norge</th><th>Fremv.</th></tr></thead><tbody>
+      ${mm.map(m => { const r = k => (m.M.reg[k] || 0) / (m.M.regCov || 1); return `<tr ${m.id !== "naa" ? `data-vmodel="${m.id}" style="cursor:pointer"` : ""} class="${m.id === vModel ? "sel" : ""}"><td class="nm">${esc(m.l)}</td><td class="mono">${m.M.score}</td><td class="mono">${num(m.M.fee * 100, 2)}</td><td class="mono">${pct(m.M.vol, false, 0)}</td><td class="mono">${pct(r("USA"), false, 0)}</td><td class="mono">${pct(r("Norge"), false, 0)}</td><td class="mono">${pct(r("Fremvoksende"), false, 0)}</td></tr>`; }).join("")}
+      </tbody></table><p class="muted" style="font-size:12.5px;margin:6px 6px 0">Høyere score betyr mer spredning – ikke nødvendigvis bedre. Gambak trekker scoren din opp fordi norske aksjer svinger annerledes enn de globale fondene, mens «Som verdensmarkedet» er billigst og mest lik markedet, men har bare to fond. Kostnad i % per år. Svingning = årlig volatilitet siste år med disse vektene. Trykk på en modell for å se hvordan du kommer dit.</p></div>
+      <div class="seg" style="margin-top:12px">${MODELS.map(m => `<button data-vmodel="${m.id}" aria-pressed="${vModel === m.id}">${esc(m.l.split(" ")[0] === "Som" ? "Verden" : m.l.split(" ")[0] === "Kjerne" ? "Kjerne" : "Vekst")}</button>`).join("")}</div>`;
+    const sel = mm.find(m => m.id === vModel) || mm[1];
+    const allIds = [...new Set(Object.keys(cur).concat(Object.keys(sel.w)))];
+    const rows = allIds.map(id => ({ id, c: cur[id] || 0, t: sel.w[id] || 0 })).sort((a, b) => b.t - a.t || b.c - a.c);
+    // nye penger: fyll undervekt først
+    const pl = plan(), monthly = pl.monthly > 0 ? pl.monthly : 25000;
+    const fill = () => {
+      const val = {}; allIds.forEach(id => { val[id] = (cur[id] || 0) * tot; });
+      let total = tot, months = 0;
+      const dev = () => Math.max.apply(null, allIds.map(id => Math.abs(val[id] / total - (sel.w[id] || 0))));
+      while (dev() > 0.02 && months < 240) {
+        total += monthly; months++;
+        const short_ = allIds.map(id => ({ id, s: Math.max(0, (sel.w[id] || 0) * total - val[id]) })); const ssum = short_.reduce((a, x) => a + x.s, 0) || 1;
+        short_.forEach(x => { val[x.id] += monthly * x.s / ssum; });
+      }
+      return months;
+    };
+    const months = fill();
+    const nextTot = tot + monthly;
+    const shortNow = allIds.map(id => ({ id, s: Math.max(0, (sel.w[id] || 0) * nextTot - (cur[id] || 0) * tot) })), ssum = shortNow.reduce((a, x) => a + x.s, 0) || 1;
+    const split = shortNow.filter(x => x.s > 0).map(x => ({ id: x.id, kr: Math.round(monthly * x.s / ssum / 100) * 100 })).filter(x => x.kr > 0).sort((a, b) => b.kr - a.kr);
+    const sellRows = rows.filter(r => r.c > r.t + 0.01).map(r => { const amt = (r.c - r.t) * tot, hold = fundHoldings().find(h => h.id === r.id), e = (ests.find(x => x.h.id === r.id) || {}).e; const gainShare = hold && hold.cost > 0 && e ? Math.max(0, 1 - (hold.cost + (e.depSum || 0)) / e.now) : null; return { ...r, amt, tax: gainShare == null ? null : amt * gainShare * TAX_RATE }; });
+    html += `<div class="card"><h3>${esc(sel.l)}</h3><p style="margin:4px 0 10px">${esc(sel.why)}</p>
+      <table class="heat plain"><thead><tr><th style="text-align:left">Fond</th><th>Nå</th><th>Mål</th><th>Endring</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="nm">${short(r.id)}</td><td class="mono">${pct(r.c, false, 0)}</td><td class="mono">${pct(r.t, false, 0)}</td><td class="mono ${r.t - r.c > 0.01 ? "pos" : r.t - r.c < -0.01 ? "neg" : ""}">${(r.t - r.c) * tot >= 0 ? "+" : "−"}${money(Math.abs((r.t - r.c) * tot))}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="card"><h3>Uten å selge: styr nye innskudd</h3><p style="margin:0 0 8px">Med ${money(monthly)} i måneden <span class="muted">(endre beløpet under «Fremtid»)</span> bør neste innskudd fordeles slik:</p>
+        <div class="lines">${split.map(x => `<div class="ln"><span class="t">${name(x.id)}</span><span class="v mono">${money(x.kr)}</span></div>`).join("") || `<div class="ln"><span class="t">Du er allerede nær målet.</span></div>`}</div>
+        <p class="muted" style="font-size:13px;margin:8px 0 0">${months >= 240 ? "Med bare nye innskudd tar det mer enn 20 år å nå målvektene – vurder en mellomting eller å selge litt." : `Fortsetter du slik, er porteføljen innenfor 2 prosentpoeng av målet om ca. <b>${months} måned${months === 1 ? "" : "er"}</b> (${num(months / 12, 1)} år) – uten salg og uten skatt.`}</p></div>
+      ${sellRows.length ? `<div class="card"><h3>Raskere: selge og flytte</h3><div class="lines">${sellRows.map(r => `<div class="ln"><span class="t">Selge ${money(r.amt)} av ${name(r.id)}</span><span class="v mono">${r.tax == null ? "–" : "skatt ca. " + money(r.tax)}</span></div>`).join("")}</div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Salg utløser ${num(TAX_RATE * 100, 2)} % skatt på gevinsten i en vanlig fondskonto (regnet ut fra innskutt beløp per fond fra banken; skjermingsfradrag ikke medregnet). Ligger fondene i en <b>aksjesparekonto (ASK)</b>, kan du bytte skattefritt – sjekk hva slags konto «Mitt spareråd» er i banken. Bytte mellom fond i samme konto er ellers et salg.</p></div>` : ""}`;
+    html += `<p class="note">Modellene er vanlige utgangspunkt for langsiktig fondssparing, ikke personlige råd. Regionfordelingen er omtrentlig, og fortiden sier lite om hvilket fond som gjør det best framover. Ikke investeringsråd – snakk gjerne med en uavhengig rådgiver før større omlegginger.</p>`;
+    return html;
+  }
   // Fremtid: sparemål og fremskriving
   function plan() { if (!pf.plan) pf.plan = { monthly: 5000, years: 20, target: 0 }; return pf.plan; }
   const SCEN = [{ id: "svak", l: "Svakt", r: 0.03, col: "var(--down)" }, { id: "normal", l: "Normalt", r: 0.065, col: "var(--accent)" }, { id: "god", l: "Godt", r: 0.09, col: "var(--up)" }];
@@ -827,6 +997,7 @@
     if (vmode === "fordeling") return seg + viewFordeling();
     if (vmode === "fremtid") return seg + viewFremtid();
     if (vmode === "risiko") return seg + viewRisiko();
+    if (vmode === "vekting") return seg + viewVekting();
     return seg + viewOversikt();
   }
   function viewOversikt() {
@@ -1555,6 +1726,8 @@
     }
     const fpr = e.target.closest("[data-fxpreset]");
     if (fpr) { fxPreset(fpr.dataset.fxpreset, +fpr.dataset.days); fxRefresh(); return; }
+    const vmo = e.target.closest("[data-vmodel]");
+    if (vmo) { vModel = vmo.dataset.vmodel; try { localStorage.setItem("ar.vmodel", vModel); } catch (x) { /* ignorer */ } const y = window.scrollY; render(); window.scrollTo(0, y); return; }
     const vm = e.target.closest("[data-vmode]");
     if (vm) { vmode = vm.dataset.vmode; try { localStorage.setItem("ar.vmode", vmode); } catch (x) { /* ignorer */ } render(); return; }
     const tr = e.target.closest("[data-tarange]");

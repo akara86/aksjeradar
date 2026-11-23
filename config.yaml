@@ -310,6 +310,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
   list:
     # ---- Dine fond ----
     - id: klp_global
+      regions: {USA: 0.72, Europa: 0.16, Japan: 0.05, "Andre industriland": 0.07}   # omtrentlig regionfordeling (indeks/faktaark, nov. 2026) – til «Vekting» i appen
       exposure: {group: "Globale aksjer – indeks", currency: utenlandsk}   # til «Fordeling» i appen
       fee: 0.2                    # årlige løpende kostnader i % (DNB fondsliste, nov. 2026)
       tx_cost: 0.01                # transaksjonskostnader i % (kommer i tillegg)
@@ -323,6 +324,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       markets: [alle]
       intraday_proxies: [{ticker: EUNL.DE, currency: EUR}]   # iShares Core MSCI World (Xetra) – dekker europeisk åpningstid
     - id: storebrand_solutions
+      regions: {USA: 0.55, Europa: 0.28, Japan: 0.04, Fremvoksende: 0.08, "Andre industriland": 0.05}   # omtrentlig regionfordeling (indeks/faktaark, nov. 2026) – til «Vekting» i appen
       exposure: {group: "Globale aksjer – aktiv/bærekraft", currency: utenlandsk}   # til «Fordeling» i appen
       fee: 0.9                    # årlige løpende kostnader i % (DNB fondsliste, nov. 2026)
       tx_cost: 0.02                # transaksjonskostnader i % (kommer i tillegg)
@@ -336,6 +338,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       markets: [alle]
       intraday_proxies: [{ticker: IUSQ.DE, currency: EUR}]   # iShares MSCI ACWI (Xetra)
     - id: gambak
+      regions: {Norge: 1.0}   # omtrentlig regionfordeling (indeks/faktaark, nov. 2026) – til «Vekting» i appen
       exposure: {group: "Norske aksjer", currency: NOK}   # til «Fordeling» i appen
       fee: 1.3                    # årlige løpende kostnader i % (DNB fondsliste, nov. 2026)
       tx_cost: 0.04                # transaksjonskostnader i % (kommer i tillegg)
@@ -350,6 +353,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       markets: [Oslo]
       intraday_proxies: [{ticker: OSEBX.OL, currency: NOK}]  # Oslo Børs hovedindeks
     - id: klp_em
+      regions: {Fremvoksende: 1.0}   # omtrentlig regionfordeling (indeks/faktaark, nov. 2026) – til «Vekting» i appen
       exposure: {group: "Fremvoksende markeder", currency: utenlandsk}   # til «Fordeling» i appen
       fee: 0.28                    # årlige løpende kostnader i % (DNB fondsliste, nov. 2026)
       tx_cost: 0.15                # transaksjonskostnader i % (kommer i tillegg)
@@ -362,6 +366,7 @@ funds:                            # aksjefond: daglig rapport med innskuddsråd,
       role: satellitt
       intraday_proxies: [{ticker: IS3N.DE, currency: EUR}]   # iShares Core MSCI EM IMI (Xetra)
     - id: dnb_teknologi
+      regions: {USA: 0.84, Europa: 0.07, Fremvoksende: 0.06, Japan: 0.03}   # omtrentlig regionfordeling (indeks/faktaark, nov. 2026) – til «Vekting» i appen
       exposure: {group: "Global teknologi", currency: utenlandsk}   # til «Fordeling» i appen
       fee: 1.15                    # årlige løpende kostnader i % (DNB fondsliste, nov. 2026)
       tx_cost: 0.3                # transaksjonskostnader i % (kommer i tillegg)

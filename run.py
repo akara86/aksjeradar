@@ -196,6 +196,7 @@ def main() -> int:
                             h = fetch_fund_holdings(t)
                 f["holdings"] = h
                 f["exposure"] = fc.get("exposure")
+                f["regions"] = fc.get("regions")
             log.info("Fond: %d analysert, %d varsler", len(funds_payload.get("funds", [])), len(funds_payload.get("alerts", [])))
             mc = cfg.get("market") or {}
             if mc.get("enabled", True) and mc.get("sectors"):
