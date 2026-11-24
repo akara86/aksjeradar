@@ -1,0 +1,44 @@
+# Vekkerklokke: GitHub hopper ofte over planlagte kjøringer (cron), noen dager helt. Derfor «sover» denne
+# jobben til neste børsmorgen og starter så den daglige analysen selv (som igjen starter kvartersoppdateringene).
+# En jobb kan maks gå i 6 timer, så den starter seg selv på nytt til målet er nådd. Startes av siste
+# intradag-kjøring hver kveld. Offentlige repoer har gratis kjøretid, så sovingen koster ingenting.
+name: Vekker (starter morgenanalysen)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: vekker
+  cancel-in-progress: false
+
+jobs:
+  sov:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Sov til neste børsmorgen (06:40 UTC på ukedager) og start den daglige analysen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > plan.txt
+          from datetime import datetime, timedelta, timezone
+          now = datetime.now(timezone.utc)
+          t = now.replace(hour=6, minute=40, second=0, microsecond=0)
+          if t <= now: t += timedelta(days=1)
+          while t.weekday() >= 5: t += timedelta(days=1)
+          print(int((t - now).total_seconds()), t.isoformat())
+          PY
+          read LEFT TARGET < plan.txt
+          echo "Mål: $TARGET (om $((LEFT/60)) min)"
+          MAX=$((340*60))
+          if [ "$LEFT" -gt "$MAX" ]; then
+            sleep "$MAX"
+            gh api -X POST "repos/${{ github.repository }}/actions/workflows/vekker.yml/dispatches" -f ref=main && echo "Sover videre i en ny kjøring"
+          else
+            sleep "$LEFT"
+            gh api -X POST "repos/${{ github.repository }}/actions/workflows/daily.yml/dispatches" -f ref=main && echo "Daglig analyse startet"
+          fi

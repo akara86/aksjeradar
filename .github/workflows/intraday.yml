@@ -88,5 +88,6 @@ jobs:
             if [ "$WAIT" -gt 0 ]; then sleep "$WAIT"; fi
             gh api -X POST "repos/${{ github.repository }}/actions/workflows/intraday.yml/dispatches" -f ref=main && echo "Neste kjøring startet"
           else
-            echo "Utenfor børstiden – ingen ny kjøring (den daglige kjøringen starter kjeden igjen i morgen)"
+            echo "Utenfor børstiden – starter vekkeren som setter i gang morgenanalysen"
+            gh api -X POST "repos/${{ github.repository }}/actions/workflows/vekker.yml/dispatches" -f ref=main || true
           fi
