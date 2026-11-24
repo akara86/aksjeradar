@@ -18,6 +18,8 @@ jobs:
       - run: python tools/holdings_probe.py holdings_probe.json
       - run: python tools/debug_stress.py debug_stress.json
       - run: python tools/lag_probe.py lag_probe.json
+      - run: pip install playwright && python -m playwright install --with-deps chromium && python tools/smoke.py smoke.json
+        continue-on-error: true
       - run: |
           curl -sf https://akara86.github.io/aksjeradar/funds.json -o site_funds.json
           curl -sf https://akara86.github.io/aksjeradar/funds_now.json -o site_funds_now.json
@@ -28,5 +30,6 @@ jobs:
           git checkout --orphan kontroll
           git rm -rfq --cached . >/dev/null
           git add -f nav_probe.json published.json holdings_probe.json debug_stress.json site_funds.json site_funds_now.json lag_probe.json
+          git add -f smoke.json smoke_*.png 2>/dev/null || true
           git commit -qm "Fondskontroll $(date -u +%F)"
           git push -fq origin kontroll
