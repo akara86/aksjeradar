@@ -18,20 +18,33 @@ permissions:
   id-token: write
   actions: write   # for å starte neste kjøring selv
 
-concurrency:
-  group: aksjeradar-pages
-  cancel-in-progress: false
-
 jobs:
-  intradag:
+  # Hopp over publisering mens den daglige analysen går (ellers kan eldre data overskrive den nye)
+  sjekk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=10" --jq '[.workflow_runs[] | select(.status!="completed")] | length')
+          echo "Daglige kjøringer som pågår/venter: $N"
+          if [ "$N" -gt 0 ]; then echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
+  intradag:
+    needs: sjekk
+    if: needs.sjekk.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: aksjeradar-intradag
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Noter starttid
-        run: echo "START=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -45,7 +58,7 @@ jobs:
         run: |
           # Nyeste vellykkede daglige kjøring som faktisk har en nettside (kjøringer som hoppet over analysen har ingen)
           for RUN_ID in $(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=30" --jq '[.workflow_runs[] | select(.conclusion=="success")] | sort_by(.created_at) | reverse | .[].id'); do
-            if gh run download "$RUN_ID" -n site -D site 2>/dev/null; then echo "Bruker nettside fra daglig kjøring $RUN_ID"; break; fi
+            if gh run download "$RUN_ID" -n site -D site 2>/dev/null; then echo "Bruker nettside fra daglig kjøring $RUN_ID"; echo "DAILY_ID=$RUN_ID" >> "$GITHUB_ENV"; break; fi
           done
           ls site | head
       - name: Lag intradag-setups og etterprøv gårsdagens
@@ -59,6 +72,12 @@ jobs:
           path: site/intraday
           retention-days: 3
           if-no-files-found: ignore
+      - name: Sjekk at ingen nyere daglig analyse har kommet i mellomtiden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NEW=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=10" --jq "[.workflow_runs[] | select((.status!=\"completed\") or (.conclusion==\"success\" and .id > ${DAILY_ID:-0}))] | length")
+          if [ "$NEW" -gt 0 ]; then echo "Daglig analyse pågår eller er nyere – publiserer ikke denne gangen"; exit 1; fi
       - name: Klargjør GitHub Pages
         uses: actions/configure-pages@v5
       - name: Pakk nettsiden
@@ -75,17 +94,29 @@ jobs:
       - name: Publiser (nytt forsøk)
         if: failure() && steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
-      # GitHub hopper ofte over planlagte kjøringer (den 18.11 kom ingen i det hele tatt). Derfor starter hver
-      # kjøring den neste selv, ca. 15 min etter at den startet – i børstiden på ukedager. Planen over er reserve.
+
+  # Egen jobb uten kø: venter og starter neste kjøring (holder ikke av plassen for publisering mens den venter)
+  neste:
+    needs: [sjekk, intradag]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # GitHub hopper ofte over planlagte kjøringer. Derfor starter hver kjøring den neste selv, ca. 15 min etter
+      # at den startet – i børstiden på ukedager. Etter børsslutt startes vekkeren for neste morgen.
       - name: Start neste kjøring om ca. 15 minutter
-        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          START=$(date -d "$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} --jq .run_started_at)" +%s)
           D=$(date -u +%u); H=$(date -u +%H)
           if [ "$D" -le 5 ] && [ "$((10#$H))" -ge 7 ] && [ "$((10#$H))" -lt 21 ]; then
-            WAIT=$(( 840 - ( $(date +%s) - START ) ))
+            WAIT=$(( 870 - ( $(date +%s) - START ) ))
             if [ "$WAIT" -gt 0 ]; then sleep "$WAIT"; fi
+            # Bare én kjede: finnes det en annen intradag-kjøring startet etter denne som ikke er ferdig, stopper vi her
+            ME=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} --jq .created_at)
+            OTHERS=$(gh api "repos/${{ github.repository }}/actions/workflows/intraday.yml/runs?per_page=20" --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }} and .status != \"completed\" and .created_at > \"$ME\")] | length")
+            if [ "$OTHERS" -gt 0 ]; then echo "En nyere kjøring er allerede i gang – lar den overta"; exit 0; fi
             gh api -X POST "repos/${{ github.repository }}/actions/workflows/intraday.yml/dispatches" -f ref=main && echo "Neste kjøring startet"
           else
             echo "Utenfor børstiden – starter vekkeren som setter i gang morgenanalysen"
