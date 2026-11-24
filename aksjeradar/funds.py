@@ -92,27 +92,52 @@ def _rets(series: dict[str, pd.Series]) -> pd.DataFrame:
 
 def nav_model(nav: pd.Series, feats: dict[str, pd.Series], days: int = 250) -> dict | None:
     """Lærer hvordan fondets ekte andelskurs beveger seg i forhold til kildene (ETF-er × valuta, i dag og dagen før).
-    Ridge-regresjon; styrken velges på de siste 30 % av dagene, så modellen måles på dager den ikke er tilpasset."""
+
+    Daglige tall er støyete fordi fondet og ETF-ene prises på ulike tidspunkter – da «krymper» en vanlig regresjon
+    vektene, og store dager blir undervurdert. Derfor låses summen av vektene til fondets ukentlige beta mot
+    hovedproxyen (typisk nær 1), og modellen velges på hvor godt den treffer over 1 og 3 dager på de siste 30 %
+    av dagene (dager den ikke er tilpasset)."""
     X = _rets(feats)
     y = nav.pct_change().rename("y")
     j = pd.concat([y, X.reindex(y.index)], axis=1).dropna().tail(days)
     if len(j) < 80:
         return None
     cols = [c for c in j.columns if c != "y"]
+    first = cols[0]   # hovedproxyen i dag = enkel metode, til sammenligning
+    # ukentlig beta (5-dagers endringer uten overlapp) mot hovedproxyen
+    main = list(feats.values())[0].dropna()
+    navw = nav.dropna()
+    common = navw.index.intersection(main.index)[-days:]
+    nw, pw = navw.reindex(common).iloc[::5].pct_change().dropna(), main.reindex(common).iloc[::5].pct_change().dropna()
+    beta = float((nw * pw).sum() / (pw * pw).sum()) if len(pw) > 10 else 1.0
+    beta = min(1.3, max(0.5, beta))
     k = int(len(j) * 0.7)
     tr, te = j.iloc[:k], j.iloc[k:]
-    first = cols[0]   # hovedproxyen i dag = dagens metode, til sammenligning
+
+    def fit(df, lam):
+        A, yy = df[cols].values, df["y"].values
+        M = A.T @ A + lam * len(A) * np.eye(len(cols))
+        one = np.ones(len(cols))
+        w0 = np.linalg.solve(M, A.T @ yy)
+        m1 = np.linalg.solve(M, one)
+        return w0 + m1 * (beta - one @ w0) / (one @ m1)   # summen av vektene = beta
+
+    def errs(pred):
+        e1 = te["y"].values - pred
+        e3 = pd.Series(e1).rolling(3).sum().dropna().values
+        return float(np.std(e1)), float(np.std(e3))
+
+    p1, p3 = errs(te[first].values)
     best = None
-    for lam in (0.0, 3e-5, 1e-4, 3e-4):
-        A = tr[cols].values
-        w = np.linalg.solve(A.T @ A + lam * len(A) * np.eye(len(cols)), A.T @ tr["y"].values)
-        err = float(np.std(te["y"].values - te[cols].values @ w))
-        if best is None or err < best[0]:
-            best = (err, lam)
-    A = j[cols].values
-    w = np.linalg.solve(A.T @ A + best[1] * len(A) * np.eye(len(cols)), A.T @ j["y"].values)
-    return {"weights": {c: round(float(x), 4) for c, x in zip(cols, w)}, "lam": best[1], "te_model": round(best[0], 5),
-            "te_proxy": round(float(np.std(te["y"].values - te[first].values)), 5), "n": int(len(j))}
+    for lam in (1e-5, 1e-4, 3e-4, 1e-3):
+        w = fit(tr, lam)
+        e1, e3 = errs(te[cols].values @ w)
+        if best is None or e3 < best[2]:
+            best = (lam, e1, e3)
+    w = fit(j, best[0])
+    return {"weights": {c: round(float(x), 4) for c, x in zip(cols, w)}, "lam": best[0], "beta": round(beta, 3),
+            "te_model": round(best[1], 5), "te_proxy": round(p1, 5), "te3_model": round(best[2], 5), "te3_proxy": round(p3, 5),
+            "n": int(len(j))}
 
 
 def model_returns(feats: dict[str, pd.Series], model: dict, after: pd.Timestamp) -> pd.Series:
@@ -151,7 +176,7 @@ def splice_nav(nav: pd.Series | None, proxy_nok: pd.Series, feats: dict[str, pd.
             model = nav_model(nav, feats)
         except Exception as e:  # noqa: BLE001
             log.warning("Estimatmodell feilet: %s", e)
-    if model and model["te_model"] < model["te_proxy"]:
+    if model and model["te3_model"] <= model["te3_proxy"] and model["te_model"] <= model["te_proxy"] * 1.05:
         mr = model_returns(feats, model, last)
         if len(mr):
             after = float(nav.iloc[-1]) * (1 + mr).cumprod()
