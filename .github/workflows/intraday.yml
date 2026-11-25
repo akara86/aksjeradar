@@ -76,8 +76,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NEW=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=10" --jq "[.workflow_runs[] | select((.status!=\"completed\") or (.conclusion==\"success\" and .id > ${DAILY_ID:-0}))] | length")
-          if [ "$NEW" -gt 0 ]; then echo "Daglig analyse pågår eller er nyere – publiserer ikke denne gangen"; exit 1; fi
+          # pågående daglig kjøring, eller en nyere vellykket kjøring som faktisk laget en nettside (ikke en som hoppet over)
+          BUSY=$(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=10" --jq '[.workflow_runs[] | select(.status!="completed")] | length')
+          if [ "$BUSY" -gt 0 ]; then echo "Daglig analyse pågår – publiserer ikke denne gangen"; exit 1; fi
+          for ID in $(gh api "repos/${{ github.repository }}/actions/workflows/daily.yml/runs?per_page=10" --jq ".workflow_runs[] | select(.conclusion==\"success\" and .id > ${DAILY_ID:-0}) | .id"); do
+            if [ "$(gh api repos/${{ github.repository }}/actions/runs/$ID/artifacts --jq '[.artifacts[] | select(.name=="site")] | length')" -gt 0 ]; then echo "Nyere analyse finnes ($ID) – publiserer ikke"; exit 1; fi
+          done
       - name: Klargjør GitHub Pages
         uses: actions/configure-pages@v5
       - name: Pakk nettsiden
@@ -86,13 +90,14 @@ jobs:
           path: site
       - name: Publiser
         id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v4
       # GitHub Pages feiler av og til forbigående («Fetching artifact metadata failed») – vent litt og prøv igjen
       - name: Vent før nytt forsøk
-        if: failure() && steps.deployment.outcome == 'failure'
-        run: sleep 60
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
       - name: Publiser (nytt forsøk)
-        if: failure() && steps.deployment.outcome == 'failure'
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
   # Egen jobb uten kø: venter og starter neste kjøring (holder ikke av plassen for publisering mens den venter)
@@ -110,7 +115,7 @@ jobs:
         run: |
           START=$(date -d "$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} --jq .run_started_at)" +%s)
           D=$(date -u +%u); H=$(date -u +%H)
-          if [ "$D" -le 5 ] && [ "$((10#$H))" -ge 7 ] && [ "$((10#$H))" -lt 21 ]; then
+          if [ "$D" -le 5 ] && [ "$((10#$H))" -ge 6 ] && [ "$((10#$H))" -lt 21 ]; then
             WAIT=$(( 870 - ( $(date +%s) - START ) ))
             if [ "$WAIT" -gt 0 ]; then sleep "$WAIT"; fi
             # Bare én kjede: finnes det en annen intradag-kjøring startet etter denne som ikke er ferdig, stopper vi her
