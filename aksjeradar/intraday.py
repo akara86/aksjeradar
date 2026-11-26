@@ -464,6 +464,25 @@ def session_change(df: pd.DataFrame, now_utc: datetime) -> dict | None:
             "as_of_local": as_of.strftime("%H:%M"), "age_min": round(age_min), "fresh": age_min <= 45}
 
 
+def us_after_close(us: pd.DataFrame | None, eu: pd.DataFrame | None, eu_prev_session: str) -> float | None:
+    """USA-ETF-ens endring fra Xetras sluttid i forrige økt til USAs sluttkurs samme dag (None hvis ikke aktuelt)."""
+    if us is None or eu is None or us.empty or eu.empty:
+        return None
+    eu_prev = eu[[d.strftime("%Y-%m-%d") == eu_prev_session for d in eu.index.date]]
+    if eu_prev.empty:
+        return None
+    t_close = eu_prev.index[-1].tz_convert("UTC") + pd.Timedelta(minutes=15)
+    usd = us[[d.strftime("%Y-%m-%d") == eu_prev_session for d in us.index.date]]
+    if usd.empty:
+        return None
+    usu = usd.copy()
+    usu.index = usu.index.tz_convert("UTC")
+    before = usu[usu.index < t_close]
+    if before.empty:
+        return None
+    return float(usu["Close"].iloc[-1]) / float(before["Close"].iloc[-1]) - 1
+
+
 def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_utc: datetime) -> dict:
     """Estimert endring i dag per fond: beste (ferskeste) intradag-proxy × valutaendring."""
     out = {}
@@ -482,6 +501,17 @@ def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_u
                 best = cand
         if not best:
             continue
+        # Europeisk ETF på en USA-tung indeks: Xetra stenger 17:30, men den daglige kurven har allerede med USAs
+        # sluttkurs fra i går. Det USA beveget seg etter at Xetra stengte, er derfor med to ganger – trekk det fra.
+        p_used = next((p for p in proxies if p["ticker"] == best["proxy"]), {})
+        if p_used.get("us_after") and f.get("proxy") and f["proxy"] != best["proxy"]:
+            try:
+                adj = us_after_close(frames.get(f["proxy"]), frames.get(best["proxy"]), best["prev_session"])
+                if adj is not None:
+                    best["change"] = (1 + best["change"]) / (1 + adj) - 1
+                    best["us_after"] = round(adj, 5)
+            except Exception as e:  # noqa: BLE001
+                log.debug("us_after feilet for %s: %s", fid, e)
         fx_chg, fx_info = 0.0, None
         cur = best["currency"]
         if cur != "NOK" and not f.get("hedged") and f.get("fx_relevant", True):
@@ -497,7 +527,7 @@ def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_u
         out[fid] = {"est_change_today": round(est, 5), "proxy": best["proxy"], "proxy_change": round(best["change"], 5),
                     "proxy_currency": cur, "fx": fx_info, "as_of": best["as_of"], "as_of_local": best["as_of_local"],
                     "age_min": best["age_min"], "fresh": best["fresh"], "market_open": proxy_market_open(best["proxy"], now_utc),
-                    "session": best["session"], "ref_date": best["prev_session"]}
+                    "session": best["session"], "ref_date": best["prev_session"], "us_after": best.get("us_after")}
     return out
 
 
