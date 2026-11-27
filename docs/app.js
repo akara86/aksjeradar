@@ -1562,7 +1562,7 @@
     showSheet(`
       ${sheetTop("Oppdater fra banken", "Skriv av tallene – eller lim inn en kode")}
       <div class="gutter sheet-body"><div class="form">
-        <label class="field"><span>Lim inn kode (valgfritt)</span><textarea id="bu-code" class="ta" style="min-height:70px" placeholder="Kode fra Claude, f.eks. {&quot;date&quot;:…}"></textarea></label>
+        <label class="field"><span>Lim inn kode her – lagres automatisk</span><textarea id="bu-code" class="ta" style="min-height:70px" placeholder="Kode fra Claude, f.eks. {&quot;date&quot;:…}"></textarea></label>
         <div class="btn-row"><button class="btn secondary small" id="bu-fill">Fyll inn fra kode</button></div>
         <label class="field"><span>Kursdato tallene gjelder</span><input id="bu-date" type="date" value="${prevWeekday()}"></label>
         <p class="muted" style="font-size:12.5px;margin:-4px 0 0">Banken viser verdien etter siste publiserte andelskurs – som regel forrige børsdag (står ofte som «01.01 – <i>dato</i>» ved avkastningen).</p>
@@ -1577,6 +1577,19 @@
         <div class="btn-row"><button class="btn" id="bu-ok">Lagre</button></div>
         <p class="muted" style="font-size:13px;margin:0"><b>Innskutt</b> = markedsverdi minus avkastningen banken viser for fondet. <b>Under behandling</b> = kjøp som er bestilt, men ikke med i markedsverdien ennå. Ved lagring erstattes tidligere verdier, og registrerte innskudd fram til denne datoen fjernes (de er nå med i bankens tall).</p>
       </div></div>`, push, { bankupd: true });
+    const tryCode = () => {
+      const r = parseBankCode($("#bu-code").value);
+      if (!r || !r.date) return false;
+      const rows = Object.entries(r.funds).filter(([id]) => fundById(id)).map(([id, a]) => ({ id, value: a[0], cost: a[1], pend: a[2] })).filter(x => x.value > 0);
+      if (!rows.length) return false;
+      applyBank(r.date, rows, r.total);
+      state.tab = "verdi"; try { localStorage.setItem("ar.tab", state.tab); } catch (x) { /* ignorer */ }
+      render(); history.back();
+      flash(`Lagret: ${rows.length} fond med bankens tall (kurs ${fmtDate(r.date)}).`, true);
+      return true;
+    };
+    $("#bu-code").addEventListener("input", () => { if ($("#bu-code").value.trim().length > 20 && !tryCode()) { $("#bu-msg").className = "neg"; $("#bu-msg").textContent = "Koden er ikke komplett ennå – lim inn hele koden fra Claude."; } });
+    $("#bu-code").addEventListener("paste", () => setTimeout(tryCode, 50));
     $("#bu-fill").addEventListener("click", () => {
       const r = parseBankCode($("#bu-code").value);
       if (!r) { $("#bu-msg").textContent = "Fant ingen gyldig kode."; return; }
@@ -1606,10 +1619,20 @@
     } catch (e) { return null; }
   }
   function saveBankUpdate() {
+    const codeTxt = ($("#bu-code").value || "").trim();
+    if (codeTxt) {   // koden går foran feltene under (før ble den ignorert om man ikke trykket «Fyll inn fra kode»)
+      const r = parseBankCode(codeTxt);
+      const rws = r && r.date ? Object.entries(r.funds).filter(([id]) => fundById(id)).map(([id, a]) => ({ id, value: a[0], cost: a[1], pend: a[2] })).filter(x => x.value > 0) : [];
+      if (!rws.length) { $("#bu-msg").className = "neg"; $("#bu-msg").textContent = "Koden i feltet øverst er ikke gyldig. Lim inn hele koden, eller tøm feltet."; return false; }
+      applyBank(r.date, rws, r.total);
+      return true;
+    }
     const date = $("#bu-date").value || today();
     const ids = fundsData().map(f => f.id).filter(id => $("#bu-v-" + id));
     const rows = ids.map(id => ({ id, value: parseFloat($("#bu-v-" + id).value), cost: parseFloat($("#bu-c-" + id).value), pend: parseFloat($("#bu-p-" + id).value) })).filter(r => r.value > 0);
     if (!rows.length) { $("#bu-msg").textContent = "Skriv inn markedsverdien for minst ett fond."; return false; }
+    const same = rows.every(r => { const h0 = fundHoldings().find(x => x.id === r.id); return h0 && Math.round(r.value) === h0.value && !(r.pend > 0); });
+    if (same && rows.length === fundHoldings().length) { $("#bu-msg").className = "neg"; $("#bu-msg").textContent = "Ingen tall er endret – dette er de gamle tallene. Skriv inn nye verdier fra banken, eller lim inn en kode øverst."; return false; }
     applyBank(date, rows, parseFloat($("#bu-total").value));
     return true;
   }
@@ -1637,9 +1660,9 @@
   // Ett trykk: les koden fra utklippstavlen og oppdater alle fond
   async function pasteBankCode() {
     let txt = "";
-    try { txt = await navigator.clipboard.readText(); } catch (e) { openBankUpdate(); flash("Fikk ikke lese utklippstavlen – lim inn koden i feltet øverst."); return; }
+    try { txt = await navigator.clipboard.readText(); } catch (e) { openBankUpdate(); flash("Lim inn koden i feltet øverst – den lagres automatisk.", true); return; }
     const r = parseBankCode(txt);
-    if (!r || !r.date) { flash("Fant ingen kode på utklippstavlen. Kopier koden fra Claude først."); return; }
+    if (!r || !r.date) { openBankUpdate(); flash("Lim inn koden i feltet øverst – den lagres automatisk.", true); return; }
     const rows = Object.entries(r.funds).filter(([id]) => fundById(id)).map(([id, a]) => ({ id, value: a[0], cost: a[1], pend: a[2] })).filter(x => x.value > 0);
     if (!rows.length) { flash("Koden inneholdt ingen kjente fond."); return; }
     applyBank(r.date, rows, r.total);
