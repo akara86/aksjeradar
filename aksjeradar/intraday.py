@@ -444,14 +444,21 @@ def run_intraday(store: Storage, tickers: list[str], cfg: dict, frames: dict[str
     return out
 
 
-def session_change(df: pd.DataFrame, now_utc: datetime) -> dict | None:
-    """Endring i siste økt mot forrige økts sluttkurs, pluss tidspunkt for siste bar."""
+def session_change(df: pd.DataFrame, now_utc: datetime, ref: str | None = None) -> dict | None:
+    """Endring i siste økt mot forrige økts sluttkurs, pluss tidspunkt for siste bar.
+    Med `ref` (dato): endring siden sluttkursen den dagen (eller siste handelsdag før) – brukes for fond, så estimatet
+    starter nøyaktig der den daglige kurven slutter (ellers telles dager dobbelt eller mistes rundt helligdager)."""
     if df is None or df.empty:
         return None
     days = sorted(set(df.index.date))
     if len(days) < 2:
         return None
     today, prev = days[-1], days[-2]
+    if ref:
+        older = [d for d in days if d.strftime("%Y-%m-%d") <= ref]
+        if not older or today.strftime("%Y-%m-%d") <= ref:
+            return None
+        prev = older[-1]
     cur = df[df.index.date == today]
     prv = df[df.index.date == prev]
     if cur.empty or prv.empty:
@@ -464,7 +471,7 @@ def session_change(df: pd.DataFrame, now_utc: datetime) -> dict | None:
             "as_of_local": as_of.strftime("%H:%M"), "age_min": round(age_min), "fresh": age_min <= 45}
 
 
-def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_utc: datetime) -> dict:
+def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_utc: datetime, refs: dict[str, str] | None = None) -> dict:
     """Estimert endring i dag per fond: beste (ferskeste) intradag-proxy × valutaendring."""
     out = {}
     for f in funds_cfg or []:
@@ -473,31 +480,35 @@ def fund_estimates(funds_cfg: list[dict], frames: dict[str, pd.DataFrame], now_u
             continue
         proxies = list(f.get("intraday_proxies") or []) + [{"ticker": f["proxy"], "currency": f.get("currency", "USD")}]
         best = None
+        ref = (refs or {}).get(fid)   # siste dato i fondets daglige kurve
         for p in proxies:
-            sc = session_change(frames.get(p["ticker"]), now_utc)
+            sc = session_change(frames.get(p["ticker"]), now_utc, ref)
             if not sc:
                 continue
             cand = {**sc, "proxy": p["ticker"], "currency": p.get("currency", "USD")}
-            if best is None or cand["as_of"] > best["as_of"]:
+            # En kilde som handlet på selve referansedagen går foran (en som var stengt da, f.eks. USA på helligdag,
+            # ville tatt med den dagens bevegelse en gang til). Ellers: den ferskeste.
+            cand["exact"] = (not ref) or cand["prev_session"] == ref
+            if best is None or (cand["exact"], cand["as_of"]) > (best["exact"], best["as_of"]):
                 best = cand
         if not best:
             continue
         fx_chg, fx_info = 0.0, None
         cur = best["currency"]
         if cur != "NOK" and not f.get("hedged") and f.get("fx_relevant", True):
-            fx = session_change(frames.get(f"{cur}NOK=X"), now_utc)
+            fx = session_change(frames.get(f"{cur}NOK=X"), now_utc, ref) or session_change(frames.get(f"{cur}NOK=X"), now_utc)
             if fx:
                 fx_chg, fx_info = fx["change"], {"pair": f"{cur}NOK", "change": fx["change"], "as_of": fx["as_of"]}
         elif cur != "NOK" and not f.get("fx_relevant", True) and not f.get("hedged"):
             # fondet er i NOK-aksjer, men proxyen handles i utenlandsk valuta: nøytraliser valutaen
-            fx = session_change(frames.get(f"{cur}NOK=X"), now_utc)
+            fx = session_change(frames.get(f"{cur}NOK=X"), now_utc, ref) or session_change(frames.get(f"{cur}NOK=X"), now_utc)
             if fx:
                 fx_chg = fx["change"]
         est = (1 + best["change"]) * (1 + fx_chg) - 1
         out[fid] = {"est_change_today": round(est, 5), "proxy": best["proxy"], "proxy_change": round(best["change"], 5),
                     "proxy_currency": cur, "fx": fx_info, "as_of": best["as_of"], "as_of_local": best["as_of_local"],
                     "age_min": best["age_min"], "fresh": best["fresh"], "market_open": proxy_market_open(best["proxy"], now_utc),
-                    "session": best["session"], "ref_date": best["prev_session"]}
+                    "session": best["session"], "ref_date": ref or best["prev_session"], "proxy_ref": best["prev_session"]}
     return out
 
 

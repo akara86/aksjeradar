@@ -206,7 +206,13 @@ def main() -> int:
     funds_err = None
     try:
         now_for_est = datetime.now(timezone.utc) if not args.demo else now
-        payload["funds"] = fund_estimates(funds_list, frames, now_for_est)
+        refs = {}
+        try:   # der den daglige kurven slutter for hvert fond
+            fj = json.loads((site / "funds.json").read_text(encoding="utf-8"))
+            refs = {x["id"]: x["history"]["dates"][-1] for x in fj["funds"]["funds"] if (x.get("history") or {}).get("dates")}
+        except Exception as e:  # noqa: BLE001
+            log.warning("Fant ikke kurvenes sluttdato: %s", e)
+        payload["funds"] = fund_estimates(funds_list, frames, now_for_est, None if args.demo else refs)
         log.info("Fondsestimat for %d fond", len(payload["funds"]))
     except Exception as e:  # noqa: BLE001
         log.warning("Fondsestimat feilet: %s", e)

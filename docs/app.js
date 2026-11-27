@@ -119,6 +119,7 @@
   }
   function pfSave() { try { localStorage.setItem(PF_KEY, JSON.stringify(pf)); } catch (e) { /* ignorer */ } }
   let pf = pfLoad();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignorer */ }   // be om varig lagring
   const fundHoldings = () => pf.funds;
 
   // ---------- byggeklosser ----------
@@ -241,29 +242,49 @@
     }
     return hs;
   }
+  // Siste dato der ALLE fondene dine har offisiell andelskurs – det banken viser (banken ligger 1–2 børsdager etter)
+  function bankDate() {
+    const ds = fundHoldings().map(h => fundById(h.id)).filter(Boolean)
+      .map(f => (f.nav && f.nav.last_date) || (f.history && f.history.dates[f.history.dates.length - 1])).filter(Boolean).sort();
+    return ds[0] || null;
+  }
   function fundEstimate(hold) {
     const f = fundById(hold.id);
     if (!f) return null;
     const nf = navFactor(f, hold.date);
+    const h = f.history;
     const deps = deposits().filter(d => d.id === hold.id && depCounts(d, hold));
     const depBase = deps.reduce((a, d) => a + d.amount * navFactor(f, d.date).factor, 0);
     const depSum = deps.reduce((a, d) => a + d.amount, 0);
     const est = fundsNow && fundsNow.funds ? fundsNow.funds[hold.id] : null;
     // Intradag-estimatet gjelder mot forrige børsdag. Unngå dobbelttelling hvis den daglige kurven allerede dekker dagen.
     let todayChg = 0, useIntra = false;
-    if (est && isNum(est.est_change_today) && est.session && nf.to && est.session > nf.to) { todayChg = est.est_change_today; useIntra = true; }
+    if (est && isNum(est.est_change_today) && est.session && nf.to && est.session > nf.to && (!est.ref_date || est.ref_date <= nf.to)) { todayChg = est.est_change_today; useIntra = true; }
     let base = hold.value * nf.factor + depBase;
     let now = base * (1 + todayChg);
     // Dagens sluttkurs er allerede med i den daglige kurven (etter børsslutt): vis dagens endring likevel
-    const h = f.history;
     if (!useIntra && h && h.dates && h.dates.length > 1 && h.dates[h.dates.length - 1] === today() && hold.date < today()) {
       todayChg = h.nok[h.nok.length - 1] / h.nok[h.nok.length - 2] - 1;
       base = now / (1 + todayChg);
     }
     const invested = (hold.value || 0) + depSum;
     const costBase = hold.cost > 0 ? hold.cost + depSum : null;   // innskutt i fondet (fra banken) + senere innskudd
+    // «I banken»: bare offisielle andelskurser fram til bankdatoen – ingen estimater. Skal stemme med bankappen.
+    const D = bankDate();
+    const valAt = (from, amt) => {
+      if (!h || !D || from >= D) return amt;
+      const i = h.dates.findIndex(d => d >= from); let j = -1;
+      for (let k = h.dates.length - 1; k >= 0; k--) if (h.dates[k] <= D) { j = k; break; }
+      return i < 0 || j < i ? amt : amt * h.nok[j] / h.nok[i];
+    };
+    const bDeps = deps.filter(d => !d.pending && D && d.date <= D);
+    const bankDeps = bDeps.reduce((a, d) => a + d.amount, 0);
+    const bank = valAt(hold.date, hold.value || 0) + bDeps.reduce((a, d) => a + valAt(d.date, d.amount), 0);
+    const bankCost = hold.cost > 0 ? hold.cost + bankDeps : null;
+    const bankAsOf = D && hold.date > D ? hold.date : D;
     return { f, nf, est, useIntra, base, now, today: todayChg, todayKr: now - base, deps, depSum, invested, sinceKr: now - invested, sincePct: invested ? now / invested - 1 : null,
-      costBase, retKr: costBase ? now - costBase : null, retPct: costBase ? now / costBase - 1 : null, pendingSum: deps.filter(d => d.pending).reduce((a, d) => a + d.amount, 0) };
+      costBase, retKr: costBase ? now - costBase : null, retPct: costBase ? now / costBase - 1 : null, pendingSum: deps.filter(d => d.pending).reduce((a, d) => a + d.amount, 0),
+      bank, bankDeps, bankCost, bankAsOf, bankRet: bankCost ? bank - bankCost : null, bankRetPct: bankCost ? bank / bankCost - 1 : null };
   }
   function estimates() { return holdingsAll().map(h => ({ h, e: fundEstimate(h) })).filter(x => x.e); }
   function totals(ests) {
@@ -274,7 +295,11 @@
     // Bankens totale innskudd (netto) på kontoen + innskudd registrert etter den datoen / under behandling
     const b = pf.basis && pf.basis.invested > 0 ? pf.basis : null;
     const invested = b ? b.invested + deposits().filter(d => d.pending || d.date > b.date).reduce((a, d) => a + d.amount, 0) : null;
-    return { totNow, totBase, totStart, todayKr: totNow - totBase, since: totNow - totStart, fresh, anyOpen, asOf, invested, ret: invested ? totNow - invested : null };
+    const bankTot = ests.reduce((a, x) => a + x.e.bank, 0);
+    const bankAsOf = ests.map(x => x.e.bankAsOf).filter(Boolean).sort().pop() || null;
+    const bankInv = b ? b.invested + ests.reduce((a, x) => a + (x.h.date >= b.date ? x.e.bankDeps : 0), 0) : null;
+    return { totNow, totBase, totStart, todayKr: totNow - totBase, since: totNow - totStart, fresh, anyOpen, asOf, invested, ret: invested ? totNow - invested : null,
+      bankTot, bankAsOf, bankInv, bankRet: bankInv ? bankTot - bankInv : null };
   }
 
   // ---------- grafmodul: fond dag for dag (tidsvelger, trådkors, periodestatistikk) ----------
@@ -618,9 +643,9 @@
     if (ests.length) {
       const t = totals(ests);
       html += `<button class="summary tap" data-gototab="verdi" style="margin-top:12px">
-        <div><span class="s-l">Fondene dine nå</span><span class="s-v mono">${money(t.totNow)}</span><small class="muted">${t.asOf ? "kl. " + fmtClock(t.asOf) : "siste sluttkurs"} · se Verdi ›</small></div>
-        <div><span class="s-l">I dag</span><span class="s-v mono ${sign(t.todayKr)}">${signed(t.todayKr)}</span><small class="mono ${sign(t.todayKr)}">${pct(t.totBase ? t.todayKr / t.totBase : null)}</small></div>
-        <div><span class="s-l">Siden registrert</span><span class="s-v mono ${sign(t.since)}">${signed(t.since)}</span><small class="mono ${sign(t.since)}">${pct(t.totStart ? t.since / t.totStart : null)}</small></div>
+        <div><span class="s-l">I banken · ${fmtDate(t.bankAsOf)}</span><span class="s-v mono">${money(t.bankTot)}</span><small class="muted">offisielle kurser · se Verdi ›</small></div>
+        ${t.bankInv ? `<div><span class="s-l">Avkastning</span><span class="s-v mono ${sign(t.bankRet)}">${signed(t.bankRet)}</span><small class="mono ${sign(t.bankRet)}">${pct(t.bankRet / t.bankInv)}</small></div>` : ""}
+        <div><span class="s-l">Estimat nå</span><span class="s-v mono">${money(t.totNow)}</span><small class="mono ${sign(t.todayKr)}">i dag ${signed(t.todayKr)}</small></div>
       </button>`;
     }
     if (owned.length) {
@@ -1011,23 +1036,27 @@
       html += `<div class="empty-card" style="margin-top:14px"><b>Registrer fondene dine.</b><p>Skriv inn verdien du ser i banken/plattformen og datoen den gjelder. Appen regner deretter ut et estimat av verdien akkurat nå – oppdatert hvert kvarter i børstiden – ut fra indeksen fondet følger og valutakursen.</p><div class="btn-row wrap"><button class="btn" data-bankpaste="1">Lim inn kode</button><button class="btn secondary" data-bankupd="1">Oppdater fra banken</button><button class="btn secondary" data-fundadd="1">Legg til fond</button><button class="btn secondary" data-depadd="1">Registrer innskudd</button></div></div>`;
     } else {
       const t = totals(ests);
-      html += `<div style="margin-top:12px">${summaryCard([
-        ["Estimert verdi nå", money(t.totNow)],
+      html += `<div class="section" style="margin-top:12px">${sectionHead("I banken · kurser per " + fmtDate(t.bankAsOf))}${summaryCard([
+        ["Markedsverdi", money(t.bankTot)],
+        t.bankInv ? ["Avkastning", signed(t.bankRet), sign(t.bankRet), pct(t.bankRet / t.bankInv)] : ["Avkastning", "–"],
+        ["Innskudd", t.bankInv ? money(t.bankInv) : "–"],
+        ["Tall fra banken", fmtDate(fundHoldings().map(h => h.date).sort().pop()), "", "sist lagt inn"],
+      ])}<p class="hint" style="margin-top:8px">Regnet fra beholdningen din og fondenes <b>offisielle</b> andelskurser – ingen estimater. Skal stemme med bankappen når den viser kurser for ${fmtDate(t.bankAsOf)} (banken ligger 1–2 børsdager etter markedet). Du trenger bare å legge inn nye tall etter innskudd.</p></div>`;
+      html += `<div class="section">${sectionHead("Estimat akkurat nå")}${summaryCard([
+        ["Estimert verdi", money(t.totNow)],
+        ["Siden bankens kurs", signed(t.totNow - t.bankTot), sign(t.totNow - t.bankTot), pct(t.bankTot ? t.totNow / t.bankTot - 1 : null)],
         ["I dag", signed(t.todayKr), sign(t.todayKr), pct(t.totBase ? t.todayKr / t.totBase : null)],
-        t.invested ? ["Avkastning totalt", signed(t.ret), sign(t.ret), pct(t.ret / t.invested)] : ["Gevinst siden reg.", signed(t.since), sign(t.since), pct(t.totStart ? t.since / t.totStart : null)],
         ["Oppdatert", t.asOf ? fmtClock(t.asOf) + (t.fresh ? "" : t.anyOpen ? " (forsinket)" : " · børs stengt") : "siste sluttkurs", ""],
-      ])}</div>`;
-      if (t.invested) html += `<p class="hint" style="margin-top:8px">Innskutt totalt ${money(t.invested)} (banken ${fmtDate(pf.basis.date)}: ${money(pf.basis.invested)}${t.invested > pf.basis.invested ? ` + ${money(t.invested - pf.basis.invested)} senere/under behandling` : ""}). Gevinst siden ${fmtDate(pf.basis.date)}: <b class="mono ${sign(t.since)}">${signed(t.since)}</b>.</p>`;
-      html += `<p class="hint" style="margin-top:8px">${t.asOf ? (t.anyOpen ? `Intradag-kurser ca. 15 min forsinket. ` : `Børsene er stengt – viser dagens sluttkurs. `) : `Intradag-data mangler – viser siste sluttkurs fra den daglige analysen. `}Estimatet bruker indeksen fondet følger, ikke fondets egen kurs.</p>`;
+      ])}<p class="hint" style="margin-top:8px">Dagene etter ${fmtDate(t.bankAsOf)} – og i dag – er <b>anslått</b> ut fra børsene (typisk avvik 0,5–2 % per fond). Dette tallet vil derfor avvike fra banken til kursene er publisert.${t.invested && t.invested > (t.bankInv || 0) ? ` Inkluderer ${money(t.invested - t.bankInv)} i innskudd som ikke er med i bankens tall ennå.` : ""}</p></div>`;
       html += `<div class="section">${sectionHead("Utvikling dag for dag")}${valueChartBlock()}</div>`;
       html += `<div class="section">${sectionHead("Dine fond", ests.length)}${ests.map(({ h, e }) => `
         <div class="fund v-hold" style="border-left-color:var(--accent)">
           <div class="su-top"><span class="fund-name" style="margin:0;font-size:15px">${esc(e.f.name)}</span>${h.synthetic ? "" : `<button class="linkbtn" data-fundedit="${esc(h.id)}" style="margin-left:auto">Endre</button>`}</div>
           <div class="levels two" style="margin-top:8px">
-            <span><i>Nå (est.)</i><b class="mono">${money(e.now)}</b><small>${h.synthetic ? "bare innskudd" : "reg. " + money(h.value)}${e.depSum ? ` + innskudd ${money(e.depSum)}` : ""}${e.pendingSum ? " (under beh.)" : ""}</small></span>
+            <span><i>I banken · ${fmtDate(e.bankAsOf)}</i><b class="mono">${money(e.bank)}</b><small>${h.synthetic ? "bare innskudd" : "lagt inn " + money(h.value) + " " + fmtDate(h.date)}${e.bankDeps ? ` + innskudd ${money(e.bankDeps)}` : ""}</small></span>
+            ${e.bankCost ? `<span><i>Avkastning</i><b class="mono ${sign(e.bankRet)}">${pct(e.bankRetPct, true, 2)}</b><small class="mono ${sign(e.bankRet)}">${signed(e.bankRet)}</small></span>` : `<span><i>Gevinst siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${signed(e.sinceKr)}</small></span>`}
+            <span><i>Nå (estimat)</i><b class="mono">${money(e.now)}</b><small class="mono ${sign(e.now - e.bank)}">${signed(e.now - e.bank)} siden bankkurs${e.pendingSum ? " · inkl. under beh." : ""}</small></span>
             <span><i>I dag</i><b class="mono ${sign(e.todayKr)}">${pct(e.today)}</b><small class="mono ${sign(e.todayKr)}">${signed(e.todayKr)}</small></span>
-            ${e.costBase ? `<span><i>Avkastning totalt</i><b class="mono ${sign(e.retKr)}">${pct(e.retPct)}</b><small class="mono ${sign(e.retKr)}">${signed(e.retKr)}</small></span>` : `<span><i>Gevinst siden ${fmtDate(h.date)}</i><b class="mono ${sign(e.sinceKr)}">${pct(e.sincePct)}</b><small class="mono ${sign(e.sinceKr)}">${signed(e.sinceKr)}</small></span>`}
-            <span><i>Kilde</i><b class="mono" style="font-size:12px">${e.useIntra ? esc(e.est.proxy) : esc(e.f.proxy)}</b><small>${e.f.nav ? `andelskurs ${fmtDate(e.f.nav.last_date)}${e.f.nav.estimated_days || e.useIntra ? " + estimat" : ""}` : (e.useIntra ? `${esc(e.est.as_of_local)} · ${e.est.fresh ? "fersk" : e.est.market_open ? e.est.age_min + " min gammel" : "stengt"}` : "sluttkurs " + fmtDate(e.nf.to))}</small></span>
           </div>
           ${e.useIntra && e.est.fx ? `<p class="muted" style="margin:8px 0 0;font-size:12.5px">Indeks ${pct(e.est.proxy_change)} i ${esc(e.est.proxy_currency)} · valuta ${esc(e.est.fx.pair)} ${pct(e.est.fx.change)} → ${pct(e.today)} i NOK</p>` : ""}
           ${e.f.deposit ? `<button class="linkbtn" data-fundinfo="${esc(e.f.id)}" style="margin-top:8px;padding:0;text-align:left">Dagens råd: ${depBadge(e.f.deposit)} <span class="muted">analyse ›</span></button>` : ""}
@@ -1691,8 +1720,8 @@
     try { dismissed = localStorage.getItem("ar.hint") === "1"; } catch (e) { /* ignorer */ }
     const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
     const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
-    if (!PREVIEW && ios && !standalone && !dismissed) {
-      banners.push(`<div class="banner hint"><span>Legg til som app: trykk <b>Del</b> i Safari og velg <b>«Legg til på Hjem-skjerm»</b>.</span><button id="hint-close" aria-label="Lukk">✕</button></div>`);
+    if (!PREVIEW && ios && !standalone) {
+      banners.push(`<div class="banner hint"><span><b>Du ser Aksjeradar i Safari.</b> Safari og appen på Hjem-skjermen har hvert sitt lager, så tallene du har lagt inn i appen vises ikke her${fundHoldings().length ? " – tallene under kan være gamle" : ""}. Åpne Aksjeradar fra Hjem-skjermen.${dismissed ? "" : " (Ikke lagt til ennå? Trykk <b>Del</b> og velg <b>«Legg til på Hjem-skjerm»</b>.)"}</span></div>`);
     }
     $("#banners").innerHTML = banners.join("");
     const act = state.data ? ownedFunds().filter(f => f.deposit && (f.deposit.code === "boost" || f.deposit.code === "consider")).length : 0;
